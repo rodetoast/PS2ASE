@@ -293,9 +293,9 @@ LANG = {
         "clip_empty": "📋 클립보드: 비어있음",
         "clip_ready": "📋 {src} -> {dst} ({count}개 레이어)",
         "align_label": "정렬 기준:",
-        "align_center": "Center (중앙 정렬)",
-        "align_abs": "Absolute (절대 좌표)",
-        "align_ground_line": "Center / 중앙선 위 바닥 정렬 (Aseprite용)",
+        "align_center": "Center",
+        "align_abs": "Absolute",
+        "align_ground_line": "Ground Line",
         "btn_ps_copy": "1. Photoshop에서 복사",
         "btn_ase_paste": "2. Aseprite로 붙여넣기 (F4)",
         "btn_ase_copy": "3. Aseprite에서 복사 (F5)",
@@ -386,9 +386,9 @@ LANG = {
         "clip_empty": "📋 Clipboard: Empty",
         "clip_ready": "📋 {src} -> {dst} ({count} Layers)",
         "align_label": "Alignment:",
-        "align_center": "Center (Auto-Fit)",
-        "align_abs": "Absolute (Original Pos)",
-        "align_ground_line": "Center / Ground Line (Aseprite Paste)",
+        "align_center": "Center",
+        "align_abs": "Absolute",
+        "align_ground_line": "Ground Line",
         "btn_ps_copy": "1. Copy from Photoshop",
         "btn_ase_paste": "2. Paste to Aseprite (F4)",
         "btn_ase_copy": "3. Copy from Aseprite (F5)",
@@ -478,9 +478,9 @@ LANG = {
         "clip_empty": "📋 クリップボード：空",
         "clip_ready": "📋 {src} -> {dst} ({count}個のレイヤー)",
         "align_label": "配置の基準:",
-        "align_center": "Center (中央揃え)",
-        "align_abs": "Absolute (絶対座標)",
-        "align_ground_line": "Center / 接地ライン (Aseprite用)",
+        "align_center": "Center",
+        "align_abs": "Absolute",
+        "align_ground_line": "Ground Line",
         "btn_ps_copy": "1. Photoshopからコピー",
         "btn_ase_paste": "2. Asepriteへペースト (F4)",
         "btn_ase_copy": "3. Asepriteからコピー (F5)",
@@ -873,17 +873,17 @@ class SettingsDialog(QDialog):
         self.align_combo.addButton(self.rb_absolute, 2)
         self.align_combo.addButton(self.rb_ground_line, 3)
         
-        current_alignment = self.current_settings.get("default_alignment", "center")
+        current_alignment = self.current_settings.get("default_alignment", "ground_line")
         if current_alignment == "absolute":
             self.rb_absolute.setChecked(True)
-        elif current_alignment == "ground_line":
-            self.rb_ground_line.setChecked(True)
-        else:
+        elif current_alignment == "center":
             self.rb_center.setChecked(True)
+        else:
+            self.rb_ground_line.setChecked(True)
             
+        align_hlayout.addWidget(self.rb_ground_line)
         align_hlayout.addWidget(self.rb_center)
         align_hlayout.addWidget(self.rb_absolute)
-        align_hlayout.addWidget(self.rb_ground_line)
         form_layout.addRow(self.lang["set_align"], align_hlayout)
         
         # 언어 설정 (Language)
@@ -1159,7 +1159,7 @@ class BridgeApp(QMainWindow):
             updated = True
 
         if not self.settings.get("default_alignment"):
-            self.settings["default_alignment"] = "center"
+            self.settings["default_alignment"] = "ground_line"
             updated = True
             
         if not self.settings.get("language"):
@@ -1265,20 +1265,21 @@ class BridgeApp(QMainWindow):
         current_alignment = self.settings.get("default_alignment")
         if current_alignment == "absolute":
             self.radio_absolute.setChecked(True)
-        elif current_alignment == "ground_line":
-            self.radio_ground_line.setChecked(True)
-        else:
+        elif current_alignment == "center":
             self.radio_center.setChecked(True)
+        else:
+            self.radio_ground_line.setChecked(True)
             
         self.align_group = QButtonGroup()
         self.align_group.addButton(self.radio_center, 1)
         self.align_group.addButton(self.radio_absolute, 2)
         self.align_group.addButton(self.radio_ground_line, 3)
+        self.align_group.buttonClicked.connect(lambda _: self.update_clipboard_align_mode())
         
         align_layout.addWidget(QLabel(self.t["align_label"]))
+        align_layout.addWidget(self.radio_ground_line)
         align_layout.addWidget(self.radio_center)
         align_layout.addWidget(self.radio_absolute)
-        align_layout.addWidget(self.radio_ground_line)
         layout.addLayout(align_layout)
 
         # === 정방향 ===
@@ -1370,10 +1371,10 @@ class BridgeApp(QMainWindow):
             current_alignment = self.settings.get("default_alignment")
             if current_alignment == "absolute":
                 self.radio_absolute.setChecked(True)
-            elif current_alignment == "ground_line":
-                self.radio_ground_line.setChecked(True)
-            else:
+            elif current_alignment == "center":
                 self.radio_center.setChecked(True)
+            else:
+                self.radio_ground_line.setChecked(True)
                 
             new_lang = self.settings.get("language", "ko")
             if new_lang != self.current_lang:
@@ -1451,6 +1452,28 @@ class BridgeApp(QMainWindow):
         if self.radio_ground_line.isChecked():
             return "ground_line"
         return "center"
+
+    def update_clipboard_align_mode(self):
+        try:
+            import win32clipboard
+            win32clipboard.OpenClipboard()
+            try:
+                data = win32clipboard.GetClipboardData(win32clipboard.CF_UNICODETEXT)
+                payload = json.loads(data)
+                if payload.get("signature") != "ase_ps_bridge_payload":
+                    return
+                if "settings" not in payload or not isinstance(payload["settings"], dict):
+                    payload["settings"] = {}
+                align_mode = self.get_align_mode()
+                payload["settings"]["align_mode"] = align_mode
+                payload_str = json.dumps(payload, ensure_ascii=False)
+                win32clipboard.EmptyClipboard()
+                win32clipboard.SetClipboardText(payload_str, win32clipboard.CF_UNICODETEXT)
+                self.log_message(f"Alignment updated: {align_mode}")
+            finally:
+                win32clipboard.CloseClipboard()
+        except Exception:
+            pass
 
     def check_temp_folder(self):
         try:
@@ -1782,6 +1805,7 @@ class BridgeApp(QMainWindow):
         self.update_ui_state()
         
         try:
+            self.update_clipboard_align_mode()
             self.log_message(self.t["msg_ase_pasting"])
             self.ase_worker = AsepriteWorker(self.settings.get("aseprite_exe"), self.ase_paste_lua_orig, trigger_hotkey=True)
             self.ase_worker.finished.connect(self.on_ase_paste_finished)
