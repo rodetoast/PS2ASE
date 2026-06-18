@@ -270,6 +270,13 @@ if getattr(sys, 'frozen', False):
 else:
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
+def get_resource_path(relative_path):
+    if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+        bundled_path = os.path.join(sys._MEIPASS, relative_path)
+        if os.path.exists(bundled_path):
+            return bundled_path
+    return os.path.join(BASE_DIR, relative_path)
+
 APPDATA_DIR = os.environ.get('APPDATA', '')
 BRIDGE_DATA_DIR = os.path.join(APPDATA_DIR, "Ase-PS-Bridge")
 if not os.path.exists(BRIDGE_DATA_DIR):
@@ -325,6 +332,22 @@ LANG = {
         "set_lang": "언어 (Language):",
         "set_hotkey": "Aseprite 단축키 상태:",
         "set_force_reinstall": "Aseprite 스크립트/단축키 강제 재설치",
+        "set_show_ase_setup": "Aseprite 초기 설정 다시 보기",
+        "ase_setup_title": "Aseprite 초기 설정",
+        "ase_setup_content": "<b>[Aseprite 스크립트 Trust 설정]</b><br><br>"
+                             "1. Aseprite를 완전히 종료하세요.<br>"
+                             "2. 아래 버튼을 눌러 스크립트/단축키를 설치하세요.<br>"
+                             "3. Aseprite를 다시 실행하세요.<br>"
+                             "4. 상단 메뉴 <b>File &gt; Scripts &gt; aseprite_paste</b>를 실행하고 Trust를 승인하세요.<br>"
+                             "5. <b>File &gt; Scripts &gt; aseprite_copy</b>를 실행하고 Trust를 승인하세요.<br>"
+                             "6. 완료했다면 아래 체크박스를 체크하세요.<br><br>"
+                             "Trust는 Aseprite 보안 단계이므로 앱이 자동 승인할 수 없습니다.",
+        "ase_setup_install": "스크립트/단축키 설치",
+        "ase_setup_done": "Aseprite에서 두 스크립트를 실행하고 Trust 승인을 완료했습니다.",
+        "ase_setup_complete": "완료",
+        "ase_setup_later": "나중에",
+        "ase_setup_need_check": "완료 체크박스를 먼저 체크해 주세요.",
+        "ase_setup_saved": "Aseprite 초기 설정 완료 상태가 저장되었습니다.",
         "btn_tutorial": "❓ 튜토리얼",
         "tut_title": "📖 프로그램 사용 방법",
         "tut_content": "<b>[ 💡 Ase-PS Bridge Pro 사용 가이드 ]</b><br><br>"
@@ -407,6 +430,22 @@ LANG = {
         "set_lang": "Language (언어):",
         "set_hotkey": "Aseprite Hotkey Status:",
         "set_force_reinstall": "Force Reinstall Aseprite Scripts/Hotkeys",
+        "set_show_ase_setup": "Show Aseprite First Setup Again",
+        "ase_setup_title": "Aseprite First Setup",
+        "ase_setup_content": "<b>[Aseprite Script Trust Setup]</b><br><br>"
+                             "1. Close Aseprite completely.<br>"
+                             "2. Click the button below to install scripts/hotkeys.<br>"
+                             "3. Start Aseprite again.<br>"
+                             "4. Run <b>File &gt; Scripts &gt; aseprite_paste</b> and approve Trust.<br>"
+                             "5. Run <b>File &gt; Scripts &gt; aseprite_copy</b> and approve Trust.<br>"
+                             "6. Check the box below when finished.<br><br>"
+                             "Trust is an Aseprite security step, so this app cannot approve it automatically.",
+        "ase_setup_install": "Install Scripts/Hotkeys",
+        "ase_setup_done": "I ran both scripts in Aseprite and approved Trust.",
+        "ase_setup_complete": "Complete",
+        "ase_setup_later": "Later",
+        "ase_setup_need_check": "Please check the completion box first.",
+        "ase_setup_saved": "Aseprite first setup completion was saved.",
         "tut_title": "📖 How to use",
         "tut_content": "<b>[ 💡 Ase-PS Bridge Pro Guide ]</b><br><br>"
                        "<b>1. PS ➔ Aseprite</b><br>"
@@ -470,6 +509,22 @@ LANG = {
         "set_lang": "言語 (Language):",
         "set_hotkey": "Asepriteのショートカット状態:",
         "set_force_reinstall": "Asepriteスクリプト/ショートカットの強制再インストール",
+        "set_show_ase_setup": "Aseprite初期設定をもう一度表示",
+        "ase_setup_title": "Aseprite初期設定",
+        "ase_setup_content": "<b>[AsepriteスクリプトTrust設定]</b><br><br>"
+                             "1. Asepriteを完全に終了してください。<br>"
+                             "2. 下のボタンでスクリプト/ショートカットをインストールしてください。<br>"
+                             "3. Asepriteを再起動してください。<br>"
+                             "4. 上部メニュー <b>File &gt; Scripts &gt; aseprite_paste</b> を実行し、Trustを承認してください。<br>"
+                             "5. <b>File &gt; Scripts &gt; aseprite_copy</b> を実行し、Trustを承認してください。<br>"
+                             "6. 完了したら下のチェックボックスをオンにしてください。<br><br>"
+                             "TrustはAsepriteのセキュリティ手順のため、このアプリでは自動承認できません。",
+        "ase_setup_install": "スクリプト/ショートカットをインストール",
+        "ase_setup_done": "Asepriteで両方のスクリプトを実行し、Trust承認を完了しました。",
+        "ase_setup_complete": "完了",
+        "ase_setup_later": "後で",
+        "ase_setup_need_check": "先に完了チェックボックスをオンにしてください。",
+        "ase_setup_saved": "Aseprite初期設定の完了状態を保存しました。",
         "btn_tutorial": "❓ チュートリアル",
         "tut_title": "📖 プログラムの使い方",
         "tut_content": "<b>[ 💡 Ase-PS Bridge Pro ガイド ]</b><br><br>"
@@ -518,7 +573,7 @@ def load_settings():
                 return json.load(f)
         except:
             pass
-    return {"language": "en"} # 기본값 영어
+    return {} # 빈 딕셔너리 반환
 
 def save_settings(settings):
     try:
@@ -780,7 +835,7 @@ class SettingsDialog(QDialog):
         super().__init__(parent)
         self.lang = lang_dict
         self.setWindowTitle(self.lang["set_title"])
-        self.setFixedSize(500, 350)
+        self.setFixedSize(500, 390)
         self.current_settings = current_settings
         
         layout = QVBoxLayout(self)
@@ -857,6 +912,10 @@ class SettingsDialog(QDialog):
         btn_reconfigure = QPushButton(self.lang["set_force_reinstall"])
         btn_reconfigure.clicked.connect(self.force_reconfigure)
         layout.addWidget(btn_reconfigure)
+
+        btn_show_ase_setup = QPushButton(self.lang["set_show_ase_setup"])
+        btn_show_ase_setup.clicked.connect(self.show_aseprite_setup)
+        layout.addWidget(btn_show_ase_setup)
         
         # 확인/취소
         self.button_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
@@ -870,8 +929,8 @@ class SettingsDialog(QDialog):
             line_edit.setText(path)
 
     def force_reconfigure(self):
-        ase_paste_lua_orig = os.path.join(BASE_DIR, "scripts", "aseprite_paste.lua")
-        ase_copy_lua_orig = os.path.join(BASE_DIR, "scripts", "aseprite_copy.lua")
+        ase_paste_lua_orig = get_resource_path(os.path.join("scripts", "aseprite_paste.lua"))
+        ase_copy_lua_orig = get_resource_path(os.path.join("scripts", "aseprite_copy.lua"))
         success, msg = setup_aseprite_environment(ase_paste_lua_orig, ase_copy_lua_orig)
         if success:
             QMessageBox.information(self, "Success", msg)
@@ -879,6 +938,11 @@ class SettingsDialog(QDialog):
         else:
             QMessageBox.critical(self, "Failed", msg)
             self.hotkey_status.setText(f"❌ Failed: {msg}")
+
+    def show_aseprite_setup(self):
+        parent_app = self.parent()
+        if parent_app and hasattr(parent_app, "show_aseprite_setup"):
+            parent_app.show_aseprite_setup()
 
     def get_settings(self):
         lang = "ko"
@@ -892,13 +956,66 @@ class SettingsDialog(QDialog):
             "aseprite_exe": self.ase_path_input.text(),
             "default_alignment": "center" if self.rb_center.isChecked() else "absolute",
             "language": lang,
-            "hotkey_status": self.hotkey_status.text()
+            "hotkey_status": self.hotkey_status.text(),
+            "aseprite_trust_confirmed": self.current_settings.get("aseprite_trust_confirmed", False)
         }
 
 # ==========================================
 # Tutorial Dialog
 # ==========================================
 from PySide6.QtWidgets import QCheckBox
+
+class AsepriteSetupDialog(QDialog):
+    def __init__(self, lang_dict, parent=None):
+        super().__init__(parent)
+        self.lang = lang_dict
+        self.parent_app = parent
+        self.setWindowTitle(self.lang["ase_setup_title"])
+        self.setMinimumSize(460, 360)
+
+        layout = QVBoxLayout(self)
+
+        content_label = QLabel(self.lang["ase_setup_content"])
+        content_label.setWordWrap(True)
+        content_label.setStyleSheet("font-size: 13px; line-height: 1.5;")
+        layout.addWidget(content_label)
+
+        btn_install = QPushButton(self.lang["ase_setup_install"])
+        btn_install.clicked.connect(self.install_scripts)
+        layout.addWidget(btn_install)
+
+        self.cb_done = QCheckBox(self.lang["ase_setup_done"])
+        layout.addWidget(self.cb_done)
+
+        self.button_box = QDialogButtonBox()
+        self.btn_complete = self.button_box.addButton(self.lang["ase_setup_complete"], QDialogButtonBox.AcceptRole)
+        self.btn_later = self.button_box.addButton(self.lang["ase_setup_later"], QDialogButtonBox.RejectRole)
+        self.btn_complete.clicked.connect(self.accept)
+        self.btn_later.clicked.connect(self.reject)
+        layout.addWidget(self.button_box)
+
+    def install_scripts(self):
+        ase_paste_lua_orig = get_resource_path(os.path.join("scripts", "aseprite_paste.lua"))
+        ase_copy_lua_orig = get_resource_path(os.path.join("scripts", "aseprite_copy.lua"))
+        success, msg = setup_aseprite_environment(ase_paste_lua_orig, ase_copy_lua_orig)
+        if self.parent_app and hasattr(self.parent_app, "settings"):
+            self.parent_app.settings["hotkey_status"] = "✅ 정상 (F4=Paste, F5=Copy)" if success else f"❌ {msg}"
+            save_settings(self.parent_app.settings)
+        if success:
+            QMessageBox.information(self, "Success", msg)
+        else:
+            QMessageBox.critical(self, "Failed", msg)
+
+    def accept(self):
+        if not self.cb_done.isChecked():
+            QMessageBox.warning(self, self.lang["ase_setup_title"], self.lang["ase_setup_need_check"])
+            return
+        if self.parent_app and hasattr(self.parent_app, "settings"):
+            self.parent_app.settings["aseprite_trust_confirmed"] = True
+            save_settings(self.parent_app.settings)
+            if hasattr(self.parent_app, "log_message"):
+                self.parent_app.log_message(self.lang["ase_setup_saved"])
+        super().accept()
 
 class TutorialDialog(QDialog):
     def __init__(self, lang_dict, parent=None):
@@ -940,10 +1057,10 @@ class BridgeApp(QMainWindow):
         self.setWindowFlags(Qt.WindowStaysOnTopHint | Qt.Window)
 
         # 경로 캐싱
-        self.ps_copy_jsx = os.path.join(BASE_DIR, "scripts", "photoshop_copy.jsx")
-        self.ps_paste_jsx = os.path.join(BASE_DIR, "scripts", "photoshop_paste.jsx")
-        self.ase_copy_lua_orig = os.path.join(BASE_DIR, "scripts", "aseprite_copy.lua")
-        self.ase_paste_lua_orig = os.path.join(BASE_DIR, "scripts", "aseprite_paste.lua")
+        self.ps_copy_jsx = get_resource_path(os.path.join("scripts", "photoshop_copy.jsx"))
+        self.ps_paste_jsx = get_resource_path(os.path.join("scripts", "photoshop_paste.jsx"))
+        self.ase_copy_lua_orig = get_resource_path(os.path.join("scripts", "aseprite_copy.lua"))
+        self.ase_paste_lua_orig = get_resource_path(os.path.join("scripts", "aseprite_paste.lua"))
         self.temp_dir = os.path.join(BASE_DIR, "temp")
         
         self.last_job_id = None
@@ -1003,9 +1120,14 @@ class BridgeApp(QMainWindow):
         self.init_timers()
         self.log_message(self.t["msg_started"])
         
-        # 튜토리얼 자동 표시 로직
+        QTimer.singleShot(500, self.show_startup_dialogs)
+
+    def show_startup_dialogs(self):
+        if self.settings.get("aseprite_trust_confirmed") is not True:
+            self.show_aseprite_setup()
+
         if self.settings.get("show_tutorial", True):
-            QTimer.singleShot(500, self.show_tutorial)
+            self.show_tutorial()
 
     def init_environment(self):
         updated = False
@@ -1185,6 +1307,10 @@ class BridgeApp(QMainWindow):
         
     def show_tutorial(self):
         dlg = TutorialDialog(self.t, self)
+        dlg.exec()
+
+    def show_aseprite_setup(self):
+        dlg = AsepriteSetupDialog(self.t, self)
         dlg.exec()
         
     def refresh_ui_language(self):
@@ -1742,11 +1868,7 @@ if __name__ == "__main__":
     
     # 앱 전체 기본 아이콘 설정 (Taskbar 및 모든 창)
     from PySide6.QtGui import QIcon
-    if getattr(sys, 'frozen', False):
-        icon_dir = sys._MEIPASS
-    else:
-        icon_dir = BASE_DIR
-    icon_path = os.path.join(icon_dir, "bridge_icon.ico")
+    icon_path = get_resource_path("bridge_icon.ico")
     if os.path.exists(icon_path):
         app.setWindowIcon(QIcon(icon_path))
 

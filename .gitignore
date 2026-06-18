@@ -1,7 +1,11 @@
 temp/
 logs/
 __pycache__/
+build/
+dist/
 *.pyc
+*.exe
+*.zip
 .vscode/
 .idea/
 *.log
