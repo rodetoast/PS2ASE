@@ -144,7 +144,11 @@ if minX ~= nil and alignMode ~= "absolute" then
     local psCanvasH = (metadata.canvas_size and metadata.canvas_size.h) or contentHeight
     
     offsetX = math.floor((spr.width - contentWidth) / 2) - minX
-    offsetY = math.floor((spr.height - contentHeight) / 2) - minY
+    if alignMode == "ground_line" then
+        offsetY = (math.floor(spr.height / 2) - contentHeight) - minY
+    else
+        offsetY = math.floor((spr.height - contentHeight) / 2) - minY
+    end
 end
 
 local importedCount = 0

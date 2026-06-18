@@ -283,6 +283,20 @@ if triggerFile then
     triggerFile:close()
 end
 
+local doneData = {
+    job_id = jobDirName,
+    status = "done",
+    layer_count = extractedPixCount,
+    element_count = #elementsList,
+    timestamp = timestamp
+}
+
+local doneFile = io.open(jobPath .. "/status_done.json", "w")
+if doneFile then
+    doneFile:write(encodeJson(doneData))
+    doneFile:close()
+end
+
 if app.statusBar then
     app.statusBar.text = #elementsList .. "개 항목(그룹 포함)이 복사되었습니다."
 else

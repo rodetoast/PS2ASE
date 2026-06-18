@@ -295,6 +295,7 @@ LANG = {
         "align_label": "정렬 기준:",
         "align_center": "Center (중앙 정렬)",
         "align_abs": "Absolute (절대 좌표)",
+        "align_ground_line": "Center / 중앙선 위 바닥 정렬 (Aseprite용)",
         "btn_ps_copy": "1. Photoshop에서 복사",
         "btn_ase_paste": "2. Aseprite로 붙여넣기 (F4)",
         "btn_ase_copy": "3. Aseprite에서 복사 (F5)",
@@ -387,6 +388,7 @@ LANG = {
         "align_label": "Alignment:",
         "align_center": "Center (Auto-Fit)",
         "align_abs": "Absolute (Original Pos)",
+        "align_ground_line": "Center / Ground Line (Aseprite Paste)",
         "btn_ps_copy": "1. Copy from Photoshop",
         "btn_ase_paste": "2. Paste to Aseprite (F4)",
         "btn_ase_copy": "3. Copy from Aseprite (F5)",
@@ -478,6 +480,7 @@ LANG = {
         "align_label": "配置の基準:",
         "align_center": "Center (中央揃え)",
         "align_abs": "Absolute (絶対座標)",
+        "align_ground_line": "Center / 接地ライン (Aseprite用)",
         "btn_ps_copy": "1. Photoshopからコピー",
         "btn_ase_paste": "2. Asepriteへペースト (F4)",
         "btn_ase_copy": "3. Asepriteからコピー (F5)",
@@ -865,16 +868,22 @@ class SettingsDialog(QDialog):
         align_hlayout = QHBoxLayout()
         self.rb_center = QRadioButton(self.lang["align_center"])
         self.rb_absolute = QRadioButton(self.lang["align_abs"])
+        self.rb_ground_line = QRadioButton(self.lang["align_ground_line"])
         self.align_combo.addButton(self.rb_center, 1)
         self.align_combo.addButton(self.rb_absolute, 2)
+        self.align_combo.addButton(self.rb_ground_line, 3)
         
-        if self.current_settings.get("default_alignment", "center") == "absolute":
+        current_alignment = self.current_settings.get("default_alignment", "center")
+        if current_alignment == "absolute":
             self.rb_absolute.setChecked(True)
+        elif current_alignment == "ground_line":
+            self.rb_ground_line.setChecked(True)
         else:
             self.rb_center.setChecked(True)
             
         align_hlayout.addWidget(self.rb_center)
         align_hlayout.addWidget(self.rb_absolute)
+        align_hlayout.addWidget(self.rb_ground_line)
         form_layout.addRow(self.lang["set_align"], align_hlayout)
         
         # 언어 설정 (Language)
@@ -954,7 +963,7 @@ class SettingsDialog(QDialog):
         return {
             "photoshop_exe": self.ps_path_input.text(),
             "aseprite_exe": self.ase_path_input.text(),
-            "default_alignment": "center" if self.rb_center.isChecked() else "absolute",
+            "default_alignment": "ground_line" if self.rb_ground_line.isChecked() else ("center" if self.rb_center.isChecked() else "absolute"),
             "language": lang,
             "hotkey_status": self.hotkey_status.text(),
             "aseprite_trust_confirmed": self.current_settings.get("aseprite_trust_confirmed", False)
@@ -1251,19 +1260,25 @@ class BridgeApp(QMainWindow):
         align_layout = QHBoxLayout()
         self.radio_center = QRadioButton(self.t["align_center"])
         self.radio_absolute = QRadioButton(self.t["align_abs"])
+        self.radio_ground_line = QRadioButton(self.t["align_ground_line"])
         
-        if self.settings.get("default_alignment") == "absolute":
+        current_alignment = self.settings.get("default_alignment")
+        if current_alignment == "absolute":
             self.radio_absolute.setChecked(True)
+        elif current_alignment == "ground_line":
+            self.radio_ground_line.setChecked(True)
         else:
             self.radio_center.setChecked(True)
             
         self.align_group = QButtonGroup()
         self.align_group.addButton(self.radio_center, 1)
         self.align_group.addButton(self.radio_absolute, 2)
+        self.align_group.addButton(self.radio_ground_line, 3)
         
         align_layout.addWidget(QLabel(self.t["align_label"]))
         align_layout.addWidget(self.radio_center)
         align_layout.addWidget(self.radio_absolute)
+        align_layout.addWidget(self.radio_ground_line)
         layout.addLayout(align_layout)
 
         # === 정방향 ===
@@ -1318,6 +1333,7 @@ class BridgeApp(QMainWindow):
         self.setWindowTitle(self.t["title"])
         self.radio_center.setText(self.t["align_center"])
         self.radio_absolute.setText(self.t["align_abs"])
+        self.radio_ground_line.setText(self.t["align_ground_line"])
         self.btn_ps_copy.setText(self.t["btn_ps_copy"])
         self.btn_ase_paste.setText(self.t["btn_ase_paste"])
         self.btn_ase_copy.setText(self.t["btn_ase_copy"])
@@ -1427,7 +1443,11 @@ class BridgeApp(QMainWindow):
         self.log_console.verticalScrollBar().setValue(self.log_console.verticalScrollBar().maximum())
 
     def get_align_mode(self):
-        return "center" if self.radio_center.isChecked() else "absolute"
+        if self.radio_absolute.isChecked():
+            return "absolute"
+        if self.radio_ground_line.isChecked():
+            return "ground_line"
+        return "center"
 
     def check_temp_folder(self):
         try:
