@@ -166,7 +166,7 @@ class PreviewGeneratorWorker(QThread):
                 metadata = json.load(f)
 
             elements = metadata.get("elements") or metadata.get("layers", [])
-            if metadata.get("frame_mode") == "folder_frames":
+            if metadata.get("frame_mode") in ("folder_frames", "layer_frames"):
                 elements = [el for el in elements if int(el.get("frame_index", 0) or 0) == 0]
             if not elements:
                 self.preview_failed.emit("표시할 레이어가 없습니다.")
@@ -301,6 +301,12 @@ LANG = {
         "frame_mode_label": "PS→Ase 프레임 모드:",
         "frame_mode_normal": "Normal",
         "frame_mode_folder_frames": "Folder → Frames",
+        "frame_mode_layer_frames": "Layer → Frames",
+        "frame_mode_hint": "다음 복사부터 적용",
+        "clipboard_mode_none": "클립보드: 없음",
+        "clipboard_mode_unknown": "클립보드: 알 수 없음",
+        "clipboard_mode_current": "클립보드: {mode}",
+        "clipboard_mode_mismatch": "클립보드: {clip_mode} · 붙여넣기는 클립보드 모드",
         "btn_ps_copy": "1. Photoshop에서 복사",
         "btn_ase_paste": "2. Aseprite로 붙여넣기 (F4)",
         "btn_ase_copy": "3. Aseprite에서 복사 (F5)",
@@ -397,6 +403,12 @@ LANG = {
         "frame_mode_label": "PS→Ase Frame Mode:",
         "frame_mode_normal": "Normal",
         "frame_mode_folder_frames": "Folder → Frames",
+        "frame_mode_layer_frames": "Layer → Frames",
+        "frame_mode_hint": "Applies on next copy",
+        "clipboard_mode_none": "Clipboard: None",
+        "clipboard_mode_unknown": "Clipboard: Unknown",
+        "clipboard_mode_current": "Clipboard: {mode}",
+        "clipboard_mode_mismatch": "Clipboard: {clip_mode} · Paste uses clipboard mode",
         "btn_ps_copy": "1. Copy from Photoshop",
         "btn_ase_paste": "2. Paste to Aseprite (F4)",
         "btn_ase_copy": "3. Copy from Aseprite (F5)",
@@ -492,6 +504,12 @@ LANG = {
         "frame_mode_label": "PS→Aseフレームモード:",
         "frame_mode_normal": "Normal",
         "frame_mode_folder_frames": "Folder → Frames",
+        "frame_mode_layer_frames": "Layer → Frames",
+        "frame_mode_hint": "次回コピーから適用",
+        "clipboard_mode_none": "クリップボード: なし",
+        "clipboard_mode_unknown": "クリップボード: 不明",
+        "clipboard_mode_current": "クリップボード: {mode}",
+        "clipboard_mode_mismatch": "クリップボード: {clip_mode} · 貼り付けはクリップボードモード",
         "btn_ps_copy": "1. Photoshopからコピー",
         "btn_ase_paste": "2. Asepriteへペースト (F4)",
         "btn_ase_copy": "3. Asepriteからコピー (F5)",
@@ -1074,8 +1092,8 @@ class BridgeApp(QMainWindow):
     def __init__(self):
         super().__init__()
 
-        self.setMinimumSize(440, 620) # 너비 확장 (380 -> 440)
-        self.resize(440, 620)
+        self.setMinimumSize(460, 680)
+        self.resize(460, 680)
         self.setWindowFlags(Qt.WindowStaysOnTopHint | Qt.Window)
 
         # 경로 캐싱
@@ -1089,6 +1107,7 @@ class BridgeApp(QMainWindow):
         self.current_job_path = None
         self.clipboard_source = None 
         self.clipboard_count = 0
+        self.clipboard_frame_mode = None
         
         # 변환 상태 관리
         self.cur_h = False
@@ -1171,8 +1190,9 @@ class BridgeApp(QMainWindow):
             self.settings["hotkey_status"] = "✅ 정상 (F4=Paste, F5=Copy)" if success else f"❌ {msg}"
             updated = True
 
-        if not self.settings.get("default_alignment"):
+        if not self.settings.get("ground_line_default_migrated"):
             self.settings["default_alignment"] = "ground_line"
+            self.settings["ground_line_default_migrated"] = True
             updated = True
             
         if not self.settings.get("language"):
@@ -1299,17 +1319,24 @@ class BridgeApp(QMainWindow):
         frame_mode_layout = QHBoxLayout()
         self.radio_frame_normal = QRadioButton(self.t["frame_mode_normal"])
         self.radio_frame_folder = QRadioButton(self.t["frame_mode_folder_frames"])
+        self.radio_frame_layer = QRadioButton(self.t["frame_mode_layer_frames"])
         self.radio_frame_normal.setChecked(True)
 
         self.frame_mode_group = QButtonGroup()
         self.frame_mode_group.addButton(self.radio_frame_normal, 1)
         self.frame_mode_group.addButton(self.radio_frame_folder, 2)
+        self.frame_mode_group.addButton(self.radio_frame_layer, 3)
+        self.frame_mode_group.buttonClicked.connect(lambda _: self.update_clipboard_mode_label())
 
         self.frame_mode_label = QLabel(self.t["frame_mode_label"])
+        self.frame_mode_info_label = QLabel()
+        self.frame_mode_info_label.setStyleSheet("color: #4b5563; font-size: 11px; font-weight: bold;")
         frame_mode_layout.addWidget(self.frame_mode_label)
         frame_mode_layout.addWidget(self.radio_frame_normal)
         frame_mode_layout.addWidget(self.radio_frame_folder)
+        frame_mode_layout.addWidget(self.radio_frame_layer)
         layout.addLayout(frame_mode_layout)
+        layout.addWidget(self.frame_mode_info_label)
 
         # === 정방향 ===
         self.btn_ps_copy = QPushButton(self.t["btn_ps_copy"])
@@ -1367,6 +1394,8 @@ class BridgeApp(QMainWindow):
         self.frame_mode_label.setText(self.t["frame_mode_label"])
         self.radio_frame_normal.setText(self.t["frame_mode_normal"])
         self.radio_frame_folder.setText(self.t["frame_mode_folder_frames"])
+        self.radio_frame_layer.setText(self.t["frame_mode_layer_frames"])
+        self.update_clipboard_mode_label()
         self.btn_ps_copy.setText(self.t["btn_ps_copy"])
         self.btn_ase_paste.setText(self.t["btn_ase_paste"])
         self.btn_ase_copy.setText(self.t["btn_ase_copy"])
@@ -1439,6 +1468,7 @@ class BridgeApp(QMainWindow):
             self.current_job_path = None
             self.clipboard_source = None 
             self.clipboard_count = 0
+            self.clipboard_frame_mode = None
             self.processed_jobs = set()
             
             # 🌟 [추가] 변환 및 프리뷰 플래그/예약 상태 초기화
@@ -1448,6 +1478,7 @@ class BridgeApp(QMainWindow):
             self.pending_preview_id = None
             
             self.update_status(self.t["clip_empty"], "#f3f4f6", "#374151")
+            self.update_clipboard_mode_label()
             self.btn_ase_paste.setEnabled(False)
             self.btn_ps_paste.setEnabled(False)
             self.clear_preview()
@@ -1508,7 +1539,51 @@ class BridgeApp(QMainWindow):
             pass
 
     def get_frame_mode(self):
-        return "folder_frames" if self.radio_frame_folder.isChecked() else "normal"
+        if self.radio_frame_folder.isChecked():
+            return "folder_frames"
+        if self.radio_frame_layer.isChecked():
+            return "layer_frames"
+        return "normal"
+
+    def get_frame_mode_display(self, mode):
+        if mode == "folder_frames":
+            return self.t["frame_mode_folder_frames"]
+        if mode == "layer_frames":
+            return self.t["frame_mode_layer_frames"]
+        if mode == "normal":
+            return self.t["frame_mode_normal"]
+        return None
+
+    def read_job_frame_mode(self, job_path):
+        try:
+            if not job_path:
+                return None
+            meta_path = os.path.join(job_path, "metadata.json")
+            if not os.path.exists(meta_path):
+                return None
+            with open(meta_path, "r", encoding="utf-8") as f:
+                metadata = json.load(f)
+            return metadata.get("frame_mode") or "normal"
+        except Exception:
+            return "unknown"
+
+    def update_clipboard_mode_label(self):
+        if not hasattr(self, "frame_mode_info_label"):
+            return
+        if self.clipboard_source != "photoshop" or not self.clipboard_frame_mode:
+            clip_text = self.t["clipboard_mode_none"]
+            self.frame_mode_info_label.setText(f"{self.t['frame_mode_hint']} · {clip_text}")
+            return
+        display = self.get_frame_mode_display(self.clipboard_frame_mode)
+        if not display:
+            clip_text = self.t["clipboard_mode_unknown"]
+            self.frame_mode_info_label.setText(f"{self.t['frame_mode_hint']} · {clip_text}")
+            return
+        if self.clipboard_frame_mode != self.get_frame_mode():
+            clip_text = self.t["clipboard_mode_mismatch"].format(clip_mode=display)
+        else:
+            clip_text = self.t["clipboard_mode_current"].format(mode=display)
+        self.frame_mode_info_label.setText(f"{self.t['frame_mode_hint']} · {clip_text}")
 
     def check_temp_folder(self):
         try:
@@ -1533,6 +1608,10 @@ class BridgeApp(QMainWindow):
                         win32clipboard.EmptyClipboard()
                         win32clipboard.SetClipboardText(payload_str, win32clipboard.CF_UNICODETEXT)
                         win32clipboard.CloseClipboard()
+
+                        if payload.get("source_app") == "photoshop":
+                            self.clipboard_frame_mode = self.read_job_frame_mode(job_path)
+                            self.update_clipboard_mode_label()
                         
                         self.processed_jobs.add(job_id)
                     except Exception as parse_err:
@@ -1662,6 +1741,7 @@ class BridgeApp(QMainWindow):
                             self.clipboard_source = source
                             self.clipboard_count = count
                             self.current_job_path = payload.get("job_path")
+                            self.clipboard_frame_mode = self.read_job_frame_mode(self.current_job_path) if source == "photoshop" else None
 
                             self.undo_stack.clear()
                             self.redo_stack.clear()
@@ -1678,6 +1758,7 @@ class BridgeApp(QMainWindow):
                             elif source == "aseprite":
                                 msg = self.t["clip_ready"].format(src="Ase", dst="PS", count=count)
                                 self.update_status(msg, "#fef3c7", "#b45309")
+                            self.update_clipboard_mode_label()
 
                             self.log_message(self.t["msg_clip_update"].format(count=count))
                         return
@@ -1694,6 +1775,7 @@ class BridgeApp(QMainWindow):
                 self.current_job_path = None
                 self.clipboard_source = None
                 self.clipboard_count = 0
+                self.clipboard_frame_mode = None
                 self.undo_stack.clear()
                 self.redo_stack.clear()
                 self.cur_h, self.cur_v, self.cur_angle = False, False, 0
@@ -1705,6 +1787,7 @@ class BridgeApp(QMainWindow):
                 self.pending_preview_id = None
                 
                 self.update_status(self.t["clip_empty"], "#f3f4f6", "#374151")
+                self.update_clipboard_mode_label()
                 self.clear_preview()
                 self.log_message("Stale job state cleared.")
 

@@ -96,6 +96,114 @@ if payload.settings and payload.settings.align_mode then
 end
 
 local frameMode = metadata.frame_mode or "normal"
+if frameMode == "layer_frames" then
+    local framesMap = {}
+    local frameIndices = {}
+    for i = 1, #elementsList do
+        local el = elementsList[i]
+        local frameIndex = tonumber(el.frame_index) or 0
+        if not framesMap[frameIndex] then
+            framesMap[frameIndex] = {}
+            table.insert(frameIndices, frameIndex)
+        end
+        table.insert(framesMap[frameIndex], el)
+    end
+
+    table.sort(frameIndices)
+
+    local function calculateLayerOffset(frameElements)
+        local minX, minY, maxX, maxY
+        for i = 1, #frameElements do
+            local el = frameElements[i]
+            if el.type ~= "group" and el.visible ~= false then
+                local cx = tonumber(el.x) or 0
+                local cy = tonumber(el.y) or 0
+                local cRight = cx + (tonumber(el.width) or 0)
+                local cBottom = cy + (tonumber(el.height) or 0)
+
+                if not minX or cx < minX then minX = cx end
+                if not minY or cy < minY then minY = cy end
+                if not maxX or cRight > maxX then maxX = cRight end
+                if not maxY or cBottom > maxY then maxY = cBottom end
+            end
+        end
+
+        local offsetX, offsetY = 0, 0
+        if minX ~= nil and alignMode ~= "absolute" then
+            local contentWidth = maxX - minX
+            local contentHeight = maxY - minY
+            offsetX = math.floor((spr.width - contentWidth) / 2) - minX
+            if alignMode == "ground_line" then
+                offsetY = (math.floor(spr.height / 2) - contentHeight) - minY
+            else
+                offsetY = math.floor((spr.height - contentHeight) / 2) - minY
+            end
+        end
+        return offsetX, offsetY
+    end
+
+    local importedCount = 0
+    local startFrameNumber = (app.activeFrame and app.activeFrame.frameNumber) or 1
+
+    app.transaction(function()
+        local targetLayer = app.activeLayer
+        if not targetLayer or targetLayer.isGroup then
+            targetLayer = spr:newLayer()
+        end
+
+        for _, frameIndex in ipairs(frameIndices) do
+            local frameElements = framesMap[frameIndex]
+            local targetFrameNumber = startFrameNumber + frameIndex
+            while #spr.frames < targetFrameNumber do
+                spr:newFrame()
+            end
+            local targetFrame = spr.frames[targetFrameNumber]
+            local offsetX, offsetY = calculateLayerOffset(frameElements)
+
+            for i = 1, #frameElements do
+                local el = frameElements[i]
+                if el.type ~= "group" then
+                    local fullImagePath = jobPath .. "/" .. el.file
+                    local imgFile = io.open(fullImagePath, "rb")
+                    if imgFile then
+                        imgFile:close()
+                        local importedImage = Image{ fromFile = fullImagePath }
+                        if importedImage then
+                            local existingCel = targetLayer:cel(targetFrame.frameNumber)
+                            if existingCel then spr:deleteCel(existingCel) end
+
+                            local finalX = (tonumber(el.x) or 0) + offsetX
+                            local finalY = (tonumber(el.y) or 0) + offsetY
+                            if alignMode == "absolute" then
+                                finalX = tonumber(el.x) or 0
+                                finalY = tonumber(el.y) or 0
+                            end
+
+                            local newCel = spr:newCel(targetLayer, targetFrame, importedImage, Point(finalX, finalY))
+                            newCel.opacity = opacityPercentToAse255(el.opacity)
+                            importedCount = importedCount + 1
+                            break
+                        end
+                    end
+                end
+            end
+        end
+    end)
+
+    app.refresh()
+
+    if importedCount > 0 then
+        if app.statusBar then
+            app.statusBar.text = importedCount .. "개 프레임 붙여넣기 완료"
+        else
+            print(importedCount .. "개 프레임 붙여넣기 완료")
+        end
+    else
+        showMessage("레이어 프레임을 생성하지 못했습니다. 전송 데이터가 손상되었을 수 있습니다.")
+    end
+    return
+end
+
 if frameMode == "folder_frames" then
     local framesMap = {}
     local frameIndices = {}

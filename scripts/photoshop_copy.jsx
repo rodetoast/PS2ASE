@@ -36,6 +36,11 @@ function main() {
         return;
     }
 
+    if (FRAME_MODE === "layer_frames") {
+        runLayerFramesCopy(originalDoc, jobFolder, layersFolder);
+        return;
+    }
+
     runNormalCopy(originalDoc, jobFolder, layersFolder);
 }
 
@@ -381,6 +386,185 @@ function runFolderFramesCopy(originalDoc, jobFolder, layersFolder) {
     saveJSON(jobFolder + "/status_done.json", doneData);
 }
 
+function runLayerFramesCopy(originalDoc, jobFolder, layersFolder) {
+    var selectedIds = getSelectedLayerIds();
+    if (selectedIds.length === 0) {
+        writeStatusError("Layer → Frames 모드에서는 Photoshop 픽셀 레이어를 선택해야 합니다.");
+        return;
+    }
+
+    var selectedMap = {};
+    for (var i = 0; i < selectedIds.length; i++) {
+        selectedMap[selectedIds[i]] = true;
+    }
+
+    var selectedLayers = [];
+    var selectedGroupName = null;
+
+    function collectSelectedPixelLayers(items) {
+        for (var i = 0; i < items.length; i++) {
+            var item = items[i];
+            if (selectedMap[item.id]) {
+                delete selectedMap[item.id];
+                if (item.typename === "LayerSet") {
+                    selectedGroupName = item.name;
+                    consumeSelectedIdsInFolder(item.layers, selectedMap);
+                } else if (item.typename === "ArtLayer") {
+                    if (item.kind && item.kind !== LayerKind.NORMAL) {
+                        writeStatusError("Layer → Frames 모드에서는 픽셀 레이어만 선택할 수 있습니다: " + item.name);
+                        return false;
+                    }
+                    selectedLayers.push(item);
+                }
+                continue;
+            }
+            if (item.typename === "LayerSet") {
+                if (collectSelectedPixelLayers(item.layers) === false) return false;
+            }
+        }
+        return true;
+    }
+
+    if (collectSelectedPixelLayers(originalDoc.layers) === false) {
+        return;
+    }
+
+    if (selectedGroupName !== null) {
+        writeStatusError("Layer → Frames 모드에서는 폴더/그룹을 선택할 수 없습니다. 픽셀 레이어만 선택해 주세요: " + selectedGroupName);
+        return;
+    }
+
+    for (var key in selectedMap) {
+        if (selectedMap.hasOwnProperty(key)) {
+            writeStatusError("Layer → Frames 모드에서 선택 항목을 확인하지 못했습니다. 픽셀 레이어만 선택해 주세요.");
+            return;
+        }
+    }
+
+    if (selectedLayers.length === 0) {
+        writeStatusError("Layer → Frames 모드에서 선택된 픽셀 레이어가 없습니다.");
+        return;
+    }
+
+    var elementsList = [];
+    var extractedPixCount = 0;
+
+    for (var f = 0; f < selectedLayers.length; f++) {
+        app.activeDocument = originalDoc;
+        selectLayerById(selectedLayers[f].id, false);
+
+        try {
+            var desc = new ActionDescriptor();
+            var ref = new ActionReference();
+            ref.putClass(charIDToTypeID("Dcmn"));
+            desc.putReference(charIDToTypeID("null"), ref);
+            desc.putString(charIDToTypeID("Nm  "), "TempBridgeLayerFrameDoc");
+            var ref2 = new ActionReference();
+            ref2.putEnumerated(charIDToTypeID("Lyr "), charIDToTypeID("Ordn"), charIDToTypeID("Trgt"));
+            desc.putReference(charIDToTypeID("Usng"), ref2);
+            executeAction(charIDToTypeID("Mk  "), desc, DialogModes.NO);
+        } catch (dupErr) {
+            writeStatusError("선택된 레이어를 임시 문서로 복제하지 못했습니다.\n(원본 에러: " + dupErr.toString() + ")");
+            app.activeDocument = originalDoc;
+            return;
+        }
+
+        var tempDoc = app.activeDocument;
+        try {
+            tempDoc.trim(TrimType.TRANSPARENT);
+        } catch(trimErr) {
+            tempDoc.close(SaveOptions.DONOTSAVECHANGES);
+            app.activeDocument = originalDoc;
+            writeStatusError("Layer → Frames 모드에서 추출 가능한 픽셀이 없는 레이어가 있습니다: " + selectedLayers[f].name);
+            return;
+        }
+
+        var contentW = tempDoc.width.as("px");
+        var contentH = tempDoc.height.as("px");
+        var exportLayer = findFirstArtLayer(tempDoc.layers);
+        if (!exportLayer) {
+            tempDoc.close(SaveOptions.DONOTSAVECHANGES);
+            app.activeDocument = originalDoc;
+            writeStatusError("Layer → Frames 모드에서 복제된 픽셀 레이어를 찾지 못했습니다: " + selectedLayers[f].name);
+            return;
+        }
+
+        var fileName = "layer_" + extractedPixCount + ".png";
+        var pngPath = layersFolder + "/" + fileName;
+        exportLayerAsPNG(tempDoc, exportLayer, pngPath, contentW, contentH);
+
+        elementsList.push({
+            id: "item_" + f,
+            type: "layer",
+            name: selectedLayers[f].name,
+            parent_id: null,
+            index: 0,
+            frame_index: f,
+            x: 0,
+            y: 0,
+            width: contentW,
+            height: contentH,
+            opacity: Math.round(selectedLayers[f].opacity),
+            visible: selectedLayers[f].visible,
+            file: "layers/" + fileName
+        });
+        extractedPixCount++;
+
+        tempDoc.close(SaveOptions.DONOTSAVECHANGES);
+        app.activeDocument = originalDoc;
+    }
+
+    var timestamp = getFormattedDate();
+    var metadata = {
+        "version": "1.1",
+        "job_id": jobFolder.name,
+        "source_app": "photoshop",
+        "target_app": "aseprite",
+        "timestamp": timestamp,
+        "document_name": originalDoc.name,
+        "canvas_size": { "w": originalDoc.width.as("px"), "h": originalDoc.height.as("px") },
+        "frame_mode": "layer_frames",
+        "element_count": elementsList.length,
+        "elements": elementsList,
+        "layer_count": extractedPixCount,
+        "layers": []
+    };
+
+    for (var k = 0; k < elementsList.length; k++) {
+        metadata.layers.push(elementsList[k]);
+    }
+
+    saveJSON(jobFolder + "/metadata.json", metadata);
+
+    var payload = {
+        "signature": "ase_ps_bridge_payload",
+        "version": "1.1",
+        "job_id": jobFolder.name,
+        "source_app": "photoshop",
+        "target_app": "aseprite",
+        "job_path": jobFolder.fsName.replace(/\\/g, "/"),
+        "summary": {
+            "layer_count": extractedPixCount,
+            "element_count": elementsList.length,
+            "document_name": originalDoc.name
+        },
+        "settings": {
+            "align_mode": ALIGN_MODE
+        },
+        "timestamp": timestamp
+    };
+    saveJSON(jobFolder + "/trigger_copy.json", payload);
+
+    var doneData = {
+        "job_id": jobFolder.name,
+        "status": "success",
+        "layer_count": extractedPixCount,
+        "element_count": elementsList.length,
+        "timestamp": timestamp
+    };
+    saveJSON(jobFolder + "/status_done.json", doneData);
+}
+
 // ==========================================
 // Helper Functions
 // ==========================================
@@ -452,6 +636,20 @@ function consumeSelectedIdsInFolder(items, selectedMap) {
             consumeSelectedIdsInFolder(item.layers, selectedMap);
         }
     }
+}
+
+function findFirstArtLayer(items) {
+    for (var i = 0; i < items.length; i++) {
+        var item = items[i];
+        if (item.typename === "ArtLayer") {
+            return item;
+        }
+        if (item.typename === "LayerSet") {
+            var found = findFirstArtLayer(item.layers);
+            if (found) return found;
+        }
+    }
+    return null;
 }
 
 function selectLayerById(layerId, addToSelection) {
