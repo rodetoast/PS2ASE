@@ -1367,8 +1367,11 @@ class BridgeApp(QMainWindow):
             self.settings = dlg.get_settings()
             save_settings(self.settings)
             
-            if self.settings.get("default_alignment") == "absolute":
+            current_alignment = self.settings.get("default_alignment")
+            if current_alignment == "absolute":
                 self.radio_absolute.setChecked(True)
+            elif current_alignment == "ground_line":
+                self.radio_ground_line.setChecked(True)
             else:
                 self.radio_center.setChecked(True)
                 
