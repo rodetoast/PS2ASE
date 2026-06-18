@@ -166,6 +166,8 @@ class PreviewGeneratorWorker(QThread):
                 metadata = json.load(f)
 
             elements = metadata.get("elements") or metadata.get("layers", [])
+            if metadata.get("frame_mode") == "folder_frames":
+                elements = [el for el in elements if int(el.get("frame_index", 0) or 0) == 0]
             if not elements:
                 self.preview_failed.emit("표시할 레이어가 없습니다.")
                 return
@@ -296,6 +298,9 @@ LANG = {
         "align_center": "Center",
         "align_abs": "Absolute",
         "align_ground_line": "Ground Line",
+        "frame_mode_label": "PS→Ase 프레임 모드:",
+        "frame_mode_normal": "Normal",
+        "frame_mode_folder_frames": "Folder → Frames",
         "btn_ps_copy": "1. Photoshop에서 복사",
         "btn_ase_paste": "2. Aseprite로 붙여넣기 (F4)",
         "btn_ase_copy": "3. Aseprite에서 복사 (F5)",
@@ -389,6 +394,9 @@ LANG = {
         "align_center": "Center",
         "align_abs": "Absolute",
         "align_ground_line": "Ground Line",
+        "frame_mode_label": "PS→Ase Frame Mode:",
+        "frame_mode_normal": "Normal",
+        "frame_mode_folder_frames": "Folder → Frames",
         "btn_ps_copy": "1. Copy from Photoshop",
         "btn_ase_paste": "2. Paste to Aseprite (F4)",
         "btn_ase_copy": "3. Copy from Aseprite (F5)",
@@ -481,6 +489,9 @@ LANG = {
         "align_center": "Center",
         "align_abs": "Absolute",
         "align_ground_line": "Ground Line",
+        "frame_mode_label": "PS→Aseフレームモード:",
+        "frame_mode_normal": "Normal",
+        "frame_mode_folder_frames": "Folder → Frames",
         "btn_ps_copy": "1. Photoshopからコピー",
         "btn_ase_paste": "2. Asepriteへペースト (F4)",
         "btn_ase_copy": "3. Asepriteからコピー (F5)",
@@ -705,13 +716,14 @@ class PhotoshopCLIWorker(QThread):
     finished = Signal(bool, str) # 성공여부, 메시지
     log = Signal(str)
 
-    def __init__(self, jsx_template_path, ps_exe_path, job_id, temp_dir, align_mode):
+    def __init__(self, jsx_template_path, ps_exe_path, job_id, temp_dir, align_mode, frame_mode="normal"):
         super().__init__()
         self.jsx_template_path = jsx_template_path
         self.ps_exe_path = ps_exe_path
         self.job_id = job_id
         self.temp_dir = temp_dir
         self.align_mode = align_mode
+        self.frame_mode = frame_mode
         self.job_path = os.path.join(self.temp_dir, self.job_id)
 
     def run(self):
@@ -730,6 +742,7 @@ class PhotoshopCLIWorker(QThread):
             safe_job_path = self.job_path.replace("\\", "\\\\")
             script_content = script_content.replace('"REPLACE_ME_JOB_PATH"', f'"{safe_job_path}"')
             script_content = script_content.replace('"REPLACE_ME_ALIGN_MODE"', f'"{self.align_mode}"')
+            script_content = script_content.replace('"REPLACE_ME_FRAME_MODE"', f'"{self.frame_mode}"')
 
             wrapper_jsx_path = os.path.join(self.job_path, "run_bridge.jsx")
             with open(wrapper_jsx_path, "w", encoding="utf-8") as f:
@@ -1282,6 +1295,22 @@ class BridgeApp(QMainWindow):
         align_layout.addWidget(self.radio_absolute)
         layout.addLayout(align_layout)
 
+        # Photoshop -> Aseprite 프레임 모드
+        frame_mode_layout = QHBoxLayout()
+        self.radio_frame_normal = QRadioButton(self.t["frame_mode_normal"])
+        self.radio_frame_folder = QRadioButton(self.t["frame_mode_folder_frames"])
+        self.radio_frame_normal.setChecked(True)
+
+        self.frame_mode_group = QButtonGroup()
+        self.frame_mode_group.addButton(self.radio_frame_normal, 1)
+        self.frame_mode_group.addButton(self.radio_frame_folder, 2)
+
+        self.frame_mode_label = QLabel(self.t["frame_mode_label"])
+        frame_mode_layout.addWidget(self.frame_mode_label)
+        frame_mode_layout.addWidget(self.radio_frame_normal)
+        frame_mode_layout.addWidget(self.radio_frame_folder)
+        layout.addLayout(frame_mode_layout)
+
         # === 정방향 ===
         self.btn_ps_copy = QPushButton(self.t["btn_ps_copy"])
         self.btn_ps_copy.setMinimumHeight(40)
@@ -1335,6 +1364,9 @@ class BridgeApp(QMainWindow):
         self.radio_center.setText(self.t["align_center"])
         self.radio_absolute.setText(self.t["align_abs"])
         self.radio_ground_line.setText(self.t["align_ground_line"])
+        self.frame_mode_label.setText(self.t["frame_mode_label"])
+        self.radio_frame_normal.setText(self.t["frame_mode_normal"])
+        self.radio_frame_folder.setText(self.t["frame_mode_folder_frames"])
         self.btn_ps_copy.setText(self.t["btn_ps_copy"])
         self.btn_ase_paste.setText(self.t["btn_ase_paste"])
         self.btn_ase_copy.setText(self.t["btn_ase_copy"])
@@ -1474,6 +1506,9 @@ class BridgeApp(QMainWindow):
                 win32clipboard.CloseClipboard()
         except Exception:
             pass
+
+    def get_frame_mode(self):
+        return "folder_frames" if self.radio_frame_folder.isChecked() else "normal"
 
     def check_temp_folder(self):
         try:
@@ -1781,7 +1816,8 @@ class BridgeApp(QMainWindow):
                 self.settings.get("photoshop_exe"), 
                 job_id, 
                 self.temp_dir, 
-                self.get_align_mode()
+                self.get_align_mode(),
+                self.get_frame_mode()
             )
             self.ps_worker.finished.connect(self.on_ps_copy_finished)
             self.ps_worker.log.connect(self.log_message)
