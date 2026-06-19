@@ -1185,9 +1185,10 @@ class BridgeApp(QMainWindow):
             self.settings["aseprite_exe"] = find_aseprite_exe()
             updated = True
 
-        if not self.settings.get("hotkey_status") or "❌" in self.settings.get("hotkey_status", ""):
-            success, msg = setup_aseprite_environment(self.ase_paste_lua_orig, self.ase_copy_lua_orig)
-            self.settings["hotkey_status"] = "✅ 정상 (F4=Paste, F5=Copy)" if success else f"❌ {msg}"
+        success, msg = setup_aseprite_environment(self.ase_paste_lua_orig, self.ase_copy_lua_orig)
+        hotkey_status = "✅ 정상 (F4=Paste, F5=Copy)" if success else f"❌ {msg}"
+        if self.settings.get("hotkey_status") != hotkey_status:
+            self.settings["hotkey_status"] = hotkey_status
             updated = True
 
         if not self.settings.get("ground_line_default_migrated"):

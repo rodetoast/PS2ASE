@@ -269,7 +269,7 @@ if frameMode == "folder_frames" then
             table.sort(children, function(a, b)
                 local idxA = tonumber(a.index) or 0
                 local idxB = tonumber(b.index) or 0
-                return idxA < idxB
+                return idxA > idxB
             end)
         end
 
@@ -350,10 +350,18 @@ if frameMode == "folder_frames" then
             local rows = framePixelRows[frameIndex] or {}
             local targetFrameNumber = startFrameNumber + frameIndex
             while #spr.frames < targetFrameNumber do
-                spr:newFrame()
+                spr:newEmptyFrame()
             end
             local targetFrame = spr.frames[targetFrameNumber]
             local offsetX, offsetY = calculateOffset(frameElements)
+
+            for rowIndex = 1, maxRowCount do
+                local targetLayer = targetLayers[rowIndex]
+                if targetLayer then
+                    local oldCel = targetLayer:cel(targetFrame.frameNumber)
+                    if oldCel then spr:deleteCel(oldCel) end
+                end
+            end
 
             for rowIndex = 1, #rows do
                 local el = rows[rowIndex]
