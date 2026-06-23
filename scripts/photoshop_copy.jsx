@@ -202,26 +202,30 @@ function runFolderFramesCopy(originalDoc, jobFolder, layersFolder) {
     }
 
     var frameGroups = [];
-    for (var t = 0; t < originalDoc.layers.length; t++) {
-        var topItem = originalDoc.layers[t];
-        if (topItem.typename !== "LayerSet") {
-            continue;
-        }
+    collectDirectSelectedFolders(originalDoc.layers, selectedMap, frameGroups);
 
-        var folderSelected = false;
-        if (selectedMap[topItem.id]) {
-            folderSelected = true;
-            delete selectedMap[topItem.id];
-        }
+    if (frameGroups.length === 0) {
+        for (var t = 0; t < originalDoc.layers.length; t++) {
+            var topItem = originalDoc.layers[t];
+            if (topItem.typename !== "LayerSet") {
+                continue;
+            }
 
-        var childSelectionIds = [];
-        collectSelectedIdsInFolder(topItem.layers, selectedMap, childSelectionIds);
+            var folderSelected = false;
+            if (selectedMap[topItem.id]) {
+                folderSelected = true;
+                delete selectedMap[topItem.id];
+            }
 
-        if (folderSelected || childSelectionIds.length > 0) {
-            frameGroups.push({
-                folder: topItem,
-                ids: childSelectionIds.length > 0 ? childSelectionIds : [topItem.id]
-            });
+            var childSelectionIds = [];
+            collectSelectedIdsInFolder(topItem.layers, selectedMap, childSelectionIds);
+
+            if (folderSelected || childSelectionIds.length > 0) {
+                frameGroups.push({
+                    folder: topItem,
+                    ids: childSelectionIds.length > 0 ? childSelectionIds : [topItem.id]
+                });
+            }
         }
     }
 
@@ -623,6 +627,27 @@ function collectSelectedIdsInFolder(items, selectedMap, outIds) {
         if (item.typename === "LayerSet") {
             collectSelectedIdsInFolder(item.layers, selectedMap, outIds);
         }
+    }
+}
+
+function collectDirectSelectedFolders(items, selectedMap, frameGroups) {
+    for (var i = 0; i < items.length; i++) {
+        var item = items[i];
+        if (item.typename !== "LayerSet") {
+            continue;
+        }
+
+        if (selectedMap[item.id]) {
+            delete selectedMap[item.id];
+            consumeSelectedIdsInFolder(item.layers, selectedMap);
+            frameGroups.push({
+                folder: item,
+                ids: [item.id]
+            });
+            continue;
+        }
+
+        collectDirectSelectedFolders(item.layers, selectedMap, frameGroups);
     }
 }
 
