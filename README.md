@@ -1,3 +1,11 @@
+## 최신 개발 세션 시작 안내 (2026-11-17)
+
+소스 저장소는 [rodetoast/PS2ASE](https://github.com/rodetoast/PS2ASE)로 이전됐습니다. 최신 개발 소스·기획 기록은 **[codex/migration-checkpoint-20261117](https://github.com/rodetoast/PS2ASE/tree/codex/migration-checkpoint-20261117)**에서 이어갑니다. [AGENTS.md](AGENTS.md)와 연결된 기존 개발 기록을 먼저 확인하세요.
+
+이 브랜치는 검토된 개발 보존본이며 정식 Release 승인·신규 기능 검증을 의미하지 않습니다. 기존 배포 파일/업데이트 채널과 프로그램 내부 식별자는 그대로 유지합니다. 아래 README와 과거 결정·검증 기록도 보존합니다.
+
+---
+
 # PS2ASE (Ase-PS Bridge Pro)
 
 Photoshop과 Aseprite 간의 완벽한 **양방향 다중 레이어 복사/붙여넣기(Copy & Paste)**를 지원하는 궁극의 브릿지 도구입니다. 
