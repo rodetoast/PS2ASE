@@ -1,11 +1,28 @@
 # -*- mode: python ; coding: utf-8 -*-
 
+def validate_qt_icu(binaries):
+    """Reject a same-name ICU from PATH with a different exported ABI."""
+    from pathlib import Path
+    import pefile
+    files = {Path(name).name.lower(): source for name, source, kind in binaries}
+    if 'qt6core.dll' not in files or 'icuuc.dll' not in files:
+        return
+    core = pefile.PE(files['qt6core.dll'])
+    required = {entry.name for dependency in core.DIRECTORY_ENTRY_IMPORT
+                if dependency.dll.lower() == b'icuuc.dll' for entry in dependency.imports if entry.name}
+    icu = pefile.PE(files['icuuc.dll'])
+    exported = {entry.name for entry in icu.DIRECTORY_ENTRY_EXPORT.symbols}
+    core.close()
+    icu.close()
+    if not required.issubset(exported):
+        raise SystemExit('Incompatible ICU DLL collected from: ' + files['icuuc.dll'] +
+                         '. Build in an isolated environment with a clean PATH.')
 
 a = Analysis(
     ['C:\\Users\\SOUTHPAW GAMES\\Desktop\\AI TS\\bridge_ui.py'],
     pathex=[],
     binaries=[],
-    datas=[('bridge_icon.ico', '.'), ('scripts', 'scripts')],
+    datas=[('bridge_icon.ico', '.'), ('bridge_splash.png', '.'), ('scripts', 'scripts')],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},
@@ -14,11 +31,22 @@ a = Analysis(
     noarchive=False,
     optimize=0,
 )
+validate_qt_icu(a.binaries)
 pyz = PYZ(a.pure)
+
+splash = Splash(
+    'bridge_splash.png',
+    binaries=a.binaries,
+    datas=a.datas,
+    text_pos=None,
+    always_on_top=False,
+)
 
 exe = EXE(
     pyz,
     a.scripts,
+    splash,
+    splash.binaries,
     a.binaries,
     a.datas,
     [],

@@ -3,18 +3,42 @@ import os
 import json
 import subprocess
 import time
+_STARTUP_ENTERED = time.perf_counter()
 import shutil
+import re
+import uuid
+import datetime
+import traceback
+import logging
+import logging.handlers
+import queue
+import threading
+from collections import deque
 import winreg
 import xml.etree.ElementTree as ET
 import io
-from PIL import Image
-from PySide6.QtWidgets import (QApplication, QMainWindow, QPushButton, QVBoxLayout, 
-                               QWidget, QTextEdit, QLabel, QRadioButton, QButtonGroup, 
-                               QHBoxLayout, QMessageBox, QFileDialog, QDialog, QLineEdit, QFormLayout, QDialogButtonBox)
-from PySide6.QtCore import QTimer, QThread, Signal, Qt
-from PySide6.QtGui import QFont, QColor, QPixmap
-import win32com.client
-import pythoncom
+
+
+def close_bootloader_on_import_error():
+    try:
+        import pyi_splash
+        pyi_splash.close()
+    except Exception:
+        pass
+
+
+try:
+    from PIL import Image
+    from PySide6.QtWidgets import (QApplication, QMainWindow, QPushButton, QVBoxLayout,
+                                   QWidget, QTextEdit, QLabel, QRadioButton, QButtonGroup,
+                                   QHBoxLayout, QMessageBox, QFileDialog, QDialog, QLineEdit, QFormLayout, QDialogButtonBox, QComboBox, QStyle, QScrollArea, QSizePolicy, QLayout, QStackedWidget)
+    from PySide6.QtCore import QTimer, QThread, Signal, Slot, Qt, QUrl, QEventLoop, QLocale, QObject, QEvent
+    from PySide6.QtGui import QFont, QColor, QPixmap, QDesktopServices
+    import win32com.client
+    import pythoncom
+except Exception:
+    close_bootloader_on_import_error()
+    raise
 
 # ==========================================
 # Job Transform Worker (비파괴 변환: Flip/Rotate 비동기 처리)
@@ -282,7 +306,11 @@ def get_resource_path(relative_path):
 APPDATA_DIR = os.environ.get('APPDATA', '')
 BRIDGE_DATA_DIR = os.path.join(APPDATA_DIR, "Ase-PS-Bridge")
 if not os.path.exists(BRIDGE_DATA_DIR):
-    os.makedirs(BRIDGE_DATA_DIR)
+    try:
+        os.makedirs(BRIDGE_DATA_DIR)
+    except Exception:
+        close_bootloader_on_import_error()
+        raise
     
 SETTINGS_FILE = os.path.join(BRIDGE_DATA_DIR, "bridge_settings.json")
 
@@ -598,6 +626,232 @@ LANG = {
 # ==========================================
 # 설정 관리 (Settings Management)
 # ==========================================
+LANG["ko"].update({
+    "ps_versions": "Photoshop 버전 선택", "ps_warning": "스크립트 경고 설정…",
+    "ps_warning_title": "Photoshop 실행 경고",
+    "ps_warning_info": "대상: {version}\n{exe}\n\n설정 파일: {config}\nWarnRunningScripts: {state}\n\n외부 JSX 실행 시 확인창이 작업을 대기시킬 수 있습니다. 수동으로 실행을 허용하거나, 이 버전의 경고만 비활성화할 수 있습니다. 경고 비활성화는 신뢰할 수 없는 스크립트에도 영향을 줍니다. 기존 파일은 백업하며 다른 설정은 보존합니다. Photoshop을 종료한 뒤 적용하고 다시 시작하세요.\n\n이 버전의 경고를 비활성화할까요?",
+    "ps_warning_done": "설정 적용 완료. Photoshop을 다시 시작하세요.\n백업: {backup}",
+    "ps_close_first": "설정 변경 전에 모든 Photoshop 프로세스를 종료하세요.",
+    "ps_default_warning": "미설정 (Photoshop 기본값)", "ps_no_backup": "변경 없음 또는 새 파일",
+    "ps_script_error": "Photoshop 스크립트 오류: ",
+    "ps_timeout_pending": "Photoshop 실행 시작 응답이 없습니다. 스크립트 실행 확인창·다른 모달 창과 선택한 버전을 확인하세요. 경고창 존재는 확인되지 않았습니다. 열린 확인창을 취소/닫은 뒤 재시도하세요.",
+    "ps_timeout_running": "Photoshop 스크립트 시작은 확인됐으나 완료 응답이 없습니다. 처리 중이거나 내부 대기/오류 상태일 수 있습니다. 작업이 끝나기 전에 재시도하지 마세요.",
+    "ps_timeout_closed": "선택한 Photoshop 프로세스가 실행 중이 아닙니다. 실행 실패 또는 종료 여부를 확인하세요.",
+    "ps_timeout_unknown": "Photoshop 응답이 없고 프로세스 상태도 확인할 수 없습니다. 실행 확인창과 프로세스 권한을 확인하세요.",
+})
+LANG["en"].update({
+    "ps_versions": "Photoshop version", "ps_warning": "Script warning settings…",
+    "ps_warning_title": "Photoshop script warning",
+    "ps_warning_info": "Target: {version}\n{exe}\n\nConfig: {config}\nWarnRunningScripts: {state}\n\nAn external JSX confirmation can block the job. Allow it manually, or disable warnings for this version only. Disabling also affects untrusted scripts. Existing files are backed up; other settings are preserved. Close Photoshop before applying, then restart it.\n\nDisable warnings for this version?",
+    "ps_warning_done": "Setting applied. Restart Photoshop.\nBackup: {backup}",
+    "ps_close_first": "Close all Photoshop processes before changing this setting.",
+    "ps_default_warning": "Not set (Photoshop default)", "ps_no_backup": "Unchanged or new file",
+    "ps_script_error": "Photoshop script error: ",
+    "ps_timeout_pending": "No Photoshop script-start response. Check script confirmations, other modal dialogs and the selected version. A warning dialog has not been verified. Cancel/close pending confirmations before retrying.",
+    "ps_timeout_running": "Script start confirmed, but no completion response. Photoshop may still be processing or blocked internally. Do not retry until the operation ends.",
+    "ps_timeout_closed": "The selected Photoshop process is not running. Check launch failure or application exit.",
+    "ps_timeout_unknown": "No Photoshop response; process status could not be verified. Check confirmation dialogs and process permissions.",
+})
+LANG["ja"].update({
+    "ps_versions": "Photoshop バージョン", "ps_warning": "スクリプト警告設定…",
+    "ps_warning_title": "Photoshop 実行警告",
+    "ps_warning_info": "対象: {version}\n{exe}\n\n設定: {config}\nWarnRunningScripts: {state}\n\n外部 JSX の確認画面で処理が待機することがあります。手動で許可するか、このバージョンのみ警告を無効化できます。信頼できないスクリプトにも影響します。既存ファイルはバックアップし、他の設定は保持します。適用前に Photoshop を終了し、適用後に再起動してください。\n\nこのバージョンの警告を無効化しますか？",
+    "ps_warning_done": "設定を適用しました。Photoshop を再起動してください。\nバックアップ: {backup}",
+    "ps_close_first": "設定変更前にすべての Photoshop プロセスを終了してください。",
+    "ps_default_warning": "未設定 (Photoshop の既定値)", "ps_no_backup": "変更なし、または新規ファイル",
+    "ps_script_error": "Photoshop スクリプトエラー: ",
+    "ps_timeout_pending": "スクリプト開始応答がありません。実行確認画面、他のダイアログ、対象バージョンを確認してください。警告画面の存在は未確認です。再試行前に保留中の確認をキャンセルしてください。",
+    "ps_timeout_running": "開始は確認できましたが完了応答がありません。処理中または内部待機の可能性があります。終了前に再試行しないでください。",
+    "ps_timeout_closed": "対象の Photoshop プロセスがありません。起動失敗または終了を確認してください。",
+    "ps_timeout_unknown": "応答がなくプロセス状態も確認できません。実行確認画面と権限を確認してください。",
+})
+
+for _language, _labels in {
+    "ko": ("DEBUG", "로그 복사", "로그 폴더 열기", "화면 로그만 지우기", "작업 진행 중: {reason}", "작업이 정리 중입니다. 잠시 후 다시 시도하세요."),
+    "en": ("DEBUG", "Copy logs", "Open log folder", "Clear displayed logs only", "Job blocked: {reason}", "A job is still being cleaned up. Retry shortly."),
+    "ja": ("DEBUG", "ログをコピー", "ログフォルダー", "表示ログのみ消去", "処理中: {reason}", "処理の終了待ちです。少し待って再試行してください。"),
+}.items():
+    LANG[_language].update(zip(("diag_debug", "diag_copy", "diag_folder", "diag_clear", "diag_blocked", "diag_wait"), _labels))
+
+LANG["ko"]["diag_cancelled"] = "Bridge 작업을 취소했습니다. Photoshop 프로세스는 종료하지 않았습니다."
+LANG["en"]["diag_cancelled"] = "Bridge operation cancelled; Photoshop was not terminated."
+LANG["ja"]["diag_cancelled"] = "Bridge の処理を中止しました。Photoshop は終了していません。"
+
+for _language, _labels in {
+    "ko": ("시작 중...", "설정 불러오는 중...", "환경 확인 중...", "프로그램 준비 중...", "프로그램 초기화에 실패했습니다."),
+    "en": ("Starting...", "Loading settings...", "Checking environment...", "Preparing application...", "Application initialization failed."),
+    "ja": ("起動中...", "設定を読み込み中...", "環境を確認中...", "アプリを準備中...", "アプリの初期化に失敗しました。"),
+}.items():
+    LANG[_language].update(zip(("startup_starting", "startup_settings", "startup_environment", "startup_ui", "startup_failed"), _labels))
+
+for _language, _messages in {
+    "ko": ("새 복사 진행 중 · 이전 클립보드 미리보기", "Photoshop 복사 진행 중", "새 복사 실패 · 이전 클립보드 유지", "복사 실패 · 새 미리보기 없음", "복사 완료 · 새 클립보드/미리보기 대기"),
+    "en": ("Copying · preview of previous clipboard", "Photoshop copy in progress", "Copy failed · previous clipboard retained", "Copy failed · no new preview", "Copy complete · awaiting new clipboard/preview"),
+    "ja": ("コピー中 · 前のクリップボードを表示", "Photoshop コピー中", "コピー失敗 · 前のデータを保持", "コピー失敗 · 新しいプレビューなし", "コピー完了 · 新しいデータの反映待ち"),
+}.items():
+    LANG[_language].update(zip(("copy_previous_preview", "copy_pending", "copy_failed_retained", "copy_failed_empty", "copy_preview_pending"), _messages))
+
+
+for _language, _guide in {
+    "ko": {
+        "guide_title": "초기 설정 가이드", "guide_reopen": "초기 설정 가이드 다시 보기",
+        "guide_steps": ("1. Photoshop 연결", "2. Photoshop 실행 경고", "3. Aseprite 권한", "4. 확인 및 마침"),
+        "guide_ps_intro": "사용할 Photoshop 버전과 EXE 경로를 확인하세요. 연결 설정에서 감지된 버전을 선택하거나 경로를 변경할 수 있습니다. 다른 버전으로 임의 연결하지 않습니다.",
+        "guide_ps_edit": "Photoshop 연결 설정…", "guide_ps_valid": "선택한 Photoshop: {product} ({version})",
+        "guide_ps_missing": "Photoshop 연결 미확인: EXE 경로와 버전을 연결 설정에서 확인하세요.",
+        "guide_warning_intro": "Photoshop Copy/Paste 시 외부 JSX 실행 확인창이 나타날 수 있습니다. Ase-PS Bridge Pro가 요청한 스크립트임을 확인한 경우에만 예(Y)를 눌러 실행하세요.\n\n기본 권장: 경고를 유지하고 실행할 때 확인합니다. Bridge는 실제 경고 승인 여부를 직접 확인할 수 없습니다.",
+        "guide_warning_optional": "선택 사항: PSUserConfig.txt의 WarnRunningScripts 0은 해당 Photoshop 버전의 모든 외부 JSX 실행에 영향을 줍니다. Bridge 전용 설정이 아닙니다. 적용 전 명시적 동의를 받고, 기존 파일을 백업하며 다른 설정을 보존합니다. 적용 후 Photoshop을 다시 시작해야 합니다. 적용하지 않고 계속 진행해도 됩니다.",
+        "guide_warning_edit": "선택 사항: 실행 경고 설정…",
+        "guide_warning_keep": "경고 설정: 기본값 또는 경고 유지 · 실제 승인 여부 미확인",
+        "guide_warning_disabled": "경고 설정: WarnRunningScripts 0 확인 · 적용 후 재시작 필요 · 실제 승인 여부 미확인",
+        "guide_warning_unknown": "경고 설정 미확인: 선택 버전의 사용자 설정 폴더를 확인하세요.",
+        "guide_ase_intro": "Aseprite를 종료한 뒤 스크립트/단축키를 설치하고 다시 실행하세요. File > Scripts에서 aseprite_paste와 aseprite_copy를 각각 실행하고 필요한 Trust를 직접 승인하세요.\n\nF4 = Paste / F5 = Copy입니다. 파일 설치와 단축키 등록은 보안 승인 또는 실제 단축키 동작 확인과 다릅니다.",
+        "guide_ase_open": "Aseprite 설치 / Trust 안내…", "guide_hotkeys_check": "Aseprite에서 F4 붙여넣기 / F5 복사를 직접 확인했습니다.",
+        "guide_files_ok": "Aseprite 스크립트: 설치본이 bundled 파일과 일치",
+        "guide_files_pending": "Aseprite 스크립트: 설치 또는 갱신 확인 필요",
+        "guide_keys_ok": "단축키 설정 파일: F4 Paste / F5 Copy 등록 확인",
+        "guide_keys_pending": "단축키 설정 파일: 미확인 또는 재설치 필요",
+        "guide_trust_yes": "Trust: 기존 사용자 완료 확인 기록 있음 (앱에서 직접 검증하지 않음)",
+        "guide_trust_no": "Trust: 사용자 완료 확인 없음 · Aseprite에서 직접 승인 필요",
+        "guide_keys_tested": "단축키 실제 동작: 사용자 확인 기록 있음",
+        "guide_keys_untested": "단축키 실제 동작: 미확인",
+        "guide_summary_intro": "아래 상태를 확인하세요. 가이드를 닫는 것은 외부 프로그램의 권한 승인이나 연결 테스트 완료를 의미하지 않습니다. 미확인 항목은 나중에 설정에서 다시 확인할 수 있습니다.",
+        "guide_dont_show": "다음 실행 시 초기 설정 가이드를 자동으로 표시하지 않음",
+        "guide_back": "이전", "guide_next": "다음", "guide_finish": "가이드 닫기", "guide_later": "나중에 설정",
+        "guide_tutorial": "프로그램 사용 방법 열기", "guide_close": "확인",
+        "tut_content": "<b>Photoshop → Aseprite</b><br>Copy Mode를 먼저 선택하고 Photoshop 레이어/폴더를 선택한 뒤 Photoshop Copy를 누릅니다. Aseprite 대상 캔버스에서 Paste 또는 F4를 사용합니다.<br><br>"
+                       "<b>Aseprite → Photoshop</b><br>Aseprite에서 레이어를 선택하고 Copy 또는 F5를 누른 뒤 Photoshop 대상 문서에서 Photoshop Paste를 사용합니다.<br><br>"
+                       "<b>Copy Mode (다음 Photoshop 복사부터 적용)</b><br>Normal: 기존 레이어/폴더 구조로 붙여넣기.<br>Folder → Frames: 선택 폴더별로 연속 프레임에 배치합니다. 선택한 하위 폴더도 개별 프레임이 됩니다. 같은 순번의 레이어는 선택 Aseprite 레이어 포함 아래쪽의 같은 row를 재사용합니다.<br>Layer → Frames: 선택한 픽셀 레이어 하나당 한 프레임, 선택 Aseprite 레이어 한 row에 순차 배치합니다. 폴더 선택은 지원하지 않습니다.<br>프레임 순서는 Photoshop 패널 위→아래이며 Aseprite 현재 프레임부터 시작합니다. 현재 클립보드 모드 표시는 실제 복사된 모드입니다. 라디오를 바꿔도 기존 복사 데이터의 모드는 바뀌지 않습니다.<br><br>"
+                       "<b>Alignment (붙여넣기 시 적용)</b><br>Ground Line: 기본값. Aseprite에서 X축 중앙, 이미지 바닥을 캔버스 중앙 가로선 바로 위에 맞춥니다.<br>Center: 이미지 덩어리를 캔버스 중앙에 배치합니다.<br>Absolute: 원본 좌표를 유지합니다.<br>복사 후에도 정렬을 변경할 수 있습니다. Ground Line의 바닥 정렬은 Aseprite Paste용입니다.<br><br>"
+                       "<b>Preview / 변환</b><br>여러 프레임은 첫 프레임만 미리 봅니다. 좌우/상하 반전, 90° 회전, Undo/Redo는 복사한 작업 데이터와 Preview에 반영됩니다.<br><br>"
+                       "<b>작업상 주의</b><br>대상 문서와 프레임/레이어를 확인하세요. Aseprite Recent Files에 임시 이미지가 추가될 수 있습니다. 작업 파일은 Favorites로 관리할 수 있습니다. 환경 및 권한 준비는 Settings의 초기 설정 가이드에서 확인하세요.",
+    },
+    "en": {
+        "guide_title": "Initial Setup Guide", "guide_reopen": "Reopen Initial Setup Guide",
+        "guide_steps": ("1. Photoshop connection", "2. Photoshop script warning", "3. Aseprite permissions", "4. Review and close"),
+        "guide_ps_intro": "Check the Photoshop version and EXE you want to use. Connection settings lists detected versions and lets you change the path. The app will not silently switch to another version.",
+        "guide_ps_edit": "Photoshop connection settings…", "guide_ps_valid": "Selected Photoshop: {product} ({version})",
+        "guide_ps_missing": "Photoshop connection unverified: check the EXE path and version in connection settings.",
+        "guide_warning_intro": "Photoshop may ask to run an external JSX script during Copy/Paste. Choose Yes only after confirming that Ase-PS Bridge Pro requested the script.\n\nRecommended default: keep warnings and confirm each execution. Bridge cannot directly verify whether you approved a warning.",
+        "guide_warning_optional": "Optional: WarnRunningScripts 0 in PSUserConfig.txt affects all external JSX execution in this Photoshop version, not just Bridge. Applying it requires explicit consent, backs up an existing file and preserves other settings. Restart Photoshop afterwards. You can continue without applying it.",
+        "guide_warning_edit": "Optional: script warning settings…",
+        "guide_warning_keep": "Warning setting: default or warnings kept · actual approval unverified",
+        "guide_warning_disabled": "Warning setting: WarnRunningScripts 0 found · restart after applying · actual approval unverified",
+        "guide_warning_unknown": "Warning setting unverified: check the selected version's preferences folder.",
+        "guide_ase_intro": "Close Aseprite before installing scripts/hotkeys, then restart it. Run aseprite_paste and aseprite_copy individually from File > Scripts and approve the required Trust yourself.\n\nF4 = Paste / F5 = Copy. Installed files and registered shortcuts do not prove security approval or working hotkeys.",
+        "guide_ase_open": "Aseprite installation / Trust guide…", "guide_hotkeys_check": "I tested F4 Paste / F5 Copy in Aseprite.",
+        "guide_files_ok": "Aseprite scripts: installed files match the bundled files",
+        "guide_files_pending": "Aseprite scripts: installation or update needs checking",
+        "guide_keys_ok": "Hotkey file: F4 Paste / F5 Copy registered",
+        "guide_keys_pending": "Hotkey file: unverified or reinstall required",
+        "guide_trust_yes": "Trust: user completion recorded (not independently verified by Bridge)",
+        "guide_trust_no": "Trust: no user completion recorded · approve manually in Aseprite",
+        "guide_keys_tested": "Actual hotkey operation: user confirmation recorded",
+        "guide_keys_untested": "Actual hotkey operation: unverified",
+        "guide_summary_intro": "Review the status below. Closing this guide does not approve external permissions or certify a connection test. You can revisit unchecked items later in Settings.",
+        "guide_dont_show": "Do not show the Initial Setup Guide automatically on next launch",
+        "guide_back": "Back", "guide_next": "Next", "guide_finish": "Close guide", "guide_later": "Set up later",
+        "guide_tutorial": "Open How to Use", "guide_close": "OK",
+        "tut_content": "<b>Photoshop → Aseprite</b><br>Choose Copy Mode first, select Photoshop layers/folders, then use Photoshop Copy. Switch to the target Aseprite canvas and use Paste or F4.<br><br>"
+                       "<b>Aseprite → Photoshop</b><br>Select layers in Aseprite and use Copy or F5, then use Photoshop Paste in the target Photoshop document.<br><br>"
+                       "<b>Copy Mode (applies to the next Photoshop copy)</b><br>Normal: paste the existing layer/folder structure.<br>Folder → Frames: paste folders into consecutive frames, including directly selected nested folders. Matching layer positions reuse the same rows, starting at the active Aseprite layer and continuing downward.<br>Layer → Frames: each selected pixel layer becomes a frame on one active Aseprite layer row. Selecting groups is not supported.<br>Frames follow Photoshop panel top-to-bottom order and start at the active Aseprite frame. The clipboard mode shows how the data was copied; changing a radio does not reinterpret existing data.<br><br>"
+                       "<b>Alignment (applies at paste time)</b><br>Ground Line: default. In Aseprite, center horizontally and put the image bottom just above the canvas horizontal center line.<br>Center: center the content bounding box on the canvas.<br>Absolute: keep original coordinates.<br>Alignment can change after copying. Ground Line bottom alignment is for Aseprite Paste.<br><br>"
+                       "<b>Preview / transforms</b><br>Multi-frame data previews the first frame only. Flip Horizontal/Vertical, Rotate 90°, Undo and Redo update copied job data and Preview.<br><br>"
+                       "<b>Working notes</b><br>Check the target document, frame and layer. Temporary images may appear in Aseprite Recent Files; Favorites can help organize your work files. For environment and permissions, open the Initial Setup Guide in Settings.",
+    },
+    "ja": {
+        "guide_title": "初期設定ガイド", "guide_reopen": "初期設定ガイドを再表示",
+        "guide_steps": ("1. Photoshop の接続", "2. Photoshop の実行警告", "3. Aseprite の権限", "4. 確認と終了"),
+        "guide_ps_intro": "使用する Photoshop のバージョンと EXE を確認してください。接続設定で検出されたバージョンを選択したり、パスを変更できます。別のバージョンへ自動で切り替えません。",
+        "guide_ps_edit": "Photoshop の接続設定…", "guide_ps_valid": "選択中の Photoshop: {product} ({version})",
+        "guide_ps_missing": "Photoshop の接続は未確認です。接続設定で EXE パスとバージョンを確認してください。",
+        "guide_warning_intro": "Photoshop のコピー/貼り付け時に、外部 JSX の実行確認が表示されることがあります。Ase-PS Bridge Pro が要求したスクリプトだと確認できた場合のみ「はい」を選んでください。\n\n既定の推奨: 警告を維持し、実行時に確認します。Bridge は実際の承認を直接確認できません。",
+        "guide_warning_optional": "任意設定: PSUserConfig.txt の WarnRunningScripts 0 は、この Photoshop バージョンのすべての外部 JSX 実行に影響します。Bridge 専用ではありません。適用には明示的な同意が必要で、既存ファイルをバックアップし、他の設定を保持します。適用後は Photoshop を再起動してください。適用せずに進めます。",
+        "guide_warning_edit": "任意: 実行警告の設定…",
+        "guide_warning_keep": "警告設定: 既定値または警告を維持 · 実際の承認は未確認",
+        "guide_warning_disabled": "警告設定: WarnRunningScripts 0 を確認 · 適用後に再起動が必要 · 実際の承認は未確認",
+        "guide_warning_unknown": "警告設定は未確認です。選択したバージョンの設定フォルダーを確認してください。",
+        "guide_ase_intro": "Aseprite を終了してからスクリプト/ショートカットをインストールし、再起動してください。File > Scripts から aseprite_paste と aseprite_copy をそれぞれ実行し、必要な Trust を自分で承認してください。\n\nF4 = 貼り付け / F5 = コピーです。ファイルのインストールやキー登録は、権限承認や実際のキー動作の確認とは異なります。",
+        "guide_ase_open": "Aseprite インストール / Trust 案内…", "guide_hotkeys_check": "Aseprite で F4 貼り付け / F5 コピーを実際に確認しました。",
+        "guide_files_ok": "Aseprite スクリプト: インストール済みファイルが同梱ファイルと一致",
+        "guide_files_pending": "Aseprite スクリプト: インストールまたは更新の確認が必要",
+        "guide_keys_ok": "キー設定ファイル: F4 貼り付け / F5 コピーの登録を確認",
+        "guide_keys_pending": "キー設定ファイル: 未確認または再インストールが必要",
+        "guide_trust_yes": "Trust: ユーザーの完了記録あり (Bridge による直接検証ではありません)",
+        "guide_trust_no": "Trust: ユーザーの完了記録なし · Aseprite で手動承認が必要",
+        "guide_keys_tested": "実際のキー動作: ユーザーの確認記録あり",
+        "guide_keys_untested": "実際のキー動作: 未確認",
+        "guide_summary_intro": "以下の状態を確認してください。ガイドを閉じても外部権限の承認や接続テストの完了にはなりません。未確認の項目は後で設定から確認できます。",
+        "guide_dont_show": "次回起動時に初期設定ガイドを自動表示しない",
+        "guide_back": "戻る", "guide_next": "次へ", "guide_finish": "ガイドを閉じる", "guide_later": "後で設定",
+        "guide_tutorial": "使い方を開く", "guide_close": "確認",
+        "tut_content": "<b>Photoshop → Aseprite</b><br>先に Copy Mode を選び、Photoshop のレイヤー/フォルダーを選択して Photoshop Copy を押します。Aseprite の対象キャンバスで Paste または F4 を使います。<br><br>"
+                       "<b>Aseprite → Photoshop</b><br>Aseprite でレイヤーを選択して Copy または F5 を押し、対象の Photoshop 文書で Photoshop Paste を使います。<br><br>"
+                       "<b>Copy Mode (次の Photoshop コピーから適用)</b><br>Normal: 既存のレイヤー/フォルダー構造で貼り付けます。<br>Folder → Frames: 選択したフォルダーごとに連続フレームへ配置します。直接選択した下位フォルダーにも対応します。同じ順番のレイヤーは、選択した Aseprite レイヤーを含む下方向の同じ行を再利用します。<br>Layer → Frames: 選択したピクセルレイヤーごとに一つのフレームへ配置し、選択中の Aseprite レイヤー一行を使います。グループの選択には対応しません。<br>フレーム順は Photoshop パネルの上から下で、Aseprite の現在のフレームから始まります。クリップボードのモードは実際にコピーした方式です。ラジオを変更しても既存データのモードは変わりません。<br><br>"
+                       "<b>Alignment (貼り付け時に適用)</b><br>Ground Line: 既定値。Aseprite で横方向を中央にし、画像の底をキャンバスの中央横線のすぐ上に合わせます。<br>Center: 画像全体の範囲をキャンバス中央に配置します。<br>Absolute: 元の座標を維持します。<br>コピー後でも変更できます。Ground Line の接地配置は Aseprite Paste 用です。<br><br>"
+                       "<b>Preview / 変形</b><br>複数フレームでは最初のフレームだけ表示します。左右/上下反転、90° 回転、Undo/Redo はコピーした作業データと Preview に反映されます。<br><br>"
+                       "<b>作業上の注意</b><br>対象文書とフレーム/レイヤーを確認してください。Aseprite Recent Files に一時画像が追加されることがあります。作業ファイルの管理には Favorites を利用できます。環境と権限の準備は設定の初期設定ガイドで確認してください。",
+    },
+}.items():
+    LANG[_language].update(_guide)
+
+
+def diagnostic_event(job_id, component, state, **details):
+    return {"timestamp": datetime.datetime.now().astimezone().isoformat(timespec="milliseconds"),
+            "job_id": job_id or "-", "component": component, "state": state, "details": details}
+
+
+def redact_diagnostic(value):
+    if isinstance(value, dict):
+        return {str(k): redact_diagnostic(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [redact_diagnostic(v) for v in value]
+    if isinstance(value, str):
+        value = re.sub(r"[A-Za-z]:[\\/][^\r\n\"<>]*", "<local-path>", value)
+        value = re.sub(r"\\\\[^\r\n\"<>]+", "<network-path>", value)
+        value = re.sub(r"[^\s\"<>]+\.(?:psd|psb)\b", "<document>", value, flags=re.I)
+    return value
+
+
+class DiagnosticLog:
+    def __init__(self, directory):
+        self.directory = directory
+        self.listener = None
+        self.handler = None
+        self.logger = logging.Logger("bridge-" + uuid.uuid4().hex)
+        self.logger.addHandler(logging.NullHandler())
+        try:
+            os.makedirs(directory, exist_ok=True)
+            class SafeFileHandler(logging.handlers.RotatingFileHandler):
+                def handleError(self, record):
+                    pass
+            self.handler = SafeFileHandler(os.path.join(directory, "bridge.log"),
+                                           maxBytes=2 * 1024 * 1024, backupCount=3, encoding="utf-8")
+            self.handler.setFormatter(logging.Formatter("%(message)s"))
+            self.queue = queue.SimpleQueue()
+            self.logger.addHandler(logging.handlers.QueueHandler(self.queue))
+            self.listener = logging.handlers.QueueListener(self.queue, self.handler)
+            self.listener.start()
+        except Exception:
+            if self.handler:
+                self.handler.close()
+
+    def write(self, event):
+        try:
+            self.logger.info(json.dumps(redact_diagnostic(event), ensure_ascii=False))
+        except Exception:
+            pass
+
+    def close(self):
+        try:
+            if self.listener:
+                self.listener.stop()
+            if self.handler:
+                self.handler.close()
+        except Exception:
+            pass
+
+
 def load_settings():
     if os.path.exists(SETTINGS_FILE):
         try:
@@ -617,29 +871,172 @@ def save_settings(settings):
 # ==========================================
 # 설치 경로 탐색 및 환경 구성 함수들
 # ==========================================
+def _photoshop_query(command):
+    result = subprocess.run(
+        ["powershell.exe", "-NoProfile", "-NonInteractive", "-Command",
+         "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; " + command],
+        capture_output=True, encoding="utf-8-sig", errors="strict", timeout=10,
+        creationflags=subprocess.CREATE_NO_WINDOW)
+    if result.returncode:
+        raise RuntimeError(result.stderr.strip())
+    return json.loads(result.stdout) if result.stdout.strip() else None
+
+
+def photoshop_exe_info(path):
+    if not path or not os.path.isfile(path) or os.path.basename(path).lower() != "photoshop.exe":
+        raise ValueError("Photoshop.exe path is invalid: " + str(path))
+    literal = os.path.abspath(path).replace("'", "''")
+    info = _photoshop_query(
+        f"(Get-Item -LiteralPath '{literal}').VersionInfo | "
+        "Select-Object ProductName,FileVersion,FileMajorPart | ConvertTo-Json -Compress")
+    if not info or "photoshop" not in (info.get("ProductName") or "").lower() or not info.get("FileMajorPart"):
+        raise ValueError("Cannot verify Photoshop executable version: " + path)
+    return {"path": os.path.abspath(path), "version": info["FileVersion"],
+            "major": int(info["FileMajorPart"]), "product": info["ProductName"]}
+
+
+def running_photoshops():
+    items = _photoshop_query(
+        "@(Get-Process -Name Photoshop -ErrorAction SilentlyContinue | "
+        "Select-Object Id,Path) | ConvertTo-Json -Compress") or []
+    if isinstance(items, dict):
+        items = [items]
+    if any(not item.get("Path") for item in items):
+        raise RuntimeError("Cannot read a running Photoshop path (check process permissions).")
+    return items
+
+
+def installed_photoshops(extra_path=""):
+    paths = {extra_path} if extra_path else set()
+    for root in (winreg.HKEY_LOCAL_MACHINE, winreg.HKEY_CURRENT_USER):
+        for view in (winreg.KEY_WOW64_64KEY, winreg.KEY_WOW64_32KEY):
+            try:
+                with winreg.OpenKey(root, r"SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\Photoshop.exe",
+                                    0, winreg.KEY_READ | view) as key:
+                    paths.add(winreg.QueryValueEx(key, "")[0].strip('"'))
+            except OSError:
+                pass
+            try:
+                with winreg.OpenKey(root, r"SOFTWARE\Adobe\Photoshop", 0, winreg.KEY_READ | view) as key:
+                    for i in range(winreg.QueryInfoKey(key)[0]):
+                        try:
+                            with winreg.OpenKey(key, winreg.EnumKey(key, i)) as version_key:
+                                paths.add(os.path.join(winreg.QueryValueEx(version_key, "ApplicationPath")[0], "Photoshop.exe"))
+                        except OSError:
+                            pass
+            except OSError:
+                pass
+    for base in (os.environ.get("ProgramFiles"), os.environ.get("ProgramFiles(x86)")):
+        adobe = os.path.join(base, "Adobe") if base else ""
+        if os.path.isdir(adobe):
+            for name in os.listdir(adobe):
+                if "photoshop" in name.lower():
+                    paths.add(os.path.join(adobe, name, "Photoshop.exe"))
+    result = {}
+    for path in sorted(paths):
+        if os.path.isfile(path):
+            info = photoshop_exe_info(path)
+            result[os.path.normcase(info["path"])] = info
+    return list(result.values())
+
+
+def resolve_photoshop_target(configured, running, installed):
+    # Never substitute a different running version for an explicitly saved path.
+    if configured:
+        target = photoshop_exe_info(configured)
+    elif len(running) == 1:
+        target = photoshop_exe_info(running[0]["Path"])
+    elif not running and len(installed) == 1:
+        target = installed[0]
+    else:
+        raise ValueError("Select a Photoshop.exe version in Settings before sending a script.")
+    expected = os.path.normcase(target["path"])
+    if any(os.path.normcase(os.path.abspath(p["Path"])) != expected for p in running):
+        raise ValueError("A different Photoshop version is running. Select its executable in Settings, "
+                         "or close other Photoshop versions before retrying. Target: " + target["path"])
+    return target
+
+
+def photoshop_config_path(info, appdata=None):
+    # Only known release versions with an existing, unambiguous preferences folder.
+    year = {20: 2019, 21: 2020, 22: 2021, 23: 2022, 24: 2023,
+            25: 2024, 26: 2025, 27: 2026}.get(info["major"])
+    if not year or "beta" in (info["path"] + info["product"]).lower():
+        raise ValueError("Cannot identify this Photoshop preferences version safely.")
+    adobe = os.path.join(appdata or os.environ["APPDATA"], "Adobe")
+    matches = []
+    if os.path.isdir(adobe):
+        name = f"Adobe Photoshop {year}"
+        for entry in os.scandir(adobe):
+            if entry.is_dir() and entry.name == name:
+                settings = os.path.join(entry.path, name + " Settings")
+                if os.path.isdir(settings):
+                    matches.append(os.path.join(settings, "PSUserConfig.txt"))
+    if len(matches) != 1:
+        raise ValueError("Open this Photoshop version once first; its preferences folder was not found uniquely.")
+    return matches[0]
+
+
+def photoshop_warning_config(path):
+    raw = b""
+    if os.path.isfile(path):
+        with open(path, "rb") as stream:
+            raw = stream.read()
+    encoding = "utf-16" if raw.startswith((b"\xff\xfe", b"\xfe\xff")) else "utf-8-sig"
+    text = raw.decode(encoding)
+    values = re.findall(r"(?mi)^\s*WarnRunningScripts\s+([01])\s*(?:#.*)?$", text)
+    return raw, encoding, text, values
+
+
+def disable_photoshop_warning(path):
+    # Called only after explicit consent, with Photoshop closed. Preserve all other bytes.
+    raw, encoding, text, values = photoshop_warning_config(path)
+    option_count = len(re.findall(r"(?mi)^\s*WarnRunningScripts\b", text))
+    if option_count > 1:
+        raise ValueError("Duplicate WarnRunningScripts options; resolve these manually first.")
+    if values == ["0"]:
+        return None
+    if option_count and not values:
+        raise ValueError("Unrecognized WarnRunningScripts option; edit manually.")
+    backup = None
+    if os.path.exists(path):
+        backup = path + "." + uuid.uuid4().hex + ".bak"
+        shutil.copy2(path, backup)
+    if values:
+        # Change only the option's value; preserve comments, encoding and line endings.
+        text = re.sub(r"(?mi)^(\s*WarnRunningScripts\s+)1\b", r"\g<1>0", text)
+        data = text.encode(encoding)
+        if encoding == "utf-16":
+            data = raw[:2] + text.encode("utf-16-le" if raw.startswith(b"\xff\xfe") else "utf-16-be")
+        if encoding == "utf-8-sig" and not raw.startswith(b"\xef\xbb\xbf"):
+            data = data[3:]
+    else:
+        suffix = ("" if not text or text.endswith(("\n", "\r")) else "\r\n") + "WarnRunningScripts 0\r\n"
+        encoded = suffix.encode(encoding)
+        if encoding == "utf-16":
+            encoded = suffix.encode("utf-16-le" if raw.startswith(b"\xff\xfe") else "utf-16-be")
+        elif encoding == "utf-8-sig":
+            encoded = suffix.encode("utf-8")
+        data = raw + encoded
+    temporary = path + "." + uuid.uuid4().hex + ".tmp"
+    try:
+        with open(temporary, "xb") as stream:
+            stream.write(data)
+        os.replace(temporary, path)
+    finally:
+        if os.path.exists(temporary):
+            os.remove(temporary)
+    return backup
+
+
 def find_photoshop_exe() -> str:
     try:
-        with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\Photoshop.exe") as key:
-            ps_path, _ = winreg.QueryValueEx(key, "")
-            if ps_path and os.path.exists(ps_path): return ps_path
+        running = running_photoshops()
+        installed = installed_photoshops()
+        return resolve_photoshop_target("", running, installed)["path"]
     except Exception:
-        pass
-    try:
-        base_key_path = r"SOFTWARE\Adobe\Photoshop"
-        with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, base_key_path) as base_key:
-            versions = [winreg.EnumKey(base_key, i) for i in range(winreg.QueryInfoKey(base_key)[0])]
-            versions.sort(key=lambda v: float(v) if v.replace('.','',1).isdigit() else 0, reverse=True)
-            for v in versions:
-                try:
-                    with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, f"{base_key_path}\\{v}") as v_key:
-                        app_path, _ = winreg.QueryValueEx(v_key, "ApplicationPath")
-                        exe_path = os.path.join(app_path, "Photoshop.exe")
-                        if os.path.exists(exe_path): return exe_path
-                except Exception:
-                    continue
-    except Exception:
-        pass
-    return ""
+        return ""
+
 
 def find_aseprite_exe() -> str:
     common_paths = [
@@ -730,11 +1127,54 @@ def setup_aseprite_environment(orig_paste_lua: str, orig_copy_lua: str) -> (bool
 # ==========================================
 # Worker Threads & Status Pollers
 # ==========================================
-class PhotoshopCLIWorker(QThread):
-    finished = Signal(bool, str) # 성공여부, 메시지
-    log = Signal(str)
+def make_photoshop_wrapper(target, body_path, attempt_path, token, started_path, result_path, job_path):
+    values = [os.path.dirname(target["path"]), str(target["major"]), body_path,
+              attempt_path, token, started_path, result_path, job_path]
+    args = ", ".join(json.dumps(value, ensure_ascii=True) for value in values)
+    return "#target photoshop\n" + r'''
+(function(expectedPath, expectedMajor, body, attempt, token, started, result, job) {
+    function read(path) {
+        var f = new File(path); f.encoding = "UTF-8";
+        if (!f.exists || !f.open("r")) return "";
+        var s = f.read(); f.close(); return s;
+    }
+    function write(path, text) {
+        var f = new File(path); f.encoding = "UTF-8";
+        if (!f.open("w")) throw new Error("Cannot write status: " + path);
+        f.write(text); f.close();
+    }
+    function normalize(path) { return path.replace(/\\/g, "/").replace(/\/+$/, "").toLowerCase(); }
+    if (read(attempt) !== token) return; // Expired queued launch, not a new success.
+    try {
+        if (normalize(app.path.fsName) !== normalize(expectedPath) ||
+                app.version.split(".")[0] !== expectedMajor) {
+            throw new Error("Photoshop target mismatch: " + app.version + " / " + app.path.fsName);
+        }
+        write(started, app.version + "\n" + app.path.fsName);
+        var done = new File(job + "/status_done.json");
+        var error = new File(job + "/status_error.txt");
+        if (done.exists) done.remove();
+        if (error.exists) error.remove();
+        $.evalFile(new File(body));
+        if (read(attempt) !== token) return;
+        if (error.exists) write(result, "error\n" + read(error.fsName));
+        else if (done.exists) write(result, "done");
+        else write(result, "error\nScript returned without a completion response.");
+    } catch (e) {
+        if (read(attempt) === token) write(result, "error\n" + e.toString());
+    }
+})(ARGS);
+'''.replace("ARGS", args)
 
-    def __init__(self, jsx_template_path, ps_exe_path, job_id, temp_dir, align_mode, frame_mode="normal"):
+
+class PhotoshopCLIWorker(QThread):
+    RESPONSE_TIMEOUT = 30
+    POLL_INTERVAL = 0.5
+    result_ready = Signal(bool, str)
+    log = Signal(str)
+    diagnostic = Signal(object)
+
+    def __init__(self, jsx_template_path, ps_exe_path, job_id, temp_dir, align_mode, frame_mode="normal", language="ko", debug=False):
         super().__init__()
         self.jsx_template_path = jsx_template_path
         self.ps_exe_path = ps_exe_path
@@ -742,10 +1182,77 @@ class PhotoshopCLIWorker(QThread):
         self.temp_dir = temp_dir
         self.align_mode = align_mode
         self.frame_mode = frame_mode
+        self.debug = bool(debug)
+        self.messages = LANG.get(language, LANG["ko"])
         self.job_path = os.path.join(self.temp_dir, self.job_id)
+        self.outcome = None
+        self.event_offset = 0
+
+    def trace(self, state, **details):
+        try:
+            self.diagnostic.emit(diagnostic_event(self.job_id, "PhotoshopWorker", state, **details))
+        except Exception:
+            pass
+
+    def complete(self, success, message, state):
+        self.outcome = (success, message)
+        self.trace(state)
+        self.result_ready.emit(success, message)
+
+    def read_script_events(self, path):
+        try:
+            if not os.path.isfile(path):
+                return
+            with open(path, "rb") as stream:
+                stream.seek(self.event_offset)
+                for _ in range(100):
+                    line = stream.readline(65536)
+                    if not line.endswith(b"\n"):
+                        break
+                    self.event_offset = stream.tell()
+                    try:
+                        event = json.loads(line.decode("utf-8-sig"))
+                        if event.get("attempt") != self.attempt_token:
+                            continue
+                        self.diagnostic.emit(diagnostic_event(
+                            self.job_id, "PhotoshopJSX", event["state"],
+                            script_timestamp_ms=event.get("timestamp_ms"), data=event.get("details")))
+                    except Exception:
+                        self.trace("DIAGNOSTIC_READ_FAILED")
+        except Exception:
+            self.trace("DIAGNOSTIC_READ_FAILED")
+
+    def trace_render_outputs(self):
+        try:
+            layers = os.path.join(self.job_path, "layers")
+            files = sorted(p for p in os.listdir(layers) if p.lower().endswith(".png")) if os.path.isdir(layers) else []
+            samples = []
+            for filename in files[:8]:
+                try:
+                    with Image.open(os.path.join(layers, filename)) as image:
+                        sample = {"file": filename, "size": list(image.size)}
+                        if image.width * image.height <= 4_000_000:
+                            sample["alpha_bbox"] = image.getchannel("A").getbbox() if "A" in image.getbands() else [0, 0, image.width, image.height]
+                        else:
+                            sample["alpha_measurement"] = "skipped_size_limit"
+                        samples.append(sample)
+                except Exception:
+                    samples.append({"file": filename, "alpha_measurement": "unavailable"})
+            self.trace("RENDER_OUTPUT_CHECK", png_count=len(files), samples=samples,
+                       alpha_measurement="sampled_pngs" if files else "no_exported_pngs")
+        except Exception:
+            self.trace("DIAGNOSTIC_READ_FAILED")
 
     def run(self):
+        attempt_path = None
         try:
+            self.trace("STARTING")
+            running = running_photoshops()
+            target = resolve_photoshop_target(
+                self.ps_exe_path, running, installed_photoshops() if not self.ps_exe_path else [])
+            self.ps_exe_path = target["path"]
+            self.trace("TARGET_VALIDATED", version=target["version"], executable=target["path"])
+            self.log.emit(f"[Photoshop] {target['version']} | {self.ps_exe_path}")
             if not os.path.exists(self.job_path):
                 os.makedirs(self.job_path)
 
@@ -761,49 +1268,88 @@ class PhotoshopCLIWorker(QThread):
             script_content = script_content.replace('"REPLACE_ME_JOB_PATH"', f'"{safe_job_path}"')
             script_content = script_content.replace('"REPLACE_ME_ALIGN_MODE"', f'"{self.align_mode}"')
             script_content = script_content.replace('"REPLACE_ME_FRAME_MODE"', f'"{self.frame_mode}"')
+            script_content = script_content.replace('"REPLACE_ME_DEBUG_ENABLED"', "true" if self.debug else "false")
 
-            wrapper_jsx_path = os.path.join(self.job_path, "run_bridge.jsx")
+            token = uuid.uuid4().hex
+            self.attempt_token = token
+            attempt_path = os.path.join(self.job_path, "active_ps_attempt.txt")
+            started_path = os.path.join(self.job_path, "ps_started_" + token + ".txt")
+            result_path = os.path.join(self.job_path, "ps_result_" + token + ".txt")
+            body_path = os.path.join(self.job_path, "ps_body_" + token + ".jsx")
+            wrapper_jsx_path = os.path.join(self.job_path, "run_bridge_" + token + ".jsx")
+            events_path = os.path.join(self.job_path, "ps_events_" + token + ".jsonl")
+            script_content = script_content.replace('"REPLACE_ME_DIAGNOSTICS_PATH"', json.dumps(events_path))
+            script_content = script_content.replace('"REPLACE_ME_ATTEMPT_TOKEN"', json.dumps(token))
+            with open(attempt_path, "w", encoding="utf-8") as f:
+                f.write(token)
+            with open(body_path, "w", encoding="utf-8") as f:
+                f.write(re.sub(r"(?m)^\s*#target[^\r\n]*", "", script_content))
             with open(wrapper_jsx_path, "w", encoding="utf-8") as f:
-                f.write(script_content)
-
-            if not self.ps_exe_path or not os.path.exists(self.ps_exe_path):
-                cmd = 'powershell.exe -NoProfile -Command "(Get-Process Photoshop -ErrorAction SilentlyContinue).Path | Select-Object -First 1"'
-                result = subprocess.run(cmd, capture_output=True, text=True, creationflags=subprocess.CREATE_NO_WINDOW)
-                self.ps_exe_path = result.stdout.strip()
-
-            if not self.ps_exe_path or not os.path.exists(self.ps_exe_path):
-                self.finished.emit(False, "포토샵 프로세스를 찾을 수 없습니다. (Photoshop process not found)")
-                return
+                f.write(make_photoshop_wrapper(target, body_path, attempt_path, token,
+                                               started_path, result_path, self.job_path))
+            self.trace("COMMAND_PREPARED", frame_mode=self.frame_mode, align_mode=self.align_mode, debug=self.debug)
 
             self.log.emit("🔄 [CLI] 전송 중... (Sending command...)")
 
             subprocess.Popen([self.ps_exe_path, wrapper_jsx_path], creationflags=subprocess.CREATE_NO_WINDOW)
+            self.trace("PROCESS_LAUNCHED")
             
-            timeout = 30
+            timeout = self.RESPONSE_TIMEOUT
             start_time = time.time()
+            script_started = False
             
             while time.time() - start_time < timeout:
-                if os.path.exists(error_file):
-                    time.sleep(0.2)
-                    try:
-                        with open(error_file, "r", encoding="utf-8") as f:
-                            err_msg = f.read()
-                    except:
-                        err_msg = "Unknown Error"
-                    self.finished.emit(False, err_msg)
+                if getattr(self, "isInterruptionRequested", lambda: False)():
+                    self.complete(False, self.messages["diag_cancelled"], "CANCELLED")
                     return
-                
-                if os.path.exists(done_file):
-                    time.sleep(0.2)
-                    self.finished.emit(True, "Success")
-                    return
+                if not script_started and os.path.exists(started_path):
+                    script_started = True
+                    self.trace("SCRIPT_STARTED")
+                self.read_script_events(events_path)
+                if os.path.exists(result_path):
+                    with open(result_path, "r", encoding="utf-8-sig") as f:
+                        response = f.read()
+                    if response == "done":
+                        self.trace("RESPONSE_RECEIVED", response="done")
+                        if os.path.basename(self.jsx_template_path) == "photoshop_copy.jsx":
+                            self.trace_render_outputs()
+                        if os.path.basename(self.jsx_template_path) == "photoshop_copy.jsx":
+                            with open(os.path.join(self.job_path, "ps_copy_accepted.txt"), "w", encoding="utf-8") as f:
+                                f.write(token)
+                        self.complete(True, "Success", "COMPLETED")
+                        return
+                    if response.startswith("error\n"):
+                        self.trace("RESPONSE_RECEIVED", response="error", script_error=response[6:])
+                        if os.path.basename(self.jsx_template_path) == "photoshop_copy.jsx":
+                            self.trace_render_outputs()
+                        self.complete(False, self.messages["ps_script_error"] + response[6:], "FAILED")
+                        return
                     
-                time.sleep(0.5)
+                time.sleep(self.POLL_INTERVAL)
 
-            self.finished.emit(False, "포토샵 응답 시간 초과. (Photoshop timeout)")
+            try:
+                remaining = running_photoshops()
+                alive = any(os.path.normcase(p["Path"]) == os.path.normcase(self.ps_exe_path)
+                            for p in remaining)
+                reason = "ps_timeout_running" if os.path.exists(started_path) else "ps_timeout_pending"
+                if not alive:
+                    reason = "ps_timeout_closed"
+            except Exception:
+                reason = "ps_timeout_unknown"
+            self.complete(False, self.messages[reason], "TIMEOUT")
 
         except Exception as e:
-            self.finished.emit(False, f"시스템 에러 (System error): {str(e)}")
+            self.trace("PYTHON_EXCEPTION", traceback=traceback.format_exc())
+            self.complete(False, f"시스템 에러 (System error): {str(e)}", "FAILED")
+        finally:
+            self.trace("CLEANUP_STARTED")
+            if attempt_path:
+                try:
+                    with open(attempt_path, "w", encoding="utf-8") as f:
+                        f.write("")
+                except Exception:
+                    self.trace("CLEANUP_WARNING", traceback=traceback.format_exc())
+            self.trace("CLEANUP_COMPLETED")
 
 class AsepriteWorker(QThread):
     finished = Signal()
@@ -865,12 +1411,13 @@ class AsepriteWorker(QThread):
 # Settings Dialog
 # ==========================================
 class SettingsDialog(QDialog):
-    def __init__(self, current_settings, lang_dict, parent=None):
+    def __init__(self, current_settings, lang_dict, parent=None, photoshop_only=False):
         super().__init__(parent)
         self.lang = lang_dict
         self.setWindowTitle(self.lang["set_title"])
-        self.setFixedSize(500, 390)
+        self.setMinimumSize(560, 470)
         self.current_settings = current_settings
+        self.photoshop_only = photoshop_only
         
         layout = QVBoxLayout(self)
         
@@ -884,6 +1431,35 @@ class SettingsDialog(QDialog):
         ps_layout.addWidget(self.ps_path_input)
         ps_layout.addWidget(ps_btn)
         form_layout.addRow(self.lang["set_ps_path"], ps_layout)
+
+        self.ps_versions = QComboBox()
+        self.ps_versions.addItem(self.lang["ps_versions"], "")
+        try:
+            running = running_photoshops()
+            for info in installed_photoshops(self.ps_path_input.text()):
+                pids = [str(p["Id"]) for p in running
+                        if os.path.normcase(p["Path"]) == os.path.normcase(info["path"])]
+                label = f"{info['product']} ({info['version']})"
+                if pids:
+                    label += " [PID " + ", ".join(pids) + "]"
+                self.ps_versions.addItem(label, info["path"])
+                self.ps_versions.setItemData(self.ps_versions.count() - 1, info["path"], Qt.ToolTipRole)
+        except Exception as e:
+            self.ps_versions.setToolTip(str(e))
+        self.ps_path_input.textChanged.connect(self.sync_photoshop_version_selection)
+        self.sync_photoshop_version_selection()
+        self.ps_versions.activated.connect(self.select_photoshop_version)
+        form_layout.addRow(self.lang["ps_versions"], self.ps_versions)
+        ps_warning_btn = QPushButton(self.lang["ps_warning"])
+        ps_warning_btn.clicked.connect(self.configure_photoshop_warning)
+        form_layout.addRow("", ps_warning_btn)
+        if photoshop_only:
+            layout.addLayout(form_layout)
+            self.button_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+            self.button_box.accepted.connect(self.accept)
+            self.button_box.rejected.connect(self.reject)
+            layout.addWidget(self.button_box)
+            return
         
         # Aseprite 경로
         self.ase_path_input = QLineEdit(self.current_settings.get("aseprite_exe", ""))
@@ -953,9 +1529,9 @@ class SettingsDialog(QDialog):
         btn_reconfigure.clicked.connect(self.force_reconfigure)
         layout.addWidget(btn_reconfigure)
 
-        btn_show_ase_setup = QPushButton(self.lang["set_show_ase_setup"])
-        btn_show_ase_setup.clicked.connect(self.show_aseprite_setup)
-        layout.addWidget(btn_show_ase_setup)
+        self.btn_setup_guide = QPushButton(self.lang["guide_reopen"])
+        self.btn_setup_guide.clicked.connect(self.show_initial_setup)
+        layout.addWidget(self.btn_setup_guide)
         
         # 확인/취소
         self.button_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
@@ -967,6 +1543,49 @@ class SettingsDialog(QDialog):
         path, _ = QFileDialog.getOpenFileName(self, "Select Executable", "C:\\", "Executables (*.exe)")
         if path:
             line_edit.setText(path)
+
+    def sync_photoshop_version_selection(self):
+        path = self.ps_path_input.text()
+        matches = []
+        if path and os.path.isfile(path):
+            expected = os.path.normcase(os.path.abspath(path))
+            for index in range(1, self.ps_versions.count()):
+                candidate = self.ps_versions.itemData(index)
+                if candidate and os.path.normcase(os.path.abspath(candidate)) == expected:
+                    matches.append(index)
+        self.ps_versions.setCurrentIndex(matches[0] if len(matches) == 1 else 0)
+
+    def select_photoshop_version(self, index):
+        path = self.ps_versions.itemData(index)
+        if path:
+            self.ps_path_input.setText(path)
+        self.sync_photoshop_version_selection()
+
+    def configure_photoshop_warning(self):
+        try:
+            info = photoshop_exe_info(self.ps_path_input.text())
+            path = photoshop_config_path(info)
+            _, _, _, values = photoshop_warning_config(path)
+            prompt = self.lang["ps_warning_info"].format(
+                version=info["version"], exe=info["path"], config=path,
+                state=", ".join(values) if values else self.lang["ps_default_warning"])
+            answer = QMessageBox.question(self, self.lang["ps_warning_title"], prompt,
+                                          QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+            if answer != QMessageBox.Yes:
+                return
+            if running_photoshops():
+                QMessageBox.warning(self, self.lang["ps_warning_title"], self.lang["ps_close_first"])
+                return
+            # Revalidate the selected version/path after consent; never touch another version.
+            if photoshop_config_path(photoshop_exe_info(self.ps_path_input.text())) != path:
+                raise ValueError("Photoshop preferences target changed.")
+            backup = disable_photoshop_warning(path)
+            self.current_settings["photoshop_warning_choice"] = {"exe": info["path"], "disabled": True}
+            save_settings(self.current_settings)
+            QMessageBox.information(self, self.lang["ps_warning_title"],
+                                    self.lang["ps_warning_done"].format(backup=backup or self.lang["ps_no_backup"]))
+        except Exception as e:
+            QMessageBox.warning(self, self.lang["ps_warning_title"], str(e))
 
     def force_reconfigure(self):
         ase_paste_lua_orig = get_resource_path(os.path.join("scripts", "aseprite_paste.lua"))
@@ -984,32 +1603,132 @@ class SettingsDialog(QDialog):
         if parent_app and hasattr(parent_app, "show_aseprite_setup"):
             parent_app.show_aseprite_setup()
 
+    def show_initial_setup(self):
+        app = self.parent()
+        if app and hasattr(app, "settings"):
+            previous_path = app.settings.get("photoshop_exe", "")
+            dialog = InitialSetupDialog(self.lang, app, self)
+            dialog.exec()
+            self.hotkey_status.setText(self.current_settings.get("hotkey_status", ""))
+            if app.settings.get("photoshop_exe", "") != previous_path:
+                self.ps_path_input.setText(app.settings.get("photoshop_exe", ""))
+            if dialog.open_tutorial_requested:
+                TutorialDialog(self.lang, self, app=app).exec()
+
     def get_settings(self):
+        settings = dict(self.current_settings)
+        if self.photoshop_only:
+            settings["photoshop_exe"] = self.ps_path_input.text()
+            return settings
         lang = "ko"
         if self.rb_en.isChecked():
             lang = "en"
         elif self.rb_ja.isChecked():
             lang = "ja"
             
-        return {
+        settings.update({
             "photoshop_exe": self.ps_path_input.text(),
             "aseprite_exe": self.ase_path_input.text(),
             "default_alignment": "ground_line" if self.rb_ground_line.isChecked() else ("center" if self.rb_center.isChecked() else "absolute"),
             "language": lang,
             "hotkey_status": self.hotkey_status.text(),
             "aseprite_trust_confirmed": self.current_settings.get("aseprite_trust_confirmed", False)
-        }
+        })
+        return settings
 
 # ==========================================
 # Tutorial Dialog
 # ==========================================
 from PySide6.QtWidgets import QCheckBox
 
+class DialogInputTrace(QObject):
+    """Observe input without consuming events or moving focus; log through the async sink."""
+    def __init__(self, dialog, app):
+        super().__init__(dialog)
+        self.dialog = dialog
+        self.app = app
+        self.shown_ns = None
+        self.native_window = None
+        self.paint_seen = False
+        self.expose_seen = False
+        self.buttons = set()
+        self.heartbeat = QTimer(self)
+        self.heartbeat.setInterval(50)
+        self.heartbeat.timeout.connect(self.tick)
+        self.last_tick_ns = None
+        self.native_clock = None
+        if sys.platform == "win32":
+            import ctypes
+            self.native_clock = ctypes.WinDLL("kernel32").GetTickCount64
+            self.native_clock.restype = ctypes.c_ulonglong
+        dialog.installEventFilter(self)
+        dialog.finished.connect(lambda result: self.mark("FINISHED", result=result))
+        self.watch_buttons()
+
+    def watch_buttons(self):
+        for button in self.dialog.findChildren(QPushButton):
+            if button not in self.buttons:
+                self.buttons.add(button)
+                button.installEventFilter(self)
+                button.clicked.connect(lambda checked=False, b=button: self.mark("CLICKED", button=b.text()))
+
+    def mark(self, phase, **details):
+        try:
+            now = time.perf_counter_ns()
+            self.app.trace_job("-", "STARTUP_DIALOG_INPUT", dialog_type=type(self.dialog).__name__,
+                               phase=phase, monotonic_ms=now // 1_000_000,
+                               since_show_ms=round((now - self.shown_ns) / 1_000_000, 3) if self.shown_ns else None,
+                               active=self.dialog.isActiveWindow(), enabled=self.dialog.isEnabled(),
+                               active_modal=QApplication.activeModalWidget() is self.dialog,
+                               modality=str(self.dialog.windowModality()), **details)
+        except Exception:
+            pass
+
+    def tick(self):
+        now = time.perf_counter_ns()
+        gap = (now - self.last_tick_ns) / 1_000_000
+        self.last_tick_ns = now
+        if gap > 150:
+            self.mark("GUI_STALL", gap_ms=round(gap, 3))
+
+    def eventFilter(self, watched, event):
+        kind = event.type()
+        if watched is self.dialog:
+            if kind == QEvent.Show:
+                self.shown_ns = self.last_tick_ns = time.perf_counter_ns()
+                self.paint_seen = self.expose_seen = False
+                self.native_window = self.dialog.windowHandle()
+                if self.native_window:
+                    self.native_window.installEventFilter(self)
+                self.watch_buttons()
+                self.heartbeat.start()
+                self.mark("SHOWN", flags=int(self.dialog.windowFlags()))
+            elif kind == QEvent.Paint and not self.paint_seen:
+                self.paint_seen = True
+                self.mark("FIRST_PAINT")
+            elif kind == QEvent.Hide:
+                self.heartbeat.stop()
+                self.mark("HIDDEN")
+            elif kind in (QEvent.WindowActivate, QEvent.WindowDeactivate):
+                self.mark("ACTIVATE" if kind == QEvent.WindowActivate else "DEACTIVATE")
+        elif watched is self.native_window and kind == QEvent.Expose:
+            if watched.isExposed() and not self.expose_seen:
+                self.expose_seen = True
+                self.mark("FIRST_EXPOSED")
+        elif watched in self.buttons and kind in (QEvent.MouseButtonPress, QEvent.MouseButtonRelease):
+            native_now = self.native_clock() if self.native_clock else None
+            native_age = ((native_now - event.timestamp()) & 0xffffffff) if native_now is not None else None
+            self.mark("PRESS" if kind == QEvent.MouseButtonPress else "RELEASE", button=watched.text(),
+                      spontaneous=event.spontaneous(), native_timestamp_ms=event.timestamp(),
+                      native_now_ms=native_now, native_event_age_ms=native_age)
+        return False
+
+
 class AsepriteSetupDialog(QDialog):
-    def __init__(self, lang_dict, parent=None):
+    def __init__(self, lang_dict, parent=None, app=None):
         super().__init__(parent)
         self.lang = lang_dict
-        self.parent_app = parent
+        self.parent_app = app or parent
         self.setWindowTitle(self.lang["ase_setup_title"])
         self.setMinimumSize(460, 360)
 
@@ -1030,6 +1749,7 @@ class AsepriteSetupDialog(QDialog):
         self.button_box = QDialogButtonBox()
         self.btn_complete = self.button_box.addButton(self.lang["ase_setup_complete"], QDialogButtonBox.AcceptRole)
         self.btn_later = self.button_box.addButton(self.lang["ase_setup_later"], QDialogButtonBox.RejectRole)
+        self.input_trace = DialogInputTrace(self, self.parent_app) if self.parent_app else None
         self.btn_complete.clicked.connect(self.accept)
         self.btn_later.clicked.connect(self.reject)
         layout.addWidget(self.button_box)
@@ -1057,43 +1777,236 @@ class AsepriteSetupDialog(QDialog):
                 self.parent_app.log_message(self.lang["ase_setup_saved"])
         super().accept()
 
+class InitialSetupDialog(QDialog):
+    """Guide completion, auto-display, and external security confirmations stay independent."""
+    def __init__(self, lang_dict, app, parent=None):
+        super().__init__(parent or app)
+        self.lang = lang_dict
+        self.app = app
+        self.open_tutorial_requested = False
+        self.setWindowTitle(self.lang["guide_title"])
+        self.setMinimumSize(480, 440)
+        self.resize(560, 590)
+        layout = QVBoxLayout(self)
+        self.step_title = QLabel()
+        self.step_title.setWordWrap(True)
+        self.step_title.setStyleSheet("font-weight: bold; font-size: 15px;")
+        layout.addWidget(self.step_title)
+        self.pages = QStackedWidget()
+        layout.addWidget(self.pages, 1)
+
+        for step in range(4):
+            page = QWidget()
+            content = QVBoxLayout(page)
+            if step == 0:
+                self.add_text(content, self.lang["guide_ps_intro"])
+                self.ps_status = self.add_text(content, "")
+                self.ps_edit = QPushButton(self.lang["guide_ps_edit"])
+                self.ps_edit.clicked.connect(self.edit_photoshop)
+                content.addWidget(self.ps_edit)
+            elif step == 1:
+                self.add_text(content, self.lang["guide_warning_intro"])
+                self.add_text(content, self.lang["guide_warning_optional"])
+                self.warning_status = self.add_text(content, "")
+                self.warning_edit = QPushButton(self.lang["guide_warning_edit"])
+                self.warning_edit.clicked.connect(self.edit_photoshop)
+                content.addWidget(self.warning_edit)
+            elif step == 2:
+                self.add_text(content, self.lang["guide_ase_intro"])
+                self.ase_status = self.add_text(content, "")
+                self.ase_edit = QPushButton(self.lang["guide_ase_open"])
+                self.ase_edit.clicked.connect(self.edit_aseprite)
+                content.addWidget(self.ase_edit)
+                self.hotkeys_confirmed = QCheckBox(self.lang["guide_hotkeys_check"])
+                self.hotkeys_confirmed.setChecked(self.app.settings.get("aseprite_hotkeys_confirmed") is True)
+                self.hotkeys_confirmed.toggled.connect(self.update_summary)
+                content.addWidget(self.hotkeys_confirmed)
+            else:
+                self.add_text(content, self.lang["guide_summary_intro"])
+                self.summary = self.add_text(content, "")
+                self.btn_tutorial = QPushButton(self.lang["guide_tutorial"])
+                self.btn_tutorial.clicked.connect(self.finish_with_tutorial)
+                content.addWidget(self.btn_tutorial)
+            content.addStretch()
+            scroll = QScrollArea()
+            scroll.setWidgetResizable(True)
+            scroll.setFrameShape(QScrollArea.NoFrame)
+            scroll.setWidget(page)
+            self.pages.addWidget(scroll)
+
+        self.cb_dont_show = QCheckBox(self.lang["guide_dont_show"])
+        self.cb_dont_show.setChecked(self.app.settings.get("show_initial_setup") is False)
+        layout.addWidget(self.cb_dont_show)
+        buttons = QHBoxLayout()
+        self.btn_later = QPushButton(self.lang["guide_later"])
+        self.btn_back = QPushButton(self.lang["guide_back"])
+        self.btn_next = QPushButton()
+        self.btn_next.setObjectName("setup_guide_next")
+        for button in (self.btn_later, self.btn_back, self.btn_next):
+            button.setAutoDefault(False)
+            buttons.addWidget(button)
+        layout.addLayout(buttons)
+        self.input_trace = DialogInputTrace(self, app)
+        self.btn_later.clicked.connect(self.reject)
+        self.btn_back.clicked.connect(lambda: self.set_step(self.pages.currentIndex() - 1))
+        self.btn_next.clicked.connect(self.next_step)
+        # Read-only queries finish before this dialog becomes visible, never after its first paint.
+        self.refresh_status()
+        self.set_step(0)
+
+    @staticmethod
+    def add_text(layout, text):
+        label = QLabel(text)
+        label.setTextFormat(Qt.PlainText)
+        label.setWordWrap(True)
+        label.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        layout.addWidget(label)
+        return label
+
+    def refresh_status(self):
+        path = self.app.settings.get("photoshop_exe", "")
+        connection = self.lang["guide_ps_missing"]
+        warning = self.lang["guide_warning_unknown"]
+        try:
+            info = photoshop_exe_info(path)
+            connection = self.lang["guide_ps_valid"].format(**info)
+            config = photoshop_config_path(info)
+            _, _, text, values = photoshop_warning_config(config)
+            count = len(re.findall(r"(?mi)^\s*WarnRunningScripts\b", text))
+            if values == ["0"] and count == 1:
+                warning = self.lang["guide_warning_disabled"]
+            elif count == 0 or (values == ["1"] and count == 1):
+                warning = self.lang["guide_warning_keep"]
+        except Exception:
+            pass
+        self.ps_status.setText(connection + "\n" + path)
+        self.warning_status.setText(warning)
+
+        scripts_current, keys_registered = False, False
+        try:
+            import filecmp
+            folder = os.path.join(os.environ["APPDATA"], "Aseprite")
+            pairs = [(self.app.ase_paste_lua_orig, "aseprite_paste.lua", "F4"),
+                     (self.app.ase_copy_lua_orig, "aseprite_copy.lua", "F5")]
+            scripts_current = all(filecmp.cmp(source, os.path.join(folder, "scripts", name), shallow=False)
+                                  for source, name, _ in pairs)
+            root = ET.parse(os.path.join(folder, "user.aseprite-keys")).getroot()
+            keys_registered = True
+            for _, name, shortcut in pairs:
+                expected = os.path.normcase(os.path.abspath(os.path.join(folder, "scripts", name)))
+                matches = root.findall("./commands/key[@shortcut='" + shortcut + "']")
+                keys_registered = keys_registered and len(matches) == 1 and matches[0].get("command") == "RunScript" and any(
+                    p.get("name") == "filename" and os.path.normcase(os.path.abspath(p.get("value", ""))) == expected
+                    for p in matches[0].findall("param"))
+        except Exception:
+            pass
+        self.ase_status.setText(self.lang["guide_files_ok" if scripts_current else "guide_files_pending"] + "\n" +
+                                self.lang["guide_keys_ok" if keys_registered else "guide_keys_pending"])
+        self.update_summary()
+
+    def update_summary(self):
+        if not hasattr(self, "summary"):
+            return
+        trust_key = "guide_trust_yes" if self.app.settings.get("aseprite_trust_confirmed") is True else "guide_trust_no"
+        keys_key = "guide_keys_tested" if self.hotkeys_confirmed.isChecked() else "guide_keys_untested"
+        self.summary.setText("\n\n".join((self.ps_status.text(), self.warning_status.text(),
+                                          self.ase_status.text(), self.lang[trust_key], self.lang[keys_key])))
+
+    def edit_photoshop(self):
+        dialog = SettingsDialog(self.app.settings, self.lang, self, photoshop_only=True)
+        if dialog.exec():
+            self.app.settings.update(dialog.get_settings())
+            save_settings(self.app.settings)
+        self.refresh_status()
+
+    def edit_aseprite(self):
+        dialog = AsepriteSetupDialog(self.lang, self, app=self.app)
+        dialog.exec()
+        self.refresh_status()
+
+    def set_step(self, index):
+        self.pages.setCurrentIndex(index)
+        self.step_title.setText(self.lang["guide_steps"][index])
+        self.btn_back.setEnabled(index > 0)
+        self.btn_next.setText(self.lang["guide_finish" if index == 3 else "guide_next"])
+        self.update_summary()
+
+    def next_step(self):
+        if self.pages.currentIndex() == 3:
+            self.accept()
+        else:
+            self.set_step(self.pages.currentIndex() + 1)
+
+    def finish_with_tutorial(self):
+        self.open_tutorial_requested = True
+        self.accept()
+
+    def done(self, result):
+        self.input_trace.mark("ACCEPT_BEGIN" if result == QDialog.Accepted else "REJECT_BEGIN")
+        try:
+            self.app.settings["initial_setup_seen"] = True
+            self.app.settings["show_initial_setup"] = not self.cb_dont_show.isChecked()
+            self.app.settings["aseprite_hotkeys_confirmed"] = self.hotkeys_confirmed.isChecked()
+            save_settings(self.app.settings)
+            super().done(result)
+        finally:
+            self.input_trace.mark("ACCEPT_END" if result == QDialog.Accepted else "REJECT_END")
+
+
 class TutorialDialog(QDialog):
-    def __init__(self, lang_dict, parent=None):
+    def __init__(self, lang_dict, parent=None, app=None):
         super().__init__(parent)
         self.setWindowTitle(lang_dict["tut_title"])
-        self.setMinimumSize(400, 350)
-        self.parent_app = parent
+        self.setMinimumSize(440, 400)
+        self.resize(560, 580)
+        self.parent_app = app or parent
         
         layout = QVBoxLayout(self)
         
         content_label = QLabel(lang_dict["tut_content"])
         content_label.setWordWrap(True)
         content_label.setStyleSheet("font-size: 13px; line-height: 1.5;")
-        layout.addWidget(content_label)
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QScrollArea.NoFrame)
+        scroll.setWidget(content_label)
+        layout.addWidget(scroll, 1)
         
-        self.cb_dont_show = QCheckBox(lang_dict["tut_dont_show"])
-        layout.addWidget(self.cb_dont_show)
-        
-        btn_close = QPushButton("OK")
-        btn_close.clicked.connect(self.accept)
-        layout.addWidget(btn_close, alignment=Qt.AlignCenter)
+        self.btn_close = QPushButton(lang_dict["guide_close"])
+        self.btn_close.setObjectName("tutorial_confirm")
+        layout.addWidget(self.btn_close, alignment=Qt.AlignCenter)
+        self.input_trace = DialogInputTrace(self, self.parent_app) if self.parent_app else None
+        self.btn_close.clicked.connect(self.accept)
 
     def accept(self):
-        if self.parent_app and hasattr(self.parent_app, 'settings'):
-            if self.cb_dont_show.isChecked():
-                self.parent_app.settings["show_tutorial"] = False
-                save_settings(self.parent_app.settings)
-        super().accept()
+        if self.input_trace:
+            self.input_trace.mark("ACCEPT_BEGIN")
+        try:
+            super().accept()
+        finally:
+            if self.input_trace:
+                self.input_trace.mark("ACCEPT_END")
 
 # ==========================================
 # Main UI Window
 # ==========================================
 class BridgeApp(QMainWindow):
-    def __init__(self):
+    diagnostic_received = Signal(object)
+
+    def __init__(self, startup_progress=None):
         super().__init__()
+        self._startup_ui_ready = False
+        self._startup_dialogs_running = False
+        self._startup_dialogs_complete = False
+        self._startup_closing = False
+        self._startup_interaction_ready = startup_progress is None
+        self._active_ps_job_id = None
+        self.diagnostic_records = deque(maxlen=2000)
+        self.diagnostic_log = DiagnosticLog(os.path.join(BRIDGE_DATA_DIR, "logs"))
+        self.diagnostic_received.connect(self.record_diagnostic, Qt.QueuedConnection)
 
         self.setMinimumSize(460, 680)
-        self.resize(460, 680)
+        self.resize(520, 760)
         self.setWindowFlags(Qt.WindowStaysOnTopHint | Qt.Window)
 
         # 경로 캐싱
@@ -1125,28 +2038,13 @@ class BridgeApp(QMainWindow):
         self.pending_preview_id = None
         
         # 설정 불러오기 및 초기화
+        if startup_progress:
+            startup_progress("startup_settings")
         is_first_run = not os.path.exists(SETTINGS_FILE)
         self.settings = load_settings()
-        
-        # 첫 실행 시 언어 선택 팝업 (취소 시 영어 기본값)
-        if is_first_run:
-            try:
-                from PySide6.QtWidgets import QInputDialog
-                items = ["English", "한국어", "日本語"]
-                item, ok = QInputDialog.getItem(None, "Language / 언어 / 言語", "Select Language:", items, 0, False)
-                if ok and item:
-                    if item == "한국어":
-                        self.settings["language"] = "ko"
-                    elif item == "日本語":
-                        self.settings["language"] = "ja"
-                    else:
-                        self.settings["language"] = "en"
-                else:
-                    self.settings["language"] = "en"
-                save_settings(self.settings)
-            except Exception:
-                self.settings["language"] = "en"
-                save_settings(self.settings)
+        self._needs_language_selection = is_first_run or self.settings.get("language_selection_pending") is True
+        if self._needs_language_selection:
+            self.settings["language_selection_pending"] = True
 
         self.current_lang = self.settings.get("language", "en") # 기본값 fallback 보장
         if self.current_lang not in LANG:
@@ -1155,23 +2053,63 @@ class BridgeApp(QMainWindow):
         self.t = LANG[self.current_lang]
         
         self.setWindowTitle(self.t["title"])
+        if startup_progress:
+            startup_progress("startup_environment", self.current_lang)
         self.init_environment()
 
+        if startup_progress:
+            startup_progress("startup_ui", self.current_lang)
         self.init_ui()
         self.init_timers()
         self.log_message(self.t["msg_started"])
+        self.install_exception_logging()
         
-        QTimer.singleShot(500, self.show_startup_dialogs)
-
     def show_startup_dialogs(self):
-        if self.settings.get("aseprite_trust_confirmed") is not True:
-            self.show_aseprite_setup()
+        if self._startup_closing or not self._startup_ui_ready or self._startup_dialogs_running or self._startup_dialogs_complete:
+            return
+        self._startup_dialogs_running = True
+        try:
+            if self._needs_language_selection:
+                from PySide6.QtWidgets import QInputDialog
+                QTimer.singleShot(0, self.trace_startup_modal)
+                item, ok = QInputDialog.getItem(self, "Language / 언어 / 言語", "Select Language:",
+                                                ["English", "한국어", "日本語"], 0, False)
+                self.current_lang = {"한국어": "ko", "日本語": "ja"}.get(item, "en") if ok else "en"
+                self.settings["language"] = self.current_lang
+                self.settings["language_selection_pending"] = False
+                self._needs_language_selection = False
+                save_settings(self.settings)
+                self.refresh_ui_language()
+            if self.settings.get("show_initial_setup") is True:
+                self.show_initial_setup()
+            self._startup_dialogs_complete = True
+        except Exception:
+            self.trace_job("-", "STARTUP_DIALOG_FAILED", traceback=traceback.format_exc())
+            QMessageBox.critical(self, "Ase-PS Bridge Pro", self.t["startup_failed"])
+            self.close()
+            return
+        finally:
+            self._startup_dialogs_running = False
+        self._startup_interaction_ready = True
+        self.update_ui_state()
+        if not self.clip_timer.isActive():
+            self.clip_timer.start(1000)
+        self.trace_job("-", "STARTUP_INTERACTIVE")
 
-        if self.settings.get("show_tutorial", True):
-            self.show_tutorial()
+    def trace_startup_modal(self):
+        modal = QApplication.activeModalWidget()
+        if modal:
+            self.trace_job("-", "STARTUP_MODAL_READY", dialog_type=type(modal).__name__,
+                           owned_by_main=modal.parentWidget() is self, enabled=modal.isEnabled(),
+                           active=modal.isActiveWindow(), modal=modal.isModal())
 
     def init_environment(self):
         updated = False
+
+        if "show_initial_setup" not in self.settings:
+            # Existing completed users keep their no-popup startup; this is not a Trust grant.
+            self.settings["show_initial_setup"] = self._needs_language_selection or self.settings.get("aseprite_trust_confirmed") is not True
+            updated = True
         
         if self.settings.get("active_temp_path") != self.temp_dir:
             self.settings["active_temp_path"] = self.temp_dir
@@ -1213,6 +2151,7 @@ class BridgeApp(QMainWindow):
         self.status_label = QLabel(self.t["clip_empty"])
         self.status_label.setFont(QFont("Arial", 10, QFont.Bold))
         self.status_label.setAlignment(Qt.AlignCenter)
+        self.status_label.setWordWrap(True)
         self.status_label.setStyleSheet("padding: 10px; background-color: #f0f0f0; border-radius: 5px;")
         
         btn_layout = QVBoxLayout()
@@ -1243,6 +2182,8 @@ class BridgeApp(QMainWindow):
         self.preview_label = QLabel("No Preview")
         self.preview_label.setAlignment(Qt.AlignCenter)
         self.preview_label.setFixedSize(350, 160)
+        self.preview_label.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        self.preview_label.setScaledContents(False)
         self.preview_label.setStyleSheet("""
             background-color: #e5e7eb;
             background-image: repeating-linear-gradient(45deg, #d1d5db 25%, transparent 25%, transparent 75%, #d1d5db 75%, #d1d5db);
@@ -1254,7 +2195,11 @@ class BridgeApp(QMainWindow):
         layout.addWidget(self.preview_label, alignment=Qt.AlignCenter)
 
         # === 🔄 변환(Transform) 컨트롤 영역 ===
-        flip_layout = QHBoxLayout()
+        self.transform_bar = QWidget()
+        self.transform_bar.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+        flip_layout = QHBoxLayout(self.transform_bar)
+        flip_layout.setContentsMargins(0, 0, 0, 0)
+        flip_layout.setSizeConstraint(QLayout.SetMinimumSize)
         self.btn_flip_h = QPushButton(self.t.get("btn_flip_h", "↔ 좌우 반전"))
         self.btn_flip_v = QPushButton(self.t.get("btn_flip_v", "↕ 상하 반전"))
         self.btn_rotate = QPushButton(self.t.get("btn_rotate", "↻ 90° 회전"))
@@ -1288,7 +2233,7 @@ class BridgeApp(QMainWindow):
         flip_layout.addWidget(self.btn_flip_v)
         flip_layout.addWidget(self.btn_rotate)
         flip_layout.addWidget(self.btn_redo)
-        layout.addLayout(flip_layout)
+        layout.addWidget(self.transform_bar)
 
         # 정렬 모드
         align_layout = QHBoxLayout()
@@ -1331,6 +2276,7 @@ class BridgeApp(QMainWindow):
 
         self.frame_mode_label = QLabel(self.t["frame_mode_label"])
         self.frame_mode_info_label = QLabel()
+        self.frame_mode_info_label.setWordWrap(True)
         self.frame_mode_info_label.setStyleSheet("color: #4b5563; font-size: 11px; font-weight: bold;")
         frame_mode_layout.addWidget(self.frame_mode_label)
         frame_mode_layout.addWidget(self.radio_frame_normal)
@@ -1371,23 +2317,66 @@ class BridgeApp(QMainWindow):
         self.log_console = QTextEdit()
         self.log_console.setReadOnly(True)
         self.log_console.setFont(QFont("Consolas", 8))
+        self.log_console.setMinimumHeight(120)
         self.log_console.setStyleSheet("background-color: #1e1e1e; color: #d4d4d4; padding: 5px;")
+        self.log_console.document().setMaximumBlockCount(2000)
+        diagnostic_toolbar = QHBoxLayout()
+        self.debug_checkbox = QCheckBox(self.t["diag_debug"])
+        self.debug_checkbox.toggled.connect(self.refresh_diagnostic_display)
+        diagnostic_toolbar.addWidget(self.debug_checkbox)
+        diagnostic_toolbar.addStretch()
+        self.diagnostic_buttons = []
+        for key, icon, callback in (
+            ("diag_copy", QStyle.SP_FileIcon, self.copy_diagnostic_logs),
+            ("diag_folder", QStyle.SP_DirOpenIcon, self.open_diagnostic_folder),
+            ("diag_clear", QStyle.SP_DialogResetButton, self.clear_diagnostic_display),
+        ):
+            button = QPushButton()
+            button.setIcon(self.style().standardIcon(icon))
+            button.setToolTip(self.t[key])
+            button.setAccessibleName(self.t[key])
+            button.setFixedSize(28, 24)
+            button.clicked.connect(callback)
+            diagnostic_toolbar.addWidget(button)
+            self.diagnostic_buttons.append((key, button))
+        layout.addLayout(diagnostic_toolbar)
         layout.addWidget(self.log_console)
 
         container = QWidget()
+        layout.setSizeConstraint(QLayout.SetMinimumSize)
         container.setLayout(layout)
-        self.setCentralWidget(container)
+        self.content_scroll = QScrollArea()
+        self.content_scroll.setFrameShape(QScrollArea.NoFrame)
+        self.content_scroll.setWidgetResizable(True)
+        self.content_scroll.setWidget(container)
+        self.setCentralWidget(self.content_scroll)
         
     def show_tutorial(self):
         dlg = TutorialDialog(self.t, self)
+        if self._startup_dialogs_running:
+            QTimer.singleShot(0, self.trace_startup_modal)
         dlg.exec()
+
+    def show_initial_setup(self):
+        dlg = InitialSetupDialog(self.t, self)
+        if self._startup_dialogs_running:
+            QTimer.singleShot(0, self.trace_startup_modal)
+        dlg.exec()
+        if dlg.open_tutorial_requested:
+            self.show_tutorial()
 
     def show_aseprite_setup(self):
         dlg = AsepriteSetupDialog(self.t, self)
+        if self._startup_dialogs_running:
+            QTimer.singleShot(0, self.trace_startup_modal)
         dlg.exec()
         
     def refresh_ui_language(self):
         self.t = LANG[self.current_lang]
+        self.debug_checkbox.setText(self.t["diag_debug"])
+        for key, button in self.diagnostic_buttons:
+            button.setToolTip(self.t[key])
+            button.setAccessibleName(self.t[key])
         self.setWindowTitle(self.t["title"])
         self.radio_center.setText(self.t["align_center"])
         self.radio_absolute.setText(self.t["align_abs"])
@@ -1446,6 +2435,9 @@ class BridgeApp(QMainWindow):
             self.log_message(self.t["msg_settings_saved"])
             
     def clean_temp_folder(self):
+        if self.is_transferring() or self.is_transforming() or self.is_previewing():
+            self.log_message(self.t["diag_wait"])
+            return
         try:
             if not os.path.exists(self.temp_dir):
                 return
@@ -1501,14 +2493,95 @@ class BridgeApp(QMainWindow):
 
     def init_timers(self):
         self.clip_timer = QTimer(self)
-        self.clip_timer.timeout.connect(self.check_clipboard)
-        self.clip_timer.timeout.connect(self.check_temp_folder)
-        self.clip_timer.start(1000)
+        self.clip_timer.timeout.connect(self.poll_clipboard)
+        if self._startup_interaction_ready:
+            self.clip_timer.start(1000)
 
+    def poll_clipboard(self):
+        if not self._startup_interaction_ready or QApplication.activeModalWidget() is not None:
+            return
+        started = time.perf_counter()
+        self.check_clipboard()
+        self.check_temp_folder()
+        elapsed_ms = (time.perf_counter() - started) * 1000
+        if elapsed_ms > 100:
+            self.trace_job("-", "GUI_POLL_SLOW", elapsed_ms=round(elapsed_ms, 3))
+
+    @Slot(str)
     def log_message(self, message):
-        time_str = time.strftime('%H:%M:%S')
-        self.log_console.append(f"[{time_str}] {message}")
-        self.log_console.verticalScrollBar().setValue(self.log_console.verticalScrollBar().maximum())
+        self.record_diagnostic(diagnostic_event(self._active_ps_job_id, "GUI", "LOG", message=message))
+
+    def trace_job(self, job_id, state, **details):
+        try:
+            self.record_diagnostic(diagnostic_event(job_id, "GUI", state, **details))
+        except Exception:
+            pass
+
+    @Slot(object)
+    def record_diagnostic(self, event):
+        try:
+            event = redact_diagnostic(event)
+            try:
+                self.diagnostic_log.write(event)
+            except Exception:
+                pass
+            self.diagnostic_records.append(event)
+            if event.get("state") == "LOG" or event.get("level") == "ERROR" or self.debug_checkbox.isChecked():
+                self.append_diagnostic_line(self.format_diagnostic(event))
+        except Exception:
+            pass
+
+    def format_diagnostic(self, event):
+        level = event.get("level", "INFO" if event["state"] == "LOG" else "DEBUG")
+        return (f"[{event['timestamp']}] [{level}] [{event['job_id']}] "
+                f"{event['component']}:{event['state']} "
+                + json.dumps(event.get("details", {}), ensure_ascii=False))
+
+    def append_diagnostic_line(self, line):
+        bar = self.log_console.verticalScrollBar()
+        position = bar.value()
+        follow = position >= bar.maximum() - 2
+        self.log_console.append(line)
+        bar.setValue(bar.maximum() if follow else position)
+
+    def refresh_diagnostic_display(self):
+        position = self.log_console.verticalScrollBar().value()
+        follow = position >= self.log_console.verticalScrollBar().maximum() - 2
+        visible = [self.format_diagnostic(e) for e in self.diagnostic_records
+                   if e.get("state") == "LOG" or e.get("level") == "ERROR" or self.debug_checkbox.isChecked()]
+        self.log_console.setPlainText("\n".join(visible))
+        bar = self.log_console.verticalScrollBar()
+        bar.setValue(bar.maximum() if follow else position)
+
+    def copy_diagnostic_logs(self):
+        QApplication.clipboard().setText(self.log_console.toPlainText())
+
+    def open_diagnostic_folder(self):
+        QDesktopServices.openUrl(QUrl.fromLocalFile(self.diagnostic_log.directory))
+
+    def clear_diagnostic_display(self):
+        self.diagnostic_records.clear()
+        self.log_console.clear()
+
+    def install_exception_logging(self):
+        self._old_excepthook = sys.excepthook
+        self._old_thread_excepthook = threading.excepthook
+        def record_exception(kind, value, tb):
+            event = diagnostic_event(self._active_ps_job_id, "Python", "UNHANDLED_EXCEPTION",
+                                     traceback="".join(traceback.format_exception(kind, value, tb)))
+            event["level"] = "ERROR"
+            try:
+                self.diagnostic_log.write(event)
+            except Exception:
+                pass
+            try:
+                self.diagnostic_received.emit(event)
+            except Exception:
+                pass
+        self._exception_hook = record_exception
+        self._thread_exception_hook = lambda args: record_exception(args.exc_type, args.exc_value, args.exc_traceback)
+        sys.excepthook = self._exception_hook
+        threading.excepthook = self._thread_exception_hook
 
     def get_align_mode(self):
         if self.radio_absolute.isChecked():
@@ -1596,10 +2669,15 @@ class BridgeApp(QMainWindow):
                 
                 trigger_path = os.path.join(job_path, "trigger_copy.json")
                 if os.path.exists(trigger_path):
-                    time.sleep(0.1)
                     try:
                         with open(trigger_path, "r", encoding="utf-8") as f:
                             payload = json.load(f)
+
+                        # A late timed-out Photoshop launch must not replace the current clipboard.
+                        if (payload.get("source_app") == "photoshop"
+                                and os.path.exists(os.path.join(job_path, "active_ps_attempt.txt"))
+                                and not os.path.exists(os.path.join(job_path, "ps_copy_accepted.txt"))):
+                            continue
                             
                         payload["settings"] = {"align_mode": self.get_align_mode()}
                             
@@ -1624,6 +2702,9 @@ class BridgeApp(QMainWindow):
     def set_preview_image(self, img_bytes):
         pixmap = QPixmap()
         pixmap.loadFromData(img_bytes, "PNG")
+        available = self.preview_label.contentsRect().size()
+        if pixmap.width() > available.width() or pixmap.height() > available.height():
+            pixmap = pixmap.scaled(available, Qt.KeepAspectRatio, Qt.FastTransformation)
         self.preview_label.setPixmap(pixmap)
 
     def is_transforming(self):
@@ -1639,13 +2720,16 @@ class BridgeApp(QMainWindow):
 
     def update_ui_state(self):
         """Job 유효성 및 모든 워커 상태를 검증하여 일관된 UI 상태 유지"""
+        if self.centralWidget():
+            self.centralWidget().setEnabled(self._startup_interaction_ready)
         valid_job = (self.last_job_id is not None) and \
                     (self.current_job_path is not None) and \
                     (os.path.exists(self.current_job_path))
         
         transforming = self.is_transforming()
         previewing = self.is_previewing()
-        transferring = self.is_transferring()
+        transferring = self.is_transferring() or not self._startup_interaction_ready
+        self.btn_clean.setEnabled(not (transferring or transforming or previewing))
         
         # [변환 버튼군] - 파일 수정 작업, 프리뷰 합성, 전송 작업 중일 때 잠금
         can_transform = valid_job and not transforming and not previewing and not transferring
@@ -1683,6 +2767,7 @@ class BridgeApp(QMainWindow):
         self.pending_preview_id = None
         
         try:
+            self.trace_job(os.path.basename(job_path), "PREVIEW_STARTED")
             self.preview_label.setText(self.t.get("msg_generating_preview", "Generating Preview..."))
             self.preview_worker = PreviewGeneratorWorker(job_path, self.last_job_id)
             self.preview_worker.preview_ready.connect(self.on_preview_success)
@@ -1885,15 +2970,25 @@ class BridgeApp(QMainWindow):
 
     # === Actions ===
     def run_ps_copy(self):
-        if self.is_transferring() or self.is_transforming(): return
+        job_id = "bridge_job_" + time.strftime("%Y%m%d_%H%M%S_") + uuid.uuid4().hex
+        self.trace_job(job_id, "COPY_CLICKED")
+        if self.is_transferring() or self.is_transforming():
+            self.trace_job(job_id, "COPY_BLOCKED", active_job=self._active_ps_job_id,
+                           busy_transfer=self.ui_busy_transfer,
+                           ps_running=hasattr(self, "ps_worker") and self.ps_worker.isRunning(),
+                           transforming=self.is_transforming())
+            self.log_message(self.t["diag_blocked"].format(reason=self.t["diag_wait"]))
+            return
+        self._active_ps_job_id = job_id
+        self._ps_operation = "copy"
+        self.trace_job(job_id, "IDLE_TO_STARTING")
+        previous = bool(self.last_job_id and self.current_job_path and os.path.isdir(self.current_job_path))
+        self.update_status(self.t["copy_previous_preview" if previous else "copy_pending"], "#fef3c7", "#92400e")
         self.ui_busy_transfer = True
         self.update_ui_state()
         
         try:
             self.log_message(self.t["msg_ps_copying"])
-            
-            import uuid
-            job_id = "bridge_job_" + time.strftime("%Y%m%d_%H%M%S_") + uuid.uuid4().hex[:4]
             
             self.ps_worker = PhotoshopCLIWorker(
                 self.ps_copy_jsx, 
@@ -1901,23 +2996,73 @@ class BridgeApp(QMainWindow):
                 job_id, 
                 self.temp_dir, 
                 self.get_align_mode(),
-                self.get_frame_mode()
+                self.get_frame_mode(),
+                language=self.settings.get("language", "ko"),
+                debug=self.debug_checkbox.isChecked()
             )
-            self.ps_worker.finished.connect(self.on_ps_copy_finished)
-            self.ps_worker.log.connect(self.log_message)
+            self.ps_worker.result_ready.connect(self.on_ps_copy_finished, Qt.QueuedConnection)
+            self.ps_worker.finished.connect(self.on_ps_thread_finished, Qt.QueuedConnection)
+            self.ps_worker.log.connect(self.log_message, Qt.QueuedConnection)
+            self.ps_worker.diagnostic.connect(self.record_diagnostic, Qt.QueuedConnection)
             self.ps_worker.start()
         except Exception as e:
-            self.ui_busy_transfer = False
-            self.update_ui_state()
-            self.log_message(f"❌ [PS Error] {e}")
+            self.ps_start_failed(e)
 
+    @Slot(bool, str)
     def on_ps_copy_finished(self, success, msg):
-        self.ui_busy_transfer = False
         try:
+            self.show_copy_result_status(success)
             if not success:
                 self.log_message(f"❌ [PS Error] {msg}")
+        except Exception:
+            pass
         finally:
             self.update_ui_state()
+
+    def show_copy_result_status(self, success):
+        previous = bool(self.last_job_id and self.current_job_path and os.path.isdir(self.current_job_path))
+        key = "copy_preview_pending" if success else ("copy_failed_retained" if previous else "copy_failed_empty")
+        self.update_status(self.t[key], "#dbeafe" if success else "#fef3c7", "#1e40af" if success else "#92400e")
+
+    def ps_start_failed(self, error):
+        try:
+            if getattr(self, "_ps_operation", None) == "copy":
+                self.show_copy_result_status(False)
+            self.trace_job(self._active_ps_job_id, "FAILED", traceback=traceback.format_exc())
+            self.log_message(f"[PS Error] {error}")
+        except Exception:
+            pass
+        finally:
+            worker = getattr(self, "ps_worker", None)
+            if worker is None or not worker.isRunning():
+                self.trace_job(self._active_ps_job_id, "CLEANUP_STARTED")
+                self.ui_busy_transfer = False
+                self.trace_job(self._active_ps_job_id, "CLEANUP_COMPLETED")
+                self.trace_job(self._active_ps_job_id, "READY_FOR_NEXT_JOB")
+                self._active_ps_job_id = None
+                if worker is not None:
+                    del self.ps_worker
+                    worker.deleteLater()
+            self.update_ui_state()
+
+    @Slot()
+    def on_ps_thread_finished(self):
+        worker = self.sender()
+        if worker is not getattr(self, "ps_worker", None):
+            return
+        try:
+            if worker.outcome is None:
+                self.trace_job(worker.job_id, "FAILED", reason="worker exited without result")
+        finally:
+            # Native QThread.finished, not the earlier result_ready, owns the busy flag.
+            del self.ps_worker
+            self.ui_busy_transfer = False
+            self._active_ps_job_id = None
+            try:
+                self.trace_job(worker.job_id, "READY_FOR_NEXT_JOB")
+            finally:
+                self.update_ui_state()
+                worker.deleteLater()
 
     def run_ase_paste(self):
         if self.is_transferring() or self.is_transforming(): return
@@ -1977,12 +3122,16 @@ class BridgeApp(QMainWindow):
             self.update_ui_state()
 
     def run_ps_paste(self):
-        if self.is_transferring() or self.is_transforming(): return
+        if self.is_transferring() or self.is_transforming():
+            self.log_message(self.t["diag_wait"])
+            return
         if not self.last_job_id:
             self.log_message(self.t["err_no_ase_clip"])
             return
 
         self.ui_busy_transfer = True
+        self._ps_operation = "paste"
+        self._active_ps_job_id = self.last_job_id
         self.update_ui_state()
         
         try:
@@ -1993,33 +3142,202 @@ class BridgeApp(QMainWindow):
                 self.settings.get("photoshop_exe"), 
                 self.last_job_id, 
                 self.temp_dir, 
-                self.get_align_mode()
+                self.get_align_mode(),
+                language=self.settings.get("language", "ko")
             )
-            self.ps_worker.finished.connect(self.on_ps_paste_finished)
-            self.ps_worker.log.connect(self.log_message)
+            self.ps_worker.result_ready.connect(self.on_ps_paste_finished, Qt.QueuedConnection)
+            self.ps_worker.finished.connect(self.on_ps_thread_finished, Qt.QueuedConnection)
+            self.ps_worker.log.connect(self.log_message, Qt.QueuedConnection)
+            self.ps_worker.diagnostic.connect(self.record_diagnostic, Qt.QueuedConnection)
             self.ps_worker.start()
         except Exception as e:
-            self.ui_busy_transfer = False
-            self.update_ui_state()
-            self.log_message(f"❌ [PS Error] {e}")
+            self.ps_start_failed(e)
 
+    @Slot(bool, str)
     def on_ps_paste_finished(self, success, msg):
-        self.ui_busy_transfer = False
         try:
             if success:
                 self.log_message(self.t["msg_ps_success"])
             else:
                 self.log_message(f"❌ [PS Error] {msg}")
+        except Exception:
+            pass
         finally:
             self.update_ui_state()
 
     def closeEvent(self, event):
         """종료 시 실행 중인 워커 안전하게 종료"""
+        if hasattr(self, "ps_worker") and self.ps_worker.isRunning():
+            self.log_message(self.t["diag_wait"])
+            event.ignore()
+            return
+        self._startup_closing = True
+        if hasattr(self, "_startup_handoff_timer"):
+            self._startup_handoff_timer.stop()
+        if hasattr(self, "_startup_dialog_timer"):
+            self._startup_dialog_timer.stop()
         if hasattr(self, "transform_worker") and self.transform_worker.isRunning():
             self.transform_worker.wait(1000)
         if hasattr(self, "preview_worker") and self.preview_worker.isRunning():
             self.preview_worker.wait(1000)
+        if sys.excepthook is getattr(self, "_exception_hook", None):
+            sys.excepthook = self._old_excepthook
+        if threading.excepthook is getattr(self, "_thread_exception_hook", None):
+            threading.excepthook = self._old_thread_excepthook
+        self.diagnostic_log.close()
         super().closeEvent(event)
+
+class SourceStartupWindow(QWidget):
+    """A layout-based Qt splash without QSplashScreen's mapped-window wait."""
+    def __init__(self, pixmap):
+        super().__init__(None, Qt.SplashScreen | Qt.FramelessWindowHint)
+        self.setWindowTitle("Ase-PS Bridge Pro")
+        self.setFixedSize(pixmap.size())
+        self.setStyleSheet("background-color: #24272b; color: #e5e7eb;")
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 12)
+        layout.setSpacing(0)
+        image = QLabel()
+        image.setPixmap(pixmap.copy(0, 0, pixmap.width(), 140))
+        layout.addWidget(image)
+        self.status = QLabel()
+        self.status.setAlignment(Qt.AlignCenter)
+        layout.addWidget(self.status, 1)
+
+    def showMessage(self, text, alignment=None, color=None):
+        self.status.setText(text)
+
+    def message(self):
+        return self.status.text()
+
+
+class StartupSplash:
+    """Use the onefile bootloader window, or a Qt fallback for source runs."""
+    def __init__(self, app):
+        self.app = app
+        self.language = QLocale.system().name().split("_")[0]
+        self.boot = None
+        self.widget = None
+        self.closed = False
+        try:
+            import pyi_splash
+            if pyi_splash.is_alive():
+                self.boot = pyi_splash
+        except Exception:
+            pass
+        if self.boot is None:
+            pixmap = QPixmap(get_resource_path("bridge_splash.png"))
+            if pixmap.isNull():
+                pixmap = QPixmap(460, 200)
+                pixmap.fill(QColor("#24272b"))
+            self.widget = SourceStartupWindow(pixmap)
+            self.widget.show()
+            screen = self.widget.screen() or app.primaryScreen()
+            if screen:
+                self.widget.move(screen.availableGeometry().center() - self.widget.rect().center())
+        self.update("startup_starting")
+
+    def update(self, stage, language=None):
+        if stage is None:
+            self.close()
+            return
+        if self.closed:
+            return
+        if language:
+            self.language = language
+        text = LANG.get(self.language, LANG["en"])[stage]
+        if self.widget:
+            self.widget.showMessage(text, Qt.AlignBottom | Qt.AlignHCenter, QColor("#e5e7eb"))
+            self.app.processEvents(QEventLoop.ExcludeUserInputEvents)
+        # The bootloader bitmap uses a single honest 'Starting...' message;
+        # no extracted file names, fake percentage, or second splash window.
+
+    def close(self):
+        if self.closed:
+            return
+        self.closed = True
+        if self.boot:
+            try:
+                self.boot.close()
+            except Exception:
+                pass
+        if self.widget:
+            self.widget.close()
+            self.widget.deleteLater()
+
+    def finish(self, window):
+        self.close()
+        started = time.perf_counter()
+        timer = QTimer(window)
+        window._startup_handoff_timer = timer
+
+        def handoff():
+            # pyi_splash.close() sends IPC; the other process may not have
+            # destroyed its Tk window yet. Poll actual ownership, not a delay.
+            try:
+                pending = self.boot is not None and bootloader_splash_visible()
+                if pending:
+                    if time.perf_counter() - started > 5:
+                        raise RuntimeError("Bootloader splash did not close")
+                    return
+                timer.stop()
+                window._startup_ui_ready = True
+                window.trace_job("-", "STARTUP_SPLASH_CLOSED")
+                dialog_timer = QTimer(window)
+                window._startup_dialog_timer = dialog_timer
+                dialog_timer.setSingleShot(True)
+                dialog_timer.timeout.connect(lambda: window.show_startup_dialogs())
+                dialog_timer.start(0)
+            except Exception:
+                timer.stop()
+                window.trace_job("-", "STARTUP_HANDOFF_FAILED", traceback=traceback.format_exc())
+                QMessageBox.critical(window, "Ase-PS Bridge Pro", window.t["startup_failed"])
+                window.close()
+
+        timer.timeout.connect(handoff)
+        timer.start(0)
+
+
+def bootloader_splash_visible():
+    if sys.platform != "win32" or not getattr(sys, "frozen", False):
+        return False
+    import ctypes
+    from ctypes import wintypes
+    user = ctypes.WinDLL("user32", use_last_error=True)
+    user.IsWindowVisible.argtypes = [wintypes.HWND]
+    user.GetWindowThreadProcessId.argtypes = [wintypes.HWND, ctypes.POINTER(wintypes.DWORD)]
+    user.GetClassNameW.argtypes = [wintypes.HWND, wintypes.LPWSTR, ctypes.c_int]
+    callback_type = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
+    parent_pid = os.getppid()
+    found = []
+
+    def visit(hwnd, unused):
+        pid = wintypes.DWORD()
+        user.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
+        if pid.value == parent_pid and user.IsWindowVisible(hwnd):
+            name = ctypes.create_unicode_buffer(128)
+            user.GetClassNameW(hwnd, name, len(name))
+            if name.value.startswith("Tk"):
+                found.append(True)
+        return True
+
+    user.EnumWindows(callback_type(visit), 0)
+    return bool(found)
+
+
+def create_main_window(app):
+    splash = StartupSplash(app)
+    try:
+        window = BridgeApp(startup_progress=splash.update)
+        window.update_ui_state()
+        window.show()
+        splash.finish(window)
+        window.trace_job("-", "STARTUP_READY",
+                         script_entry_to_window_ms=round((time.perf_counter() - _STARTUP_ENTERED) * 1000, 1))
+        return window
+    finally:
+        splash.close()
+
 
 if __name__ == "__main__":
     # 윈도우 작업표시줄 아이콘 강제 적용 (Python 기본 아이콘 덮어쓰기)
@@ -2039,6 +3357,11 @@ if __name__ == "__main__":
     if os.path.exists(icon_path):
         app.setWindowIcon(QIcon(icon_path))
 
-    window = BridgeApp()
-    window.show()
+    try:
+        window = create_main_window(app)
+    except Exception:
+        traceback.print_exc()
+        language = QLocale.system().name().split("_")[0]
+        QMessageBox.critical(None, "Ase-PS Bridge Pro", LANG.get(language, LANG["en"])["startup_failed"])
+        sys.exit(1)
     sys.exit(app.exec())
