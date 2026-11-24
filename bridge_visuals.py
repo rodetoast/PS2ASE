@@ -12,6 +12,7 @@ _PATHS = {
     'btn_flip_h': 'M12 3v18 M9 7H4v10h5 M15 7h5v10h-5',
     'btn_flip_v': 'M3 12h18 M7 9V4h10v5 M7 15v5h10v-5',
     'clipboard': 'M9 5H5v16h14V5h-4 M9 3h6v5H9z M8 12h8m-8 4h8',
+    'app_window': 'M3 4h18v16H3z M3 9h18 M6 6.5h.2 M9 6.5h.2',
     'btn_rotate': 'M20 4v6h-6m6 0a8 8 0 1 0 0 5',
     'btn_undo': 'M9 4L3 10l6 6m-6-6h11a6 6 0 0 1 6 6v3',
     'btn_redo': 'M15 4l6 6-6 6m6-6H10a6 6 0 0 0-6 6v3',

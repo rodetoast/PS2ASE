@@ -122,7 +122,7 @@ class InitialSetupGuideTests(unittest.TestCase):
             with self.subTest(language=language):
                 dialog = self.guide(language)
                 dialog.show()
-                self.assertIn(dialog.lang["guide_ps_running"], dialog.ps_status.text())
+                self.assertEqual(dialog.lang["guide_ps_running"], dialog.ps_status.runtime.text())
                 self.assertEqual(dialog.btn_next.text(), dialog.lang["guide_ps_continue"])
                 with patch.object(self.b, "SettingsDialog") as settings, \
                         patch.object(self.b, "configure_photoshop_warning") as warning:
@@ -172,12 +172,12 @@ class InitialSetupGuideTests(unittest.TestCase):
         self.real_setup(self.window.ase_paste_lua_orig, self.window.ase_copy_lua_orig)
         self.window.settings["aseprite_trust_confirmed"] = False
         dialog = self.guide()
-        self.assertIn(dialog.lang["guide_files_ok"], dialog.ase_status.text())
-        self.assertIn(dialog.lang["guide_keys_ok"], dialog.ase_status.text())
-        self.assertIn(dialog.lang["guide_trust_no"], dialog.summary.text())
-        self.assertIn(dialog.lang["guide_keys_untested"], dialog.summary.text())
+        self.assertEqual(dialog.ase_status[0].text(), dialog.lang["guide_files_ok"])
+        self.assertEqual(dialog.ase_status[1].text(), dialog.lang["guide_keys_ok"])
+        self.assertEqual(dialog.summary_ase[2].text(), dialog.lang["guide_trust_no"])
+        self.assertEqual(dialog.summary_ase[3].text(), dialog.lang["guide_keys_untested"])
         dialog.hotkeys_confirmed.setChecked(True)
-        self.assertIn(dialog.lang["guide_keys_tested"], dialog.summary.text())
+        self.assertEqual(dialog.summary_ase[3].text(), dialog.lang["guide_keys_tested"])
         self.assertFalse(self.window.settings["aseprite_trust_confirmed"])
 
     def test_settings_separate_installation_trust_and_runtime_without_overwriting_settings(self):
@@ -309,8 +309,61 @@ class InitialSetupGuideTests(unittest.TestCase):
             self.assertEqual(Path(self.b.photoshop_config_path(target)), path)
         self.assertTrue(all(not p.exists() for p in paths))
         dialog = self.guide()
-        self.assertIn(dialog.lang["guide_warning_keep"], dialog.warning_status.text())
+        self.assertEqual(dialog.warning_status.warning.text(), dialog.lang["guide_warning_keep"])
         self.assertTrue(all(not p.exists() for p in paths))
+
+    def test_photoshop_card_keeps_identity_build_path_and_runtime_separate(self):
+        b = self.b
+        full = "28.0 (20261027.r.20 3951c45)"
+        target = dict(self.fixture.target, product="Adobe Photoshop 2027", version=full)
+        another = {"Id": 43, "Path": r"C:\Example\Other\Photoshop.exe"}
+        with patch.object(b, "photoshop_exe_info", return_value=target):
+            dialog = self.guide("ko")
+            card = dialog.ps_status
+            self.assertEqual(card.product.text(), "Adobe Photoshop 2027")
+            self.assertEqual(card.version.text(), "버전 28.0")
+            self.assertIn(full, card.version.toolTip())
+            self.assertEqual(card.path.text(), target["path"])
+            self.assertFalse(card.icon.pixmap().isNull())
+            for paths, key, other in (([], "guide_ps_closed", False),
+                                      ([another], "guide_ps_closed", True),
+                                      ([another, {"Id": 42, "Path": target["path"]}], "guide_ps_running", True)):
+                with patch.object(b, "running_photoshops", return_value=paths):
+                    dialog.refresh_status()
+                self.assertEqual(card.runtime.text(), dialog.lang[key])
+                self.assertEqual(not card.other.isHidden(), other)
+            with patch.object(b, "running_photoshops", side_effect=RuntimeError):
+                dialog.refresh_status()
+            self.assertEqual(card.runtime.text(), dialog.lang["guide_ps_runtime_unknown"])
+        with patch.object(b, "photoshop_exe_info", side_effect=ValueError), \
+                patch.object(b, "QFileIconProvider") as provider:
+            dialog.refresh_status()
+            provider.assert_not_called()
+        self.assertEqual(card.product.text(), dialog.lang["guide_ps_missing"])
+        self.assertTrue(card.version.isHidden())
+        self.assertFalse(card.icon.pixmap().isNull())
+        self.assertFalse(dialog.warning_edit.isEnabled())
+
+    def test_guide_cards_fit_compact_layout_in_all_languages(self):
+        b = self.b
+        self.app.setStyle("Fusion")
+        b.apply_workspace_theme(self.app)
+        for language in ("ko", "en", "ja"):
+            dialog = self.guide(language)
+            dialog.resize(330, 330)
+            dialog.show()
+            for step in range(4):
+                with self.subTest(language=language, step=step):
+                    dialog.set_step(step)
+                    self.app.processEvents()
+                    self.assertEqual(dialog.pages.currentWidget().horizontalScrollBar().maximum(), 0)
+                    self.assertTrue(dialog.btn_next.isVisible())
+                    self.assertLess(dialog.btn_next.geometry().bottom(), dialog.height())
+                    card = {0: dialog.ps_status, 1: dialog.warning_status, 3: dialog.summary_ps}.get(step)
+                    if card:
+                        for label in (card.product, card.path):
+                            self.assertGreaterEqual(label.height(), label.heightForWidth(label.width()))
+            dialog.hide()
 
 
 if __name__ == "__main__":

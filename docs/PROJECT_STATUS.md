@@ -26,6 +26,8 @@
 
 ### 제품 표시명 및 UI 후속 변경
 
+- 초기 설정 가이드가 Photoshop 제품명·내부 버전·빌드·경로·실행 상태와 경고 설정을 분리해 보여줍니다. Windows EXE 아이콘을 사용하고 설치, Trust 및 단축키 확인은 별개로 표시합니다. [Windows Qt 실제 구현 화면](ui-reviews/setup-cards/README.md). 기존 안전 조건과 운영·후보 패키지는 변경하지 않았습니다.
+
 - 미리보기를 창 높이에 맞추고 원본에서 최근접 리샘플링합니다. 좁은 창에서 양방향 전송 버튼을 먼저 노출하고, 환경 설정의 설치·키 등록·Trust·실동작 확인을 분리했습니다. SVG와 시각 도움말 6종, 실행 경고 안내도 다듬었습니다. [Windows Qt 검토 및 합본](ui-reviews/ui-refinement/README.md). 새 패키지와 운영 변경은 없습니다.
 
 - 런처 0.2.2 구현의 Pretendard Variable(OFL)과 다크/보라색 토큰을 Widgets에 적용했습니다. 편집 도구는 SVG와 두 줄 배치를 유지하고, 정렬/프레임 모드 선택을 다국어 가운데 정렬과 6종 시각 도움말로 개선했습니다. [구현 화면 및 검증](ui-reviews/launcher-system/README.md). 자동 121개, Windows Qt 100~200% 확인. 실제 호스트 동작 재시험 및 후보 재패키징은 하지 않았습니다.

@@ -31,8 +31,8 @@ try:
     from PIL import Image
     from PySide6.QtWidgets import (QApplication, QMainWindow, QPushButton, QVBoxLayout,
                                    QWidget, QTextEdit, QLabel, QButtonGroup,
-                                   QHBoxLayout, QMessageBox, QFileDialog, QDialog, QLineEdit, QFormLayout, QDialogButtonBox, QComboBox, QScrollArea, QSizePolicy, QLayout, QStackedWidget, QProgressBar)
-    from PySide6.QtCore import QTimer, QThread, Signal, Slot, Qt, QUrl, QEventLoop, QLocale, QObject, QEvent, QSize
+                                   QHBoxLayout, QGridLayout, QMessageBox, QFileDialog, QFileIconProvider, QDialog, QLineEdit, QFormLayout, QDialogButtonBox, QComboBox, QScrollArea, QSizePolicy, QLayout, QStackedWidget, QProgressBar)
+    from PySide6.QtCore import QTimer, QThread, Signal, Slot, Qt, QUrl, QEventLoop, QLocale, QObject, QEvent, QSize, QFileInfo
     from PySide6.QtGui import QFont, QFontDatabase, QColor, QPixmap, QDesktopServices, QPalette
     from bridge_visuals import OptionHelp, PixelPreview, SegmentButton, tool_icon
     import win32com.client
@@ -324,7 +324,8 @@ QWidget[uiSurface="true"], QWidget#optionHelp { background: #202432; border: 1px
 QLabel, QCheckBox, QRadioButton { color: #f5f3ff; }
 QLabel[uiHeading="true"] { font-weight: 700; }
 QLabel[uiMuted="true"] { color: #b7b9cb; }
-QLabel#guideStatus { background: #202432; border: 1px solid #393e51; border-radius: 6px; padding: 8px; }
+QLabel#guideProduct { font-size: 18px; font-weight: 700; }
+QLabel#guideSeparator { background: #393e51; }
 QWidget#warningNote { background: #332a25; border: 1px solid #66543a; border-radius: 6px; }
 QLabel#warningHeading { color: #ffd29b; font-weight: 700; }
 QPushButton { color: #f5f3ff; background: #202432; border: 1px solid #50566e;
@@ -791,17 +792,23 @@ for _language, _guide in {
     "ko": {
         "guide_title": "초기 설정 가이드", "guide_reopen": "초기 설정 가이드 다시 보기",
         "guide_steps": ("1. Photoshop 연결", "2. Photoshop 실행 경고", "3. Aseprite 권한", "4. 확인 및 마침"),
-        "guide_ps_intro": "사용할 Photoshop 버전과 실행 파일 경로가 맞으면 ‘이 버전으로 계속’을 누르세요. 확인만 할 때는 종료하지 않아도 됩니다. 다른 버전으로 전환하기 전에는 Photoshop을 종료하는 편이 안전합니다.",
-        "guide_ps_edit": "버전 선택 / 경로 변경…",
-        "guide_ps_valid": "선택한 Photoshop: {product} ({version})",
-        "guide_ps_missing": "Photoshop 연결 미확인: EXE 경로와 버전을 연결 설정에서 확인하세요.",
+        "guide_ps_title": "사용할 Photoshop",
+        "guide_ps_intro": "버전과 경로를 확인할 때는 Photoshop을 종료하지 않아도 됩니다.",
+        "guide_ps_edit": "버전 및 경로 변경",
+        "guide_ps_missing": "Photoshop 미확인",
+        "guide_ps_version": "버전 {version}",
+        "guide_ps_build": "상세 빌드: {version}",
+        "guide_ps_path": "실행 파일 경로",
+        "guide_ps_no_path": "지정되지 않음",
+        "guide_ase_title": "Aseprite",
+        "guide_warning_status": "스크립트 실행 경고",
         "guide_warning_intro": "스크립트 실행 경고를 끄면 복사·붙여넣기 작업을 할 때마다 승인 버튼을 누르지 않아도 됩니다.",
         "guide_warning_caution": "변경 전 확인",
         "guide_warning_optional": "이 설정은 선택한 버전의 모든 외부 JSX에 적용됩니다. 경고 유지를 권장하며, 앱은 실제 승인 여부를 확인할 수 없습니다. 변경하려면 Photoshop을 모두 종료하고 대상 확인 후 동의하세요. 기존 파일은 백업되며, 적용 후 Photoshop을 다시 시작해야 합니다.",
         "guide_warning_edit": "실행 경고 변경 검토…",
-        "guide_warning_keep": "경고 설정: 기본값 또는 경고 유지 · 실제 승인 여부 미확인",
-        "guide_warning_disabled": "경고 설정: WarnRunningScripts 0 확인 · 적용 후 재시작 필요 · 실제 승인 여부 미확인",
-        "guide_warning_unknown": "경고 설정 미확인: 선택 버전의 사용자 설정 폴더를 확인하세요.",
+        "guide_warning_keep": "기본값 또는 경고 유지",
+        "guide_warning_disabled": "설정 파일에서 경고 끔 확인 · 적용하려면 재시작 필요",
+        "guide_warning_unknown": "설정 파일 확인 불가",
         "guide_ase_intro": "1. Aseprite를 종료하고 스크립트와 단축키를 설치한 뒤 다시 여세요.\n2. File > Scripts에서 aseprite_paste와 aseprite_copy를 각각 실행해 Trust를 직접 승인하세요.\n3. 테스트 문서에서 F5로 복사하고 유효한 Photoshop 복사 데이터로 F4 붙여넣기를 확인하세요. 파일 설치만으로 권한이나 키 동작이 확인되지는 않습니다.",
         "guide_ase_open": "Aseprite 설치 / Trust 안내…", "guide_hotkeys_check": "F4 / F5 동작을 직접 확인했습니다.",
         "guide_files_ok": "Aseprite 스크립트: 설치본이 내장 스크립트와 일치",
@@ -817,10 +824,10 @@ for _language, _guide in {
         "guide_back": "이전", "guide_next": "다음", "guide_finish": "가이드 닫기", "guide_later": "나중에 설정",
         "guide_tutorial": "프로그램 사용 방법 열기", "guide_close": "확인",
         "guide_ps_continue": "이 버전으로 계속",
-        "guide_ps_running": "선택한 버전 실행 중",
-        "guide_ps_closed": "선택한 버전 종료됨",
+        "guide_ps_running": "실행 중",
+        "guide_ps_closed": "종료됨",
         "guide_ps_other": "다른 Photoshop이 실행 중입니다. 작업 전에 다른 버전을 종료하세요.",
-        "guide_ps_runtime_unknown": "실행 상태 미확인",
+        "guide_ps_runtime_unknown": "확인 불가",
         "guide_warning_continue": "경고 설정을 바꾸지 않고 계속",
         "diag_toggle": "진단",
         "preview_empty": "복사된 레이어 없음",
@@ -835,17 +842,23 @@ for _language, _guide in {
     "en": {
         "guide_title": "Initial Setup Guide", "guide_reopen": "Reopen Initial Setup Guide",
         "guide_steps": ("1. Photoshop connection", "2. Photoshop script warning", "3. Aseprite permissions", "4. Review and close"),
-        "guide_ps_intro": "If the Photoshop version and EXE path match the editor you want to use, select Continue with this version. Photoshop can stay open while you review. Close Photoshop before switching versions to avoid a target mismatch.",
-        "guide_ps_edit": "Choose version / change path…",
-        "guide_ps_valid": "Selected Photoshop: {product} ({version})",
-        "guide_ps_missing": "Photoshop connection unverified: check the EXE path and version in connection settings.",
+        "guide_ps_title": "Photoshop to use",
+        "guide_ps_intro": "Photoshop can stay open while you check the version and path.",
+        "guide_ps_edit": "Change version and path",
+        "guide_ps_missing": "Photoshop unverified",
+        "guide_ps_version": "Version {version}",
+        "guide_ps_build": "Full build: {version}",
+        "guide_ps_path": "Executable path",
+        "guide_ps_no_path": "Not set",
+        "guide_ase_title": "Aseprite",
+        "guide_warning_status": "Script warnings",
         "guide_warning_intro": "Turning off script warnings removes the approval prompt each time you copy or paste.",
         "guide_warning_caution": "Before changing warnings",
         "guide_warning_optional": "This affects all external JSX in the selected version. Keeping warnings is recommended; the app cannot verify individual approvals. To apply, close Photoshop, review the target and explicitly confirm. Existing files are backed up. Restart Photoshop afterward.",
         "guide_warning_edit": "Review script warning change…",
-        "guide_warning_keep": "Warning setting: default or warnings kept · actual approval unverified",
-        "guide_warning_disabled": "Warning setting: WarnRunningScripts 0 found · restart after applying · actual approval unverified",
-        "guide_warning_unknown": "Warning setting unverified: check the selected version's preferences folder.",
+        "guide_warning_keep": "Default or warnings kept",
+        "guide_warning_disabled": "Disabled in preferences · restart to apply",
+        "guide_warning_unknown": "Preferences could not be verified",
         "guide_ase_intro": "1. Close Aseprite, install the scripts and shortcuts, then reopen it.\n2. Run aseprite_paste and aseprite_copy separately from File > Scripts and approve Trust yourself.\n3. In a test document, try F5 Copy and F4 Paste with valid Photoshop copy data. Installed files do not prove Trust or shortcut operation.",
         "guide_ase_open": "Aseprite installation / Trust guide…", "guide_hotkeys_check": "I tested F4 and F5.",
         "guide_files_ok": "Aseprite scripts: installed files match the bundled files",
@@ -861,10 +874,10 @@ for _language, _guide in {
         "guide_back": "Back", "guide_next": "Next", "guide_finish": "Close guide", "guide_later": "Set up later",
         "guide_tutorial": "Open How to Use", "guide_close": "OK",
         "guide_ps_continue": "Continue with this version",
-        "guide_ps_running": "Selected version running",
-        "guide_ps_closed": "Selected version closed",
+        "guide_ps_running": "Running",
+        "guide_ps_closed": "Closed",
         "guide_ps_other": "A different Photoshop is running. Close the other version before transferring.",
-        "guide_ps_runtime_unknown": "Running status unverified",
+        "guide_ps_runtime_unknown": "Unknown",
         "guide_warning_continue": "Continue without changing warnings",
         "diag_toggle": "Diagnostics",
         "preview_empty": "No copied layers",
@@ -879,17 +892,23 @@ for _language, _guide in {
     "ja": {
         "guide_title": "初期設定ガイド", "guide_reopen": "初期設定ガイドを再表示",
         "guide_steps": ("1. Photoshop の接続", "2. Photoshop の実行警告", "3. Aseprite の権限", "4. 確認と終了"),
-        "guide_ps_intro": "使用する Photoshop のバージョンと EXE パスが正しければ「このバージョンで続ける」を選びます。確認だけなら終了は不要です。別のバージョンへ切り替える前に Photoshop を終了してください。",
-        "guide_ps_edit": "バージョン選択 / パス変更…",
-        "guide_ps_valid": "選択中の Photoshop: {product} ({version})",
-        "guide_ps_missing": "Photoshop の接続は未確認です。接続設定で EXE パスとバージョンを確認してください。",
+        "guide_ps_title": "使用する Photoshop",
+        "guide_ps_intro": "バージョンとパスの確認だけなら Photoshop を終了する必要はありません。",
+        "guide_ps_edit": "バージョンとパスを変更",
+        "guide_ps_missing": "Photoshop 未確認",
+        "guide_ps_version": "バージョン {version}",
+        "guide_ps_build": "詳細ビルド: {version}",
+        "guide_ps_path": "実行ファイルのパス",
+        "guide_ps_no_path": "未指定",
+        "guide_ase_title": "Aseprite",
+        "guide_warning_status": "スクリプト実行警告",
         "guide_warning_intro": "スクリプト実行警告をオフにすると、コピーや貼り付けのたびに承認する必要がなくなります。",
         "guide_warning_caution": "変更前の確認",
         "guide_warning_optional": "選択したバージョンのすべての外部 JSX に影響します。警告の維持を推奨します。アプリは個別の承認を確認できません。変更する場合は Photoshop をすべて終了し、対象の確認後に同意してください。既存ファイルをバックアップします。適用後は Photoshop を再起動してください。",
         "guide_warning_edit": "実行警告の変更を確認…",
-        "guide_warning_keep": "警告設定: 既定値または警告を維持 · 実際の承認は未確認",
-        "guide_warning_disabled": "警告設定: WarnRunningScripts 0 を確認 · 適用後に再起動が必要 · 実際の承認は未確認",
-        "guide_warning_unknown": "警告設定は未確認です。選択したバージョンの設定フォルダーを確認してください。",
+        "guide_warning_keep": "既定値または警告を維持",
+        "guide_warning_disabled": "設定ファイルで警告オフを確認 · 適用には再起動が必要",
+        "guide_warning_unknown": "設定ファイルは確認不可",
         "guide_ase_intro": "1. Aseprite を終了し、スクリプトとキーをインストールして再起動します。\n2. File > Scripts から aseprite_paste と aseprite_copy を個別に実行し、自分で Trust を承認します。\n3. テスト文書で F5 コピーと、有効な Photoshop データで F4 貼り付けを確認します。インストールだけでは権限やキー動作は確認できません。",
         "guide_ase_open": "Aseprite インストール / Trust 案内…", "guide_hotkeys_check": "F4 / F5 の動作を確認しました。",
         "guide_files_ok": "Aseprite スクリプト: インストール済みファイルが同梱ファイルと一致",
@@ -905,10 +924,10 @@ for _language, _guide in {
         "guide_back": "戻る", "guide_next": "次へ", "guide_finish": "ガイドを閉じる", "guide_later": "後で設定",
         "guide_tutorial": "使い方を開く", "guide_close": "確認",
         "guide_ps_continue": "このバージョンで続ける",
-        "guide_ps_running": "選択したバージョンは実行中",
-        "guide_ps_closed": "選択したバージョンは停止中",
+        "guide_ps_running": "実行中",
+        "guide_ps_closed": "終了済み",
         "guide_ps_other": "別の Photoshop が実行中です。作業前に終了してください。",
-        "guide_ps_runtime_unknown": "実行状態は未確認",
+        "guide_ps_runtime_unknown": "確認不可",
         "guide_warning_continue": "警告を変更せず続ける",
         "diag_toggle": "診断",
         "preview_empty": "コピーされたレイヤーなし",
@@ -1991,6 +2010,78 @@ class AsepriteSetupDialog(QDialog):
                 self.parent_app.log_message(self.lang["ase_setup_saved"])
         super().accept()
 
+class GuidePhotoshopCard:
+    def __init__(self, layout, lang, add_text, *, connection=False, warnings=False):
+        self.lang = lang
+        heading = add_text(layout, lang["guide_ps_title"])
+        heading.setProperty("uiHeading", True)
+        panel = workspace_section(layout)
+        header = QGridLayout()
+        header.setHorizontalSpacing(8)
+        header.setVerticalSpacing(2)
+        header.setColumnStretch(1, 1)
+        self.icon = QLabel()
+        self.icon.setFixedSize(32, 32)
+        header.addWidget(self.icon, 0, 0, 2, 1, Qt.AlignTop)
+        identity = QVBoxLayout()
+        self.product = add_text(identity, "")
+        self.product.setObjectName("guideProduct")
+        header.addLayout(identity, 0, 1, 1, 2)
+        version = QVBoxLayout()
+        self.version = add_text(version, "")
+        self.version.setProperty("uiMuted", True)
+        header.addLayout(version, 1, 1)
+        state = QHBoxLayout()
+        state.setSpacing(5)
+        self.dot = QWidget()
+        self.dot.setFixedSize(7, 7)
+        self.runtime = QLabel()
+        state.addWidget(self.dot, alignment=Qt.AlignVCenter)
+        state.addWidget(self.runtime)
+        header.addLayout(state, 1, 2, Qt.AlignRight | Qt.AlignVCenter)
+        panel.addLayout(header)
+
+        rule = QLabel()
+        rule.setObjectName("guideSeparator")
+        rule.setFixedHeight(1)
+        panel.addWidget(rule)
+        path_label = add_text(panel, lang["guide_ps_path"])
+        path_label.setProperty("uiHeading", True)
+        self.path = add_text(panel, "")
+        self.path.setProperty("uiMuted", True)
+        self.other = add_text(panel, lang["guide_ps_other"])
+        self.other.setObjectName("warningHeading")
+        if connection:
+            note = add_text(panel, lang["guide_ps_intro"])
+            note.setProperty("uiMuted", True)
+        self.warning = None
+        if warnings:
+            heading = add_text(panel, lang["guide_warning_status"])
+            heading.setProperty("uiHeading", True)
+            self.warning = add_text(panel, "")
+            self.warning.setProperty("uiMuted", True)
+
+    def set_status(self, info, path, runtime, other_running, warning, icon):
+        self.icon.setPixmap(icon)
+        self.product.setText(info["product"] if info else self.lang["guide_ps_missing"])
+        full = str(info.get("version") or "") if info else ""
+        short = re.match(r"\s*(\d+(?:\.\d+)?)", full)
+        self.version.setText(self.lang["guide_ps_version"].format(version=short[1] if short else full) if full else "")
+        self.version.setVisible(bool(full))
+        tooltip = self.lang["guide_ps_build"].format(version=full) if full else ""
+        self.version.setToolTip(tooltip)
+        self.version.setAccessibleDescription(tooltip)
+        self.path.setText(path or self.lang["guide_ps_no_path"])
+        self.path.setToolTip(path)
+        self.runtime.setText(self.lang[runtime])
+        color = "#8ed4b4" if runtime == "guide_ps_running" else "#b7b9cb"
+        self.dot.setStyleSheet(f"background: {color}; border-radius: 3px;")
+        self.runtime.setStyleSheet(f"color: {color};")
+        self.other.setVisible(other_running)
+        if self.warning is not None:
+            self.warning.setText(warning)
+
+
 class InitialSetupDialog(QDialog):
     """Guide completion, auto-display, and external security confirmations stay independent."""
     def __init__(self, lang_dict, app, parent=None):
@@ -2002,7 +2093,9 @@ class InitialSetupDialog(QDialog):
         self.setStyleSheet(WORKSPACE_STYLE)
         self.setMinimumSize(330, 290)
         available = self.screen().availableGeometry()
-        self.resize(min(500, available.width() - 24), min(400, available.height() - 64))
+        self.resize(min(500, available.width() - 24), min(440, available.height() - 64))
+        self._photoshop_icon_path = None
+        self._photoshop_icon = tool_icon("app_window")
         layout = QVBoxLayout(self)
         header = QHBoxLayout()
         header.addWidget(QLabel(self.lang["guide_title"]))
@@ -2028,14 +2121,13 @@ class InitialSetupDialog(QDialog):
             page.setObjectName("guidePage")
             content = QVBoxLayout(page)
             if step == 0:
-                self.add_text(content, self.lang["guide_ps_intro"])
-                self.ps_status = self.add_status(content, "")
+                self.ps_status = GuidePhotoshopCard(content, self.lang, self.add_text, connection=True)
                 self.ps_edit = QPushButton(self.lang["guide_ps_edit"])
                 self.ps_edit.clicked.connect(self.edit_photoshop)
                 content.addWidget(self.ps_edit)
             elif step == 1:
                 self.add_text(content, self.lang["guide_warning_intro"])
-                self.warning_status = self.add_status(content, "")
+                self.warning_status = GuidePhotoshopCard(content, self.lang, self.add_text, warnings=True)
                 note = QWidget()
                 note.setObjectName("warningNote")
                 note.setAttribute(Qt.WA_StyledBackground)
@@ -2050,7 +2142,7 @@ class InitialSetupDialog(QDialog):
                 content.addWidget(self.warning_edit)
             elif step == 2:
                 self.add_text(content, self.lang["guide_ase_intro"])
-                self.ase_status = self.add_status(content, "")
+                self.ase_status = self.add_aseprite_card(content)
                 self.ase_edit = QPushButton(self.lang["guide_ase_open"])
                 self.ase_edit.clicked.connect(self.edit_aseprite)
                 content.addWidget(self.ase_edit)
@@ -2060,7 +2152,8 @@ class InitialSetupDialog(QDialog):
                 content.addWidget(self.hotkeys_confirmed)
             else:
                 self.add_text(content, self.lang["guide_summary_intro"])
-                self.summary = self.add_status(content, "")
+                self.summary_ps = GuidePhotoshopCard(content, self.lang, self.add_text, warnings=True)
+                self.summary_ase = self.add_aseprite_card(content, include_runtime_test=True)
                 self.btn_tutorial = QPushButton(self.lang["guide_tutorial"])
                 self.btn_tutorial.clicked.connect(self.finish_with_tutorial)
                 content.addWidget(self.btn_tutorial)
@@ -2108,21 +2201,34 @@ class InitialSetupDialog(QDialog):
         layout.addWidget(label)
         return label
 
-    @classmethod
-    def add_status(cls, layout, text):
-        label = cls.add_text(layout, text)
-        label.setObjectName("guideStatus")
-        return label
+    def add_aseprite_card(self, layout, *, include_runtime_test=False):
+        heading = self.add_text(layout, self.lang["guide_ase_title"])
+        heading.setProperty("uiHeading", True)
+        panel = workspace_section(layout)
+        labels = [self.add_text(panel, "") for _ in range(4 if include_runtime_test else 3)]
+        return labels
+
+    def photoshop_icon(self, path):
+        if path != self._photoshop_icon_path:
+            self._photoshop_icon_path = path
+            self._photoshop_icon = tool_icon("app_window")
+            if path:
+                try:
+                    icon = QFileIconProvider().icon(QFileInfo(path))
+                    if not icon.isNull():
+                        self._photoshop_icon = icon
+                except (OSError, RuntimeError):
+                    pass
+        return self._photoshop_icon.pixmap(QSize(30, 30), self.devicePixelRatioF())
 
     def refresh_status(self):
         path = self.app.settings.get("photoshop_exe", "")
-        connection = self.lang["guide_ps_missing"]
         warning = self.lang["guide_warning_unknown"]
         runtime = "guide_ps_runtime_unknown"
+        other_running = False
         info = None
         try:
             info = photoshop_exe_info(path)
-            connection = self.lang["guide_ps_valid"].format(**info)
             config = photoshop_config_path(info)
             _, _, text, values = photoshop_warning_config(config)
             count = len(re.findall(r"(?mi)^\s*WarnRunningScripts\b", text))
@@ -2136,33 +2242,33 @@ class InitialSetupDialog(QDialog):
             try:
                 running = running_photoshops()
                 selected = os.path.normcase(info["path"])
-                if any(os.path.normcase(p["Path"]) != selected for p in running):
-                    runtime = "guide_ps_other"
-                else:
-                    runtime = "guide_ps_running" if running else "guide_ps_closed"
+                paths = {os.path.normcase(p["Path"]) for p in running}
+                runtime = "guide_ps_running" if selected in paths else "guide_ps_closed"
+                other_running = bool(paths - {selected})
             except Exception:
                 pass
         self.ps_target_valid = info is not None
-        self.ps_status.setText("\n".join(filter(None, (connection, path, self.lang[runtime]))))
-        self.warning_state = warning
-        self.warning_status.setText("\n".join((connection, self.lang[runtime], warning)))
+        icon = self.photoshop_icon(info["path"] if info else None)
+        for card in (self.ps_status, self.warning_status, self.summary_ps):
+            card.set_status(info, path, runtime, other_running, warning, icon)
         self.warning_edit.setEnabled(self.ps_target_valid)
         if self.pages.currentIndex() == 0:
             self.update_next_text(0)
 
-        scripts_current, keys_registered = aseprite_installation_status(
+        self.ase_scripts_current, self.ase_keys_registered = aseprite_installation_status(
             self.app.ase_paste_lua_orig, self.app.ase_copy_lua_orig)
-        self.ase_status.setText(self.lang["guide_files_ok" if scripts_current else "guide_files_pending"] + "\n" +
-                                self.lang["guide_keys_ok" if keys_registered else "guide_keys_pending"])
         self.update_summary()
 
     def update_summary(self):
-        if not hasattr(self, "summary"):
+        if not hasattr(self, "ase_scripts_current"):
             return
         trust_key = "guide_trust_yes" if self.app.settings.get("aseprite_trust_confirmed") is True else "guide_trust_no"
         keys_key = "guide_keys_tested" if self.hotkeys_confirmed.isChecked() else "guide_keys_untested"
-        self.summary.setText("\n\n".join((self.ps_status.text(), self.warning_state,
-                                          *self.ase_status.text().splitlines(), self.lang[trust_key], self.lang[keys_key])))
+        flags = ("guide_files_ok" if self.ase_scripts_current else "guide_files_pending",
+                 "guide_keys_ok" if self.ase_keys_registered else "guide_keys_pending", trust_key, keys_key)
+        for labels in (self.ase_status, self.summary_ase):
+            for label, key in zip(labels, flags):
+                label.setText(self.lang[key])
 
     def edit_photoshop(self):
         dialog = SettingsDialog(self.app.settings, self.lang, self, photoshop_only=True)
