@@ -56,6 +56,7 @@ class PreviewLayoutTests(unittest.TestCase):
             w.showNormal()
             w.resize(*size)
             for debug in (False, True):
+                w.diagnostics_toggle.setChecked(debug)
                 w.debug_checkbox.setChecked(debug)
                 for has_image in (False, True):
                     with self.subTest(size=size, debug=debug, image=has_image):
@@ -68,8 +69,19 @@ class PreviewLayoutTests(unittest.TestCase):
         self.assert_independent_rows()
         w.showNormal()
         w.resize(460, 680)
+        w.diagnostics_toggle.setChecked(True)
         self.app.processEvents()
         self.assertGreater(w.content_scroll.verticalScrollBar().maximum(), 0)
+
+    def test_diagnostics_toggle_does_not_reset_debug(self):
+        w = self.window
+        self.assertTrue(w.diagnostics_panel.isHidden())
+        w.diagnostics_toggle.click()
+        self.assertFalse(w.diagnostics_panel.isHidden())
+        w.debug_checkbox.setChecked(True)
+        w.diagnostics_toggle.click()
+        self.assertTrue(w.diagnostics_panel.isHidden())
+        self.assertTrue(w.debug_checkbox.isChecked())
 
     def test_image_ratio_and_no_preview_have_stable_geometry(self):
         w = self.window

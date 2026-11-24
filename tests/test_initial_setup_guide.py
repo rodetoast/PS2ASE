@@ -104,6 +104,9 @@ class InitialSetupGuideTests(unittest.TestCase):
         with patch.object(self.b, "installed_photoshops", return_value=[self.fixture.target]):
             dialog = self.b.SettingsDialog(self.window.settings, self.window.t, self.window, photoshop_only=True)
         try:
+            self.assertEqual(dialog.windowTitle(), self.window.t["guide_steps"][0])
+            self.assertNotIn(self.window.t["ps_warning"],
+                             [b.text() for b in dialog.findChildren(self.b.QPushButton)])
             self.assertEqual(dialog.ps_versions.currentData(), self.fixture.target["path"])
             dialog.ps_path_input.setText("missing/Photoshop.exe")
             self.assertEqual(dialog.ps_versions.currentIndex(), 0)
@@ -113,6 +116,30 @@ class InitialSetupGuideTests(unittest.TestCase):
             self.assertEqual(actual["default_alignment"], "ground_line")
         finally:
             self.fixture.shiboken.delete(dialog)
+
+    def test_connection_and_warning_have_distinct_actions(self):
+        for language in ("ko", "en", "ja"):
+            with self.subTest(language=language):
+                dialog = self.guide(language)
+                dialog.show()
+                self.assertIn(dialog.lang["guide_ps_running"], dialog.ps_status.text())
+                self.assertEqual(dialog.btn_next.text(), dialog.lang["guide_ps_continue"])
+                with patch.object(self.b, "SettingsDialog") as settings, \
+                        patch.object(self.b, "configure_photoshop_warning") as warning:
+                    settings.return_value.exec.return_value = False
+                    dialog.ps_edit.click()
+                    settings.assert_called_once_with(self.window.settings, dialog.lang, dialog, photoshop_only=True)
+                    warning.assert_not_called()
+                    dialog.btn_next.click()
+                    self.assertEqual(dialog.pages.currentIndex(), 1)
+                    self.assertEqual(dialog.btn_next.text(), dialog.lang["guide_warning_continue"])
+                    self.app.processEvents()
+                    self.assertLessEqual(dialog.btn_next.geometry().right(), dialog.rect().right())
+                    dialog.warning_edit.click()
+                    self.assertEqual(warning.call_args.args[-1](), self.fixture.target["path"])
+                    settings.assert_called_once()
+                    dialog.btn_next.click()
+                    self.assertEqual(dialog.pages.currentIndex(), 2)
 
     def test_reopening_guide_preserves_pending_path_edit_unless_guide_changes_target(self):
         with patch.object(self.b, "installed_photoshops", return_value=[self.fixture.target]):

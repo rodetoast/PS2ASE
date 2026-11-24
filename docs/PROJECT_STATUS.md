@@ -24,6 +24,12 @@
 
 ## 패키징과 다음 단계
 
+### 초기 설정 및 메인 UI 후속 변경 (2026-11-24)
+
+- Photoshop 연결 선택과 선택 버전의 경고 변경 검토를 분리했습니다. 경고 유지 권장, 명시적 동의, Photoshop 종료 및 재시작 요건은 유지했습니다.
+- Aseprite 안내를 설치 → Trust → F4/F5 확인 순서로 정리했습니다. 메인 화면의 진단 도구는 기본 접힘이며 로그 기록과 DEBUG 상태는 유지합니다.
+- 자동 테스트 115개 통과. [Windows Qt 소스 화면 검토](ui-reviews/setup-ux.md). 실제 호스트 전송은 이전 후보의 결과를 재사용했고, 이번 UI 변경은 아직 EXE/ZIP에 반영하지 않았습니다. 운영 0.3.6과 검증 후보 0.3.7-rc1은 그대로입니다.
+
 호스트 관련 README 및 bridge_ui.spec를 따릅니다. Photoshop과 Aseprite는 별도 설치가 필요합니다. [공통 배포 절차](https://github.com/rodetoast/southpaw-development-hub/blob/main/docs/RELEASE_GUIDE.md)
 
 **다음 단계** 아래 2027 검증 후보를 런처 담당자에게 인계하고 별도 승인 후 직원 배포합니다. 운영은 아직 0.3.6입니다.

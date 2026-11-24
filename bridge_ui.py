@@ -696,16 +696,17 @@ for _language, _guide in {
     "ko": {
         "guide_title": "초기 설정 가이드", "guide_reopen": "초기 설정 가이드 다시 보기",
         "guide_steps": ("1. Photoshop 연결", "2. Photoshop 실행 경고", "3. Aseprite 권한", "4. 확인 및 마침"),
-        "guide_ps_intro": "사용할 Photoshop 버전과 EXE 경로를 확인하세요. 연결 설정에서 감지된 버전을 선택하거나 경로를 변경할 수 있습니다. 다른 버전으로 임의 연결하지 않습니다.",
-        "guide_ps_edit": "Photoshop 연결 설정…", "guide_ps_valid": "선택한 Photoshop: {product} ({version})",
+        "guide_ps_intro": "사용할 Photoshop 버전과 실행 파일 경로가 맞으면 ‘이 버전으로 계속’을 누르세요. 확인만 할 때는 종료하지 않아도 됩니다. 다른 버전으로 전환하기 전에는 Photoshop을 종료하는 편이 안전합니다.",
+        "guide_ps_edit": "버전 선택 / 경로 변경…",
+        "guide_ps_valid": "선택한 Photoshop: {product} ({version})",
         "guide_ps_missing": "Photoshop 연결 미확인: EXE 경로와 버전을 연결 설정에서 확인하세요.",
-        "guide_warning_intro": "Photoshop Copy/Paste 시 외부 JSX 실행 확인창이 나타날 수 있습니다. Ase-PS Bridge Pro가 요청한 스크립트임을 확인한 경우에만 예(Y)를 눌러 실행하세요.\n\n기본 권장: 경고를 유지하고 실행할 때 확인합니다. Bridge는 실제 경고 승인 여부를 직접 확인할 수 없습니다.",
-        "guide_warning_optional": "선택 사항: PSUserConfig.txt의 WarnRunningScripts 0은 해당 Photoshop 버전의 모든 외부 JSX 실행에 영향을 줍니다. Bridge 전용 설정이 아닙니다. 적용 전 명시적 동의를 받고, 기존 파일을 백업하며 다른 설정을 보존합니다. 적용 후 Photoshop을 다시 시작해야 합니다. 적용하지 않고 계속 진행해도 됩니다.",
-        "guide_warning_edit": "선택 사항: 실행 경고 설정…",
+        "guide_warning_intro": "반복 복사·붙여넣기 중 매번 JSX 실행을 승인하지 않아도 됩니다. 원할 때만 선택한 Photoshop 버전의 실행 경고를 끌 수 있습니다.",
+        "guide_warning_optional": "이 설정은 Bridge뿐 아니라 선택한 버전의 모든 외부 JSX에 적용됩니다. 기본값인 경고 유지를 권장하며, Bridge는 실제 승인 여부를 확인할 수 없습니다. 적용하려면 Photoshop을 모두 종료하고 아래에서 대상을 확인한 뒤 동의하세요. 적용 후 Photoshop을 다시 시작하세요.",
+        "guide_warning_edit": "실행 경고 변경 검토…",
         "guide_warning_keep": "경고 설정: 기본값 또는 경고 유지 · 실제 승인 여부 미확인",
         "guide_warning_disabled": "경고 설정: WarnRunningScripts 0 확인 · 적용 후 재시작 필요 · 실제 승인 여부 미확인",
         "guide_warning_unknown": "경고 설정 미확인: 선택 버전의 사용자 설정 폴더를 확인하세요.",
-        "guide_ase_intro": "Aseprite를 종료한 뒤 스크립트/단축키를 설치하고 다시 실행하세요. File > Scripts에서 aseprite_paste와 aseprite_copy를 각각 실행하고 필요한 Trust를 직접 승인하세요.\n\nF4 = Paste / F5 = Copy입니다. 파일 설치와 단축키 등록은 보안 승인 또는 실제 단축키 동작 확인과 다릅니다.",
+        "guide_ase_intro": "1. Aseprite를 종료하고 스크립트와 단축키를 설치한 뒤 다시 여세요.\n2. File > Scripts에서 aseprite_paste와 aseprite_copy를 각각 실행해 Trust를 직접 승인하세요.\n3. 테스트 문서에서 F5로 복사하고 유효한 Photoshop 복사 데이터로 F4 붙여넣기를 확인하세요. 파일 설치만으로 권한이나 키 동작이 확인되지는 않습니다.",
         "guide_ase_open": "Aseprite 설치 / Trust 안내…", "guide_hotkeys_check": "Aseprite에서 F4 붙여넣기 / F5 복사를 직접 확인했습니다.",
         "guide_files_ok": "Aseprite 스크립트: 설치본이 bundled 파일과 일치",
         "guide_files_pending": "Aseprite 스크립트: 설치 또는 갱신 확인 필요",
@@ -719,6 +720,14 @@ for _language, _guide in {
         "guide_dont_show": "다음 실행 시 초기 설정 가이드를 자동으로 표시하지 않음",
         "guide_back": "이전", "guide_next": "다음", "guide_finish": "가이드 닫기", "guide_later": "나중에 설정",
         "guide_tutorial": "프로그램 사용 방법 열기", "guide_close": "확인",
+        "guide_ps_continue": "이 버전으로 계속",
+        "guide_ps_running": "선택한 버전 실행 중",
+        "guide_ps_closed": "선택한 버전 종료됨",
+        "guide_ps_other": "다른 Photoshop이 실행 중입니다. 작업 전에 다른 버전을 종료하세요.",
+        "guide_ps_runtime_unknown": "실행 상태 미확인",
+        "guide_warning_continue": "경고 설정을 바꾸지 않고 계속",
+        "diag_toggle": "진단",
+        "preview_empty": "복사된 레이어 없음",
         "tut_content": "<b>Photoshop → Aseprite</b><br>Copy Mode를 먼저 선택하고 Photoshop 레이어/폴더를 선택한 뒤 Photoshop Copy를 누릅니다. Aseprite 대상 캔버스에서 Paste 또는 F4를 사용합니다.<br><br>"
                        "<b>Aseprite → Photoshop</b><br>Aseprite에서 레이어를 선택하고 Copy 또는 F5를 누른 뒤 Photoshop 대상 문서에서 Photoshop Paste를 사용합니다.<br><br>"
                        "<b>Copy Mode (다음 Photoshop 복사부터 적용)</b><br>Normal: 기존 레이어/폴더 구조로 붙여넣기.<br>Folder → Frames: 선택 폴더별로 연속 프레임에 배치합니다. 선택한 하위 폴더도 개별 프레임이 됩니다. 같은 순번의 레이어는 선택 Aseprite 레이어 포함 아래쪽의 같은 row를 재사용합니다.<br>Layer → Frames: 선택한 픽셀 레이어 하나당 한 프레임, 선택 Aseprite 레이어 한 row에 순차 배치합니다. 폴더 선택은 지원하지 않습니다.<br>프레임 순서는 Photoshop 패널 위→아래이며 Aseprite 현재 프레임부터 시작합니다. 현재 클립보드 모드 표시는 실제 복사된 모드입니다. 라디오를 바꿔도 기존 복사 데이터의 모드는 바뀌지 않습니다.<br><br>"
@@ -729,16 +738,17 @@ for _language, _guide in {
     "en": {
         "guide_title": "Initial Setup Guide", "guide_reopen": "Reopen Initial Setup Guide",
         "guide_steps": ("1. Photoshop connection", "2. Photoshop script warning", "3. Aseprite permissions", "4. Review and close"),
-        "guide_ps_intro": "Check the Photoshop version and EXE you want to use. Connection settings lists detected versions and lets you change the path. The app will not silently switch to another version.",
-        "guide_ps_edit": "Photoshop connection settings…", "guide_ps_valid": "Selected Photoshop: {product} ({version})",
+        "guide_ps_intro": "If the Photoshop version and EXE path match the editor you want to use, select Continue with this version. Photoshop can stay open while you review. Close Photoshop before switching versions to avoid a target mismatch.",
+        "guide_ps_edit": "Choose version / change path…",
+        "guide_ps_valid": "Selected Photoshop: {product} ({version})",
         "guide_ps_missing": "Photoshop connection unverified: check the EXE path and version in connection settings.",
-        "guide_warning_intro": "Photoshop may ask to run an external JSX script during Copy/Paste. Choose Yes only after confirming that Ase-PS Bridge Pro requested the script.\n\nRecommended default: keep warnings and confirm each execution. Bridge cannot directly verify whether you approved a warning.",
-        "guide_warning_optional": "Optional: WarnRunningScripts 0 in PSUserConfig.txt affects all external JSX execution in this Photoshop version, not just Bridge. Applying it requires explicit consent, backs up an existing file and preserves other settings. Restart Photoshop afterwards. You can continue without applying it.",
-        "guide_warning_edit": "Optional: script warning settings…",
+        "guide_warning_intro": "Skip the repeated JSX confirmation during Copy and Paste. You can turn off script warnings for the selected Photoshop version if you choose.",
+        "guide_warning_optional": "This affects all external JSX in the selected version, not just Bridge. Keeping warnings is recommended, and Bridge cannot verify individual approvals. To apply, close all Photoshop processes, review the target below and explicitly confirm. Restart Photoshop afterward.",
+        "guide_warning_edit": "Review script warning change…",
         "guide_warning_keep": "Warning setting: default or warnings kept · actual approval unverified",
         "guide_warning_disabled": "Warning setting: WarnRunningScripts 0 found · restart after applying · actual approval unverified",
         "guide_warning_unknown": "Warning setting unverified: check the selected version's preferences folder.",
-        "guide_ase_intro": "Close Aseprite before installing scripts/hotkeys, then restart it. Run aseprite_paste and aseprite_copy individually from File > Scripts and approve the required Trust yourself.\n\nF4 = Paste / F5 = Copy. Installed files and registered shortcuts do not prove security approval or working hotkeys.",
+        "guide_ase_intro": "1. Close Aseprite, install the scripts and shortcuts, then reopen it.\n2. Run aseprite_paste and aseprite_copy separately from File > Scripts and approve Trust yourself.\n3. In a test document, try F5 Copy and F4 Paste with valid Photoshop copy data. Installed files do not prove Trust or shortcut operation.",
         "guide_ase_open": "Aseprite installation / Trust guide…", "guide_hotkeys_check": "I tested F4 Paste / F5 Copy in Aseprite.",
         "guide_files_ok": "Aseprite scripts: installed files match the bundled files",
         "guide_files_pending": "Aseprite scripts: installation or update needs checking",
@@ -752,6 +762,14 @@ for _language, _guide in {
         "guide_dont_show": "Do not show the Initial Setup Guide automatically on next launch",
         "guide_back": "Back", "guide_next": "Next", "guide_finish": "Close guide", "guide_later": "Set up later",
         "guide_tutorial": "Open How to Use", "guide_close": "OK",
+        "guide_ps_continue": "Continue with this version",
+        "guide_ps_running": "Selected version running",
+        "guide_ps_closed": "Selected version closed",
+        "guide_ps_other": "A different Photoshop is running. Close the other version before transferring.",
+        "guide_ps_runtime_unknown": "Running status unverified",
+        "guide_warning_continue": "Continue without changing warnings",
+        "diag_toggle": "Diagnostics",
+        "preview_empty": "No copied layers",
         "tut_content": "<b>Photoshop → Aseprite</b><br>Choose Copy Mode first, select Photoshop layers/folders, then use Photoshop Copy. Switch to the target Aseprite canvas and use Paste or F4.<br><br>"
                        "<b>Aseprite → Photoshop</b><br>Select layers in Aseprite and use Copy or F5, then use Photoshop Paste in the target Photoshop document.<br><br>"
                        "<b>Copy Mode (applies to the next Photoshop copy)</b><br>Normal: paste the existing layer/folder structure.<br>Folder → Frames: paste folders into consecutive frames, including directly selected nested folders. Matching layer positions reuse the same rows, starting at the active Aseprite layer and continuing downward.<br>Layer → Frames: each selected pixel layer becomes a frame on one active Aseprite layer row. Selecting groups is not supported.<br>Frames follow Photoshop panel top-to-bottom order and start at the active Aseprite frame. The clipboard mode shows how the data was copied; changing a radio does not reinterpret existing data.<br><br>"
@@ -762,16 +780,17 @@ for _language, _guide in {
     "ja": {
         "guide_title": "初期設定ガイド", "guide_reopen": "初期設定ガイドを再表示",
         "guide_steps": ("1. Photoshop の接続", "2. Photoshop の実行警告", "3. Aseprite の権限", "4. 確認と終了"),
-        "guide_ps_intro": "使用する Photoshop のバージョンと EXE を確認してください。接続設定で検出されたバージョンを選択したり、パスを変更できます。別のバージョンへ自動で切り替えません。",
-        "guide_ps_edit": "Photoshop の接続設定…", "guide_ps_valid": "選択中の Photoshop: {product} ({version})",
+        "guide_ps_intro": "使用する Photoshop のバージョンと EXE パスが正しければ「このバージョンで続ける」を選びます。確認だけなら終了は不要です。別のバージョンへ切り替える前に Photoshop を終了してください。",
+        "guide_ps_edit": "バージョン選択 / パス変更…",
+        "guide_ps_valid": "選択中の Photoshop: {product} ({version})",
         "guide_ps_missing": "Photoshop の接続は未確認です。接続設定で EXE パスとバージョンを確認してください。",
-        "guide_warning_intro": "Photoshop のコピー/貼り付け時に、外部 JSX の実行確認が表示されることがあります。Ase-PS Bridge Pro が要求したスクリプトだと確認できた場合のみ「はい」を選んでください。\n\n既定の推奨: 警告を維持し、実行時に確認します。Bridge は実際の承認を直接確認できません。",
-        "guide_warning_optional": "任意設定: PSUserConfig.txt の WarnRunningScripts 0 は、この Photoshop バージョンのすべての外部 JSX 実行に影響します。Bridge 専用ではありません。適用には明示的な同意が必要で、既存ファイルをバックアップし、他の設定を保持します。適用後は Photoshop を再起動してください。適用せずに進めます。",
-        "guide_warning_edit": "任意: 実行警告の設定…",
+        "guide_warning_intro": "コピーや貼り付けのたびに JSX の実行を承認する手間を省けます。希望する場合のみ、選択した Photoshop の警告を無効にできます。",
+        "guide_warning_optional": "Bridge に限らず、選択したバージョンのすべての外部 JSX に影響します。警告の維持を推奨します。Bridge は実際の承認を確認できません。変更する場合は Photoshop をすべて終了し、対象を確認して明示的に同意してください。適用後に再起動が必要です。",
+        "guide_warning_edit": "実行警告の変更を確認…",
         "guide_warning_keep": "警告設定: 既定値または警告を維持 · 実際の承認は未確認",
         "guide_warning_disabled": "警告設定: WarnRunningScripts 0 を確認 · 適用後に再起動が必要 · 実際の承認は未確認",
         "guide_warning_unknown": "警告設定は未確認です。選択したバージョンの設定フォルダーを確認してください。",
-        "guide_ase_intro": "Aseprite を終了してからスクリプト/ショートカットをインストールし、再起動してください。File > Scripts から aseprite_paste と aseprite_copy をそれぞれ実行し、必要な Trust を自分で承認してください。\n\nF4 = 貼り付け / F5 = コピーです。ファイルのインストールやキー登録は、権限承認や実際のキー動作の確認とは異なります。",
+        "guide_ase_intro": "1. Aseprite を終了し、スクリプトとキーをインストールして再起動します。\n2. File > Scripts から aseprite_paste と aseprite_copy を個別に実行し、自分で Trust を承認します。\n3. テスト文書で F5 コピーと、有効な Photoshop データで F4 貼り付けを確認します。インストールだけでは権限やキー動作は確認できません。",
         "guide_ase_open": "Aseprite インストール / Trust 案内…", "guide_hotkeys_check": "Aseprite で F4 貼り付け / F5 コピーを実際に確認しました。",
         "guide_files_ok": "Aseprite スクリプト: インストール済みファイルが同梱ファイルと一致",
         "guide_files_pending": "Aseprite スクリプト: インストールまたは更新の確認が必要",
@@ -785,6 +804,14 @@ for _language, _guide in {
         "guide_dont_show": "次回起動時に初期設定ガイドを自動表示しない",
         "guide_back": "戻る", "guide_next": "次へ", "guide_finish": "ガイドを閉じる", "guide_later": "後で設定",
         "guide_tutorial": "使い方を開く", "guide_close": "確認",
+        "guide_ps_continue": "このバージョンで続ける",
+        "guide_ps_running": "選択したバージョンは実行中",
+        "guide_ps_closed": "選択したバージョンは停止中",
+        "guide_ps_other": "別の Photoshop が実行中です。作業前に終了してください。",
+        "guide_ps_runtime_unknown": "実行状態は未確認",
+        "guide_warning_continue": "警告を変更せず続ける",
+        "diag_toggle": "診断",
+        "preview_empty": "コピーされたレイヤーなし",
         "tut_content": "<b>Photoshop → Aseprite</b><br>先に Copy Mode を選び、Photoshop のレイヤー/フォルダーを選択して Photoshop Copy を押します。Aseprite の対象キャンバスで Paste または F4 を使います。<br><br>"
                        "<b>Aseprite → Photoshop</b><br>Aseprite でレイヤーを選択して Copy または F5 を押し、対象の Photoshop 文書で Photoshop Paste を使います。<br><br>"
                        "<b>Copy Mode (次の Photoshop コピーから適用)</b><br>Normal: 既存のレイヤー/フォルダー構造で貼り付けます。<br>Folder → Frames: 選択したフォルダーごとに連続フレームへ配置します。直接選択した下位フォルダーにも対応します。同じ順番のレイヤーは、選択した Aseprite レイヤーを含む下方向の同じ行を再利用します。<br>Layer → Frames: 選択したピクセルレイヤーごとに一つのフレームへ配置し、選択中の Aseprite レイヤー一行を使います。グループの選択には対応しません。<br>フレーム順は Photoshop パネルの上から下で、Aseprite の現在のフレームから始まります。クリップボードのモードは実際にコピーした方式です。ラジオを変更しても既存データのモードは変わりません。<br><br>"
@@ -1031,6 +1058,33 @@ def disable_photoshop_warning(path):
         if os.path.exists(temporary):
             os.remove(temporary)
     return backup
+
+
+def configure_photoshop_warning(parent, lang, settings, target_path):
+    try:
+        info = photoshop_exe_info(target_path())
+        path = photoshop_config_path(info)
+        _, _, _, values = photoshop_warning_config(path)
+        prompt = lang["ps_warning_info"].format(
+            version=info["version"], exe=info["path"], config=path,
+            state=", ".join(values) if values else lang["ps_default_warning"])
+        answer = QMessageBox.question(parent, lang["ps_warning_title"], prompt,
+                                      QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+        if answer != QMessageBox.Yes:
+            return
+        if running_photoshops():
+            QMessageBox.warning(parent, lang["ps_warning_title"], lang["ps_close_first"])
+            return
+        # Revalidate the selected version/path after consent; never touch another version.
+        if photoshop_config_path(photoshop_exe_info(target_path())) != path:
+            raise ValueError("Photoshop preferences target changed.")
+        backup = disable_photoshop_warning(path)
+        settings["photoshop_warning_choice"] = {"exe": info["path"], "disabled": True}
+        save_settings(settings)
+        QMessageBox.information(parent, lang["ps_warning_title"],
+                                lang["ps_warning_done"].format(backup=backup or lang["ps_no_backup"]))
+    except Exception as e:
+        QMessageBox.warning(parent, lang["ps_warning_title"], str(e))
 
 
 def find_photoshop_exe() -> str:
@@ -1454,16 +1508,18 @@ class SettingsDialog(QDialog):
         self.sync_photoshop_version_selection()
         self.ps_versions.activated.connect(self.select_photoshop_version)
         form_layout.addRow(self.lang["ps_versions"], self.ps_versions)
-        ps_warning_btn = QPushButton(self.lang["ps_warning"])
-        ps_warning_btn.clicked.connect(self.configure_photoshop_warning)
-        form_layout.addRow("", ps_warning_btn)
         if photoshop_only:
+            self.setWindowTitle(self.lang["guide_steps"][0])
+            self.setMinimumSize(480, 0)
             layout.addLayout(form_layout)
             self.button_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
             self.button_box.accepted.connect(self.accept)
             self.button_box.rejected.connect(self.reject)
             layout.addWidget(self.button_box)
             return
+        ps_warning_btn = QPushButton(self.lang["ps_warning"])
+        ps_warning_btn.clicked.connect(self.configure_photoshop_warning)
+        form_layout.addRow("", ps_warning_btn)
         
         # Aseprite 경로
         self.ase_path_input = QLineEdit(self.current_settings.get("aseprite_exe", ""))
@@ -1566,30 +1622,7 @@ class SettingsDialog(QDialog):
         self.sync_photoshop_version_selection()
 
     def configure_photoshop_warning(self):
-        try:
-            info = photoshop_exe_info(self.ps_path_input.text())
-            path = photoshop_config_path(info)
-            _, _, _, values = photoshop_warning_config(path)
-            prompt = self.lang["ps_warning_info"].format(
-                version=info["version"], exe=info["path"], config=path,
-                state=", ".join(values) if values else self.lang["ps_default_warning"])
-            answer = QMessageBox.question(self, self.lang["ps_warning_title"], prompt,
-                                          QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
-            if answer != QMessageBox.Yes:
-                return
-            if running_photoshops():
-                QMessageBox.warning(self, self.lang["ps_warning_title"], self.lang["ps_close_first"])
-                return
-            # Revalidate the selected version/path after consent; never touch another version.
-            if photoshop_config_path(photoshop_exe_info(self.ps_path_input.text())) != path:
-                raise ValueError("Photoshop preferences target changed.")
-            backup = disable_photoshop_warning(path)
-            self.current_settings["photoshop_warning_choice"] = {"exe": info["path"], "disabled": True}
-            save_settings(self.current_settings)
-            QMessageBox.information(self, self.lang["ps_warning_title"],
-                                    self.lang["ps_warning_done"].format(backup=backup or self.lang["ps_no_backup"]))
-        except Exception as e:
-            QMessageBox.warning(self, self.lang["ps_warning_title"], str(e))
+        configure_photoshop_warning(self, self.lang, self.current_settings, self.ps_path_input.text)
 
     def force_reconfigure(self):
         ase_paste_lua_orig = get_resource_path(os.path.join("scripts", "aseprite_paste.lua"))
@@ -1790,7 +1823,7 @@ class InitialSetupDialog(QDialog):
         self.open_tutorial_requested = False
         self.setWindowTitle(self.lang["guide_title"])
         self.setMinimumSize(480, 440)
-        self.resize(560, 590)
+        self.resize(560, 510)
         layout = QVBoxLayout(self)
         self.step_title = QLabel()
         self.step_title.setWordWrap(True)
@@ -1813,7 +1846,7 @@ class InitialSetupDialog(QDialog):
                 self.add_text(content, self.lang["guide_warning_optional"])
                 self.warning_status = self.add_text(content, "")
                 self.warning_edit = QPushButton(self.lang["guide_warning_edit"])
-                self.warning_edit.clicked.connect(self.edit_photoshop)
+                self.warning_edit.clicked.connect(self.edit_warning)
                 content.addWidget(self.warning_edit)
             elif step == 2:
                 self.add_text(content, self.lang["guide_ase_intro"])
@@ -1871,6 +1904,8 @@ class InitialSetupDialog(QDialog):
         path = self.app.settings.get("photoshop_exe", "")
         connection = self.lang["guide_ps_missing"]
         warning = self.lang["guide_warning_unknown"]
+        runtime = "guide_ps_runtime_unknown"
+        info = None
         try:
             info = photoshop_exe_info(path)
             connection = self.lang["guide_ps_valid"].format(**info)
@@ -1883,8 +1918,22 @@ class InitialSetupDialog(QDialog):
                 warning = self.lang["guide_warning_keep"]
         except Exception:
             pass
-        self.ps_status.setText(connection + "\n" + path)
-        self.warning_status.setText(warning)
+        if info:
+            try:
+                running = running_photoshops()
+                selected = os.path.normcase(info["path"])
+                if any(os.path.normcase(p["Path"]) != selected for p in running):
+                    runtime = "guide_ps_other"
+                else:
+                    runtime = "guide_ps_running" if running else "guide_ps_closed"
+            except Exception:
+                pass
+        self.ps_target_valid = info is not None
+        self.ps_status.setText("\n".join(filter(None, (connection, path, self.lang[runtime]))))
+        self.warning_status.setText("\n".join((connection, warning)))
+        self.warning_edit.setEnabled(self.ps_target_valid)
+        if self.pages.currentIndex() == 0:
+            self.update_next_text(0)
 
         scripts_current, keys_registered = False, False
         try:
@@ -1913,14 +1962,19 @@ class InitialSetupDialog(QDialog):
             return
         trust_key = "guide_trust_yes" if self.app.settings.get("aseprite_trust_confirmed") is True else "guide_trust_no"
         keys_key = "guide_keys_tested" if self.hotkeys_confirmed.isChecked() else "guide_keys_untested"
-        self.summary.setText("\n\n".join((self.ps_status.text(), self.warning_status.text(),
-                                          self.ase_status.text(), self.lang[trust_key], self.lang[keys_key])))
+        self.summary.setText("\n\n".join((self.ps_status.text(), self.warning_status.text().split("\n", 1)[-1],
+                                          *self.ase_status.text().splitlines(), self.lang[trust_key], self.lang[keys_key])))
 
     def edit_photoshop(self):
         dialog = SettingsDialog(self.app.settings, self.lang, self, photoshop_only=True)
         if dialog.exec():
             self.app.settings.update(dialog.get_settings())
             save_settings(self.app.settings)
+        self.refresh_status()
+
+    def edit_warning(self):
+        configure_photoshop_warning(self, self.lang, self.app.settings,
+                                    lambda: self.app.settings.get("photoshop_exe", ""))
         self.refresh_status()
 
     def edit_aseprite(self):
@@ -1932,8 +1986,14 @@ class InitialSetupDialog(QDialog):
         self.pages.setCurrentIndex(index)
         self.step_title.setText(self.lang["guide_steps"][index])
         self.btn_back.setEnabled(index > 0)
-        self.btn_next.setText(self.lang["guide_finish" if index == 3 else "guide_next"])
+        self.update_next_text(index)
         self.update_summary()
+
+    def update_next_text(self, index):
+        key = {1: "guide_warning_continue", 3: "guide_finish"}.get(index, "guide_next")
+        if index == 0 and self.ps_target_valid:
+            key = "guide_ps_continue"
+        self.btn_next.setText(self.lang[key])
 
     def next_step(self):
         if self.pages.currentIndex() == 3:
@@ -2162,7 +2222,6 @@ class BridgeApp(QMainWindow):
         btn_layout.setSpacing(5)
         
         self.btn_clean = QPushButton(self.t["btn_clean"])
-        self.btn_clean.setStyleSheet("background-color: #ef4444; color: white; border-radius: 4px; padding: 5px;")
         self.btn_clean.clicked.connect(self.clean_temp_folder)
         
         settings_tut_layout = QHBoxLayout()
@@ -2183,7 +2242,7 @@ class BridgeApp(QMainWindow):
         layout.addLayout(top_layout)
 
         # === 썸네일 Preview 영역 ===
-        self.preview_label = QLabel("No Preview")
+        self.preview_label = QLabel(self.t["preview_empty"])
         self.preview_label.setAlignment(Qt.AlignCenter)
         self.preview_label.setFixedSize(350, 160)
         self.preview_label.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
@@ -2281,6 +2340,7 @@ class BridgeApp(QMainWindow):
         self.frame_mode_label = QLabel(self.t["frame_mode_label"])
         self.frame_mode_info_label = QLabel()
         self.frame_mode_info_label.setWordWrap(True)
+        self.frame_mode_info_label.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
         self.frame_mode_info_label.setStyleSheet("color: #4b5563; font-size: 11px; font-weight: bold;")
         frame_mode_layout.addWidget(self.frame_mode_label)
         frame_mode_layout.addWidget(self.radio_frame_normal)
@@ -2292,13 +2352,11 @@ class BridgeApp(QMainWindow):
         # === 정방향 ===
         self.btn_ps_copy = QPushButton(self.t["btn_ps_copy"])
         self.btn_ps_copy.setMinimumHeight(40)
-        self.btn_ps_copy.setStyleSheet("background-color: #3b82f6; color: white; font-weight: bold; border-radius: 5px;")
         self.btn_ps_copy.clicked.connect(self.run_ps_copy)
         layout.addWidget(self.btn_ps_copy)
 
         self.btn_ase_paste = QPushButton(self.t["btn_ase_paste"])
         self.btn_ase_paste.setMinimumHeight(40)
-        self.btn_ase_paste.setStyleSheet("background-color: #10b981; color: white; font-weight: bold; border-radius: 5px;")
         self.btn_ase_paste.setEnabled(False)
         self.btn_ase_paste.clicked.connect(self.run_ase_paste)
         layout.addWidget(self.btn_ase_paste)
@@ -2306,18 +2364,28 @@ class BridgeApp(QMainWindow):
         # === 역방향 ===
         self.btn_ase_copy = QPushButton(self.t["btn_ase_copy"])
         self.btn_ase_copy.setMinimumHeight(40)
-        self.btn_ase_copy.setStyleSheet("background-color: #f59e0b; color: white; font-weight: bold; border-radius: 5px;")
         self.btn_ase_copy.clicked.connect(self.run_ase_copy)
         layout.addWidget(self.btn_ase_copy)
 
         self.btn_ps_paste = QPushButton(self.t["btn_ps_paste"])
         self.btn_ps_paste.setMinimumHeight(40)
-        self.btn_ps_paste.setStyleSheet("background-color: #8b5cf6; color: white; font-weight: bold; border-radius: 5px;")
         self.btn_ps_paste.setEnabled(False)
         self.btn_ps_paste.clicked.connect(self.run_ps_paste)
         layout.addWidget(self.btn_ps_paste)
+        for button in (self.btn_ase_paste, self.btn_ps_paste):
+            button.setStyleSheet(
+                "QPushButton:enabled { background-color: #1d4ed8; color: white; font-weight: bold; border-radius: 5px; }"
+                "QPushButton:hover:enabled { background-color: #1e40af; }"
+                "QPushButton:focus:enabled { border: 2px solid #60a5fa; }"
+                "QPushButton:pressed:enabled { background-color: #1e3a8a; }")
 
         # 로그 콘솔
+        self.diagnostics_toggle = QPushButton(self.t["diag_toggle"])
+        self.diagnostics_toggle.setCheckable(True)
+        layout.addWidget(self.diagnostics_toggle)
+        self.diagnostics_panel = QWidget()
+        panel_layout = QVBoxLayout(self.diagnostics_panel)
+        panel_layout.setContentsMargins(0, 0, 0, 0)
         self.log_console = QTextEdit()
         self.log_console.setReadOnly(True)
         self.log_console.setFont(QFont("Consolas", 8))
@@ -2343,8 +2411,12 @@ class BridgeApp(QMainWindow):
             button.clicked.connect(callback)
             diagnostic_toolbar.addWidget(button)
             self.diagnostic_buttons.append((key, button))
-        layout.addLayout(diagnostic_toolbar)
-        layout.addWidget(self.log_console)
+        panel_layout.addLayout(diagnostic_toolbar)
+        panel_layout.addWidget(self.log_console)
+        layout.addWidget(self.diagnostics_panel)
+        layout.addStretch()
+        self.diagnostics_panel.hide()
+        self.diagnostics_toggle.toggled.connect(self.diagnostics_panel.setVisible)
 
         container = QWidget()
         layout.setSizeConstraint(QLayout.SetMinimumSize)
@@ -2378,6 +2450,9 @@ class BridgeApp(QMainWindow):
     def refresh_ui_language(self):
         self.t = LANG[self.current_lang]
         self.debug_checkbox.setText(self.t["diag_debug"])
+        self.diagnostics_toggle.setText(self.t["diag_toggle"])
+        if self.preview_label.text() in {lang["preview_empty"] for lang in LANG.values()}:
+            self.preview_label.setText(self.t["preview_empty"])
         for key, button in self.diagnostic_buttons:
             button.setToolTip(self.t[key])
             button.setAccessibleName(self.t[key])
@@ -2754,7 +2829,7 @@ class BridgeApp(QMainWindow):
 
     def clear_preview(self):
         self.preview_label.clear()
-        self.preview_label.setText("No Preview")
+        self.preview_label.setText(self.t["preview_empty"])
         self.update_ui_state()
 
     def start_preview_generation(self, job_path):

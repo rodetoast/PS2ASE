@@ -255,6 +255,7 @@ class JobLifecycleTests(unittest.TestCase):
 
     def test_debug_filter_manual_scroll_and_redaction(self):
         self.window.show()
+        self.window.diagnostics_toggle.setChecked(True)
         self.app.processEvents()
         self.window.trace_job("example", "STARTING")
         self.assertNotIn("STARTING", self.window.log_console.toPlainText())
