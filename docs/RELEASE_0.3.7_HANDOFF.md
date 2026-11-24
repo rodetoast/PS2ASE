@@ -38,3 +38,7 @@ Older Photoshop real runtime, existing GUI F4/F5 and initial Trust, every DPI/Wi
 ## Launcher owner's next steps
 
 Import this exact ZIP, verify size/hash/entrypoint and retained paths, and perform the launcher-specific upgrade/start/rollback checks. Source push is not catalog approval. Catalog signing, sequence increment, operational GitHub publication/Latest and employee rollout require separate approval in the launcher project. Operational PS2ASE remains 0.3.6 until then. No v0.3.6 tag was changed and no new release tag was created here.
+
+## Central hub synchronization pending
+
+Project source/handoff development commits were pushed to PS2ASE. Hub summary/list changes are committed locally as `9338317` on `codex/ps2ase-2027-candidate-20261124`, but push was denied with HTTP 403 for the sole configured account `toast-source`. No credentials or access controls were changed. `development-hub-ps2ase-2027.patch` is beside the candidate for an authorized hub maintainer. The operational hub main and its remote development branch have not been updated by this task.

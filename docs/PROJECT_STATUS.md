@@ -41,5 +41,6 @@
 - 최신 상세 근거: [2027 검증 기록](PHOTOSHOP_2027_VALIDATION.md), [직원용 릴리스 노트](../RELEASE_v0.3.7.md). 소스 commit/후보 ZIP 해시는 패키징 후 인계 기록에 고정합니다.
 - 운영 카탈로그/Latest/서명/태그/직원 설치는 수정하지 않았습니다. 후보와 운영 공개를 구분합니다.
 - **후보 소스 commit** `74f57bbf9c01443d1eda6267559762a1088a9236`; 이후 문서 전용 commit은 코드/EXE를 바꾸지 않습니다. 후보 `ps2ase--0.3.7-rc1-74f57bb.zip` (55,955,225 bytes)과 EXE (56,345,607 bytes)를 생성·검증했습니다. 정확한 SHA-256 및 보존/실행 계약은 [런처 인계](RELEASE_0.3.7_HANDOFF.md)에 고정했습니다. 운영 공개는 아직 하지 않았습니다.
+- **허브 동기화 대기**: 중앙 요약/목록 변경은 허브 로컬 개발 브랜치 `codex/ps2ase-2027-candidate-20261124`, commit `9338317`에 보존했습니다. 현재 등록 GitHub 계정 toast-source의 허브 push는 403(쓰기 권한 없음)으로 거절됐습니다. 인증/권한을 임의 변경하지 않았으며, `development-hub-ps2ase-2027.patch`를 후보 인계 폴더에 준비했습니다. 허브 원격 main/개발 브랜치에는 아직 반영되지 않았습니다.
 
 [README.md](https://github.com/rodetoast/PS2ASE/blob/fee0a4e07e2131f256a1d0dda08473c85f59015d/README.md) · [bridge_ui.spec](https://github.com/rodetoast/PS2ASE/blob/fee0a4e07e2131f256a1d0dda08473c85f59015d/bridge_ui.spec) · [RELEASE_v0.3.7.md](https://github.com/rodetoast/PS2ASE/blob/fee0a4e07e2131f256a1d0dda08473c85f59015d/RELEASE_v0.3.7.md) · [개발 허브 요약](https://github.com/rodetoast/southpaw-development-hub/blob/main/projects/ps2ase.md)
