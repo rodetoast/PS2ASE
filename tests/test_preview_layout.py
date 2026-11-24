@@ -87,6 +87,29 @@ class PreviewLayoutTests(unittest.TestCase):
         self.assertTrue(w.diagnostics_panel.isHidden())
         self.assertTrue(w.debug_checkbox.isChecked())
 
+    def test_edit_actions_are_labeled_and_keep_existing_enable_rules(self):
+        w = self.window
+        w.show()
+        w.resize(390, 480)
+        for language in ("ko", "en", "ja"):
+            w.current_lang = language
+            w.refresh_ui_language()
+            self.assertEqual(w.preview_edit_heading.text(), w.t["preview_edit_heading"])
+            self.assert_independent_rows()
+            for button, key in w.transform_actions:
+                self.assertEqual(button.text(), w.t[key])
+                self.assertTrue(button.accessibleName())
+                self.assertGreaterEqual(button.height(), 34)
+                self.assertFalse(button.isEnabled())
+            self.assertLess(self.rect(w.btn_rotate).bottom(), self.rect(w.btn_undo).top())
+        w.last_job_id = "test"
+        w.current_job_path = str(self.fixture.root)
+        w.undo_stack.append((False, False, 0))
+        w.update_ui_state()
+        for button in (w.btn_flip_h, w.btn_flip_v, w.btn_rotate, w.btn_undo):
+            self.assertTrue(button.isEnabled())
+        self.assertFalse(w.btn_redo.isEnabled())
+
     def test_image_ratio_and_no_preview_have_stable_geometry(self):
         w = self.window
         w.show()

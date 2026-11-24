@@ -330,6 +330,7 @@ QPushButton { color: #eef1f4; background: #2c323b; border: 1px solid #454e5a;
               border-radius: 6px; padding: 4px 8px; }
 QPushButton[uiRole="quiet"] { background: transparent; color: #c5ced9; border-color: transparent; }
 QPushButton[uiRole="copy"] { background: #333e48; font-weight: 600; }
+QPushButton[uiRole="transform"]:enabled { background: #31404a; border-color: #52616e; font-weight: 600; }
 QPushButton[uiRole="primary"] { background: #176b62; border-color: #248577; font-weight: 700; }
 QPushButton:hover:enabled { border-color: #7b8c9e; }
 QPushButton:pressed:enabled, QPushButton:checked:enabled { background: #3b4653; }
@@ -345,7 +346,10 @@ QRadioButton[uiSegment="true"] {
 }
 QRadioButton[uiSegment="true"]::indicator { width: 0; height: 0; border: none; background: transparent; }
 QRadioButton[uiSegment="true"]:checked { background: #203e49; border-color: #6897ad; color: #e0f5ff; }
-QRadioButton[uiSegment="true"]:hover { border-color: #9ac8ef; }
+QRadioButton[uiSegment="true"]:hover:enabled, QRadioButton[uiSegment="true"]:focus:enabled { border-color: #9ac8ef; }
+QRadioButton[uiSegment="true"]:pressed:enabled { background: #365866; }
+QRadioButton[uiSegment="true"]:disabled { background: #252930; color: #8e9aa8; border-color: #373d46; }
+QRadioButton[uiSegment="true"]:checked:disabled { border-color: #526776; }
 QLineEdit, QComboBox, QComboBox QAbstractItemView {
     background: #22262d; color: #edf0f3; border: 1px solid #454e5a; border-radius: 5px; padding: 4px;
     selection-background-color: #345a70;
@@ -476,8 +480,8 @@ LANG = {
         "btn_flip_h": "↔ 좌우 반전",
         "btn_flip_v": "↕ 상하 반전",
         "btn_rotate": "↻ 90° 회전",
-        "btn_undo": "↩ Undo",
-        "btn_redo": "↪ Redo"
+        "btn_undo": "↶ 실행 취소",
+        "btn_redo": "↷ 다시 실행"
     },
     "en": {
         "title": PRODUCT_NAME,
@@ -790,6 +794,7 @@ for _language, _guide in {
         "guide_warning_continue": "경고 설정을 바꾸지 않고 계속",
         "diag_toggle": "진단",
         "preview_empty": "복사된 레이어 없음",
+        "preview_edit_heading": "복사 레이어 편집",
         "tut_content": "<b>Photoshop → Aseprite</b><br>프레임 모드와 Photoshop 레이어/폴더를 선택한 뒤 이 방향의 복사를 누릅니다. Aseprite 대상 문서에서 붙여넣기 · F4를 실행합니다.<br><br>"
                        "<b>Aseprite → Photoshop</b><br>Aseprite에서 레이어를 선택하고 이 방향의 복사 · F5를 실행한 뒤, Photoshop 대상 문서에서 붙여넣기를 누릅니다.<br><br>"
                        "<b>Copy Mode (다음 Photoshop 복사부터 적용)</b><br>Normal: 기존 레이어/폴더 구조로 붙여넣기.<br>Folder → Frames: 선택 폴더별로 연속 프레임에 배치합니다. 선택한 하위 폴더도 개별 프레임이 됩니다. 같은 순번의 레이어는 선택 Aseprite 레이어 포함 아래쪽의 같은 row를 재사용합니다.<br>Layer → Frames: 선택한 픽셀 레이어 하나당 한 프레임, 선택 Aseprite 레이어 한 row에 순차 배치합니다. 폴더 선택은 지원하지 않습니다.<br>프레임 순서는 Photoshop 패널 위→아래이며 Aseprite 현재 프레임부터 시작합니다. 현재 클립보드 모드 표시는 실제 복사된 모드입니다. 라디오를 바꿔도 기존 복사 데이터의 모드는 바뀌지 않습니다.<br><br>"
@@ -833,6 +838,7 @@ for _language, _guide in {
         "guide_warning_continue": "Continue without changing warnings",
         "diag_toggle": "Diagnostics",
         "preview_empty": "No copied layers",
+        "preview_edit_heading": "Edit Copied Layers",
         "tut_content": "<b>Photoshop → Aseprite</b><br>Choose the frame mode and select Photoshop layers/folders, then click Copy in this row. Switch to the target Aseprite canvas and use Paste · F4.<br><br>"
                        "<b>Aseprite → Photoshop</b><br>Select layers in Aseprite and use Copy · F5 in this row, then click Paste in the target Photoshop document.<br><br>"
                        "<b>Copy Mode (applies to the next Photoshop copy)</b><br>Normal: paste the existing layer/folder structure.<br>Folder → Frames: paste folders into consecutive frames, including directly selected nested folders. Matching layer positions reuse the same rows, starting at the active Aseprite layer and continuing downward.<br>Layer → Frames: each selected pixel layer becomes a frame on one active Aseprite layer row. Selecting groups is not supported.<br>Frames follow Photoshop panel top-to-bottom order and start at the active Aseprite frame. The clipboard mode shows how the data was copied; changing a radio does not reinterpret existing data.<br><br>"
@@ -876,6 +882,7 @@ for _language, _guide in {
         "guide_warning_continue": "警告を変更せず続ける",
         "diag_toggle": "診断",
         "preview_empty": "コピーされたレイヤーなし",
+        "preview_edit_heading": "コピーしたレイヤーの編集",
         "tut_content": "<b>Photoshop → Aseprite</b><br>フレームモードと Photoshop のレイヤー/フォルダーを選択し、この行のコピーを押します。Aseprite の対象キャンバスで貼り付け · F4 を実行します。<br><br>"
                        "<b>Aseprite → Photoshop</b><br>Aseprite でレイヤーを選択し、この行のコピー · F5 を実行してから、対象の Photoshop 文書で貼り付けを押します。<br><br>"
                        "<b>Copy Mode (次の Photoshop コピーから適用)</b><br>Normal: 既存のレイヤー/フォルダー構造で貼り付けます。<br>Folder → Frames: 選択したフォルダーごとに連続フレームへ配置します。直接選択した下位フォルダーにも対応します。同じ順番のレイヤーは、選択した Aseprite レイヤーを含む下方向の同じ行を再利用します。<br>Layer → Frames: 選択したピクセルレイヤーごとに一つのフレームへ配置し、選択中の Aseprite レイヤー一行を使います。グループの選択には対応しません。<br>フレーム順は Photoshop パネルの上から下で、Aseprite の現在のフレームから始まります。クリップボードのモードは実際にコピーした方式です。ラジオを変更しても既存データのモードは変わりません。<br><br>"
@@ -2366,9 +2373,16 @@ class BridgeApp(QMainWindow):
         # === 🔄 변환(Transform) 컨트롤 영역 ===
         self.transform_bar = QWidget()
         self.transform_bar.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
-        flip_layout = QHBoxLayout(self.transform_bar)
-        flip_layout.setContentsMargins(0, 0, 0, 0)
-        flip_layout.setSizeConstraint(QLayout.SetMinimumSize)
+        edit_layout = QVBoxLayout(self.transform_bar)
+        edit_layout.setContentsMargins(0, 4, 0, 0)
+        edit_layout.setSpacing(5)
+        self.preview_edit_heading = QLabel(self.t["preview_edit_heading"])
+        self.preview_edit_heading.setProperty("uiHeading", True)
+        edit_layout.addWidget(self.preview_edit_heading)
+        flip_layout = QHBoxLayout()
+        history_layout = QHBoxLayout()
+        edit_layout.addLayout(flip_layout)
+        edit_layout.addLayout(history_layout)
         self.btn_flip_h = QPushButton(self.t.get("btn_flip_h", "↔ 좌우 반전"))
         self.btn_flip_v = QPushButton(self.t.get("btn_flip_v", "↕ 상하 반전"))
         self.btn_rotate = QPushButton(self.t.get("btn_rotate", "↻ 90° 회전"))
@@ -2390,17 +2404,17 @@ class BridgeApp(QMainWindow):
         self.btn_undo.clicked.connect(self.handle_undo)
         self.btn_redo.clicked.connect(self.handle_redo)
 
-        flip_layout.addWidget(self.btn_undo)
-        flip_layout.addWidget(self.btn_flip_h)
-        flip_layout.addWidget(self.btn_flip_v)
-        flip_layout.addWidget(self.btn_rotate)
-        flip_layout.addWidget(self.btn_redo)
         self.transform_actions = (
-            (self.btn_undo, "↶", "btn_undo"), (self.btn_flip_h, "↔", "btn_flip_h"),
-            (self.btn_flip_v, "↕", "btn_flip_v"), (self.btn_rotate, "⟳", "btn_rotate"),
-            (self.btn_redo, "↷", "btn_redo"))
-        for button, _, _ in self.transform_actions:
-            button.setFixedSize(48, 28)
+            (self.btn_flip_h, "btn_flip_h"), (self.btn_flip_v, "btn_flip_v"),
+            (self.btn_rotate, "btn_rotate"), (self.btn_undo, "btn_undo"),
+            (self.btn_redo, "btn_redo"))
+        for button, _ in self.transform_actions:
+            button.setMinimumHeight(34)
+        for button in (self.btn_flip_h, self.btn_flip_v, self.btn_rotate):
+            button.setProperty("uiRole", "transform")
+            flip_layout.addWidget(button, 1)
+        for button in (self.btn_undo, self.btn_redo):
+            history_layout.addWidget(button, 1)
         self.refresh_transform_labels()
         preview_layout.addWidget(self.transform_bar)
         layout.addWidget(self.preview_panel)
@@ -2580,10 +2594,13 @@ class BridgeApp(QMainWindow):
         dlg.exec()
         
     def refresh_transform_labels(self):
-        for button, symbol, key in self.transform_actions:
-            button.setText(symbol)
-            button.setToolTip(self.t[key])
-            button.setAccessibleName(self.t[key])
+        self.preview_edit_heading.setText(self.t["preview_edit_heading"])
+        for button, key in self.transform_actions:
+            label = self.t[key]
+            button.setText(label)
+            description = label.split(" ", 1)[1]
+            button.setToolTip(description)
+            button.setAccessibleName(description)
 
     def refresh_ui_language(self):
         self.t = LANG[self.current_lang]
