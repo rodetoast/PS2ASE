@@ -4,7 +4,7 @@
 
 아티스트가 Photoshop과 Aseprite 사이에서 레이어와 프레임을 주고받습니다.
 
-- 제품 표시명 **Ase-PS Bridge Pro** · 런처 app_id `ps2ase`
+- 개발 소스 표시명 **Photoshop ↔ Aseprite** · 운영 0.3.6 표시명 **Ase-PS Bridge Pro** · 런처 app_id `ps2ase`
 - 기술 구성 Python, PySide6, Windows pywin32/Photoshop JSX, PyInstaller
 - 구현 기능 로컬 파일을 통한 레이어 전송과 프레임·정렬 지원
 
@@ -25,6 +25,8 @@
 ## 패키징과 다음 단계
 
 ### 제품 표시명 및 UI 후속 변경
+
+- 런처 0.2.2 구현의 Pretendard Variable(OFL)과 다크/보라색 토큰을 Widgets에 적용했습니다. 편집 도구는 SVG와 두 줄 배치를 유지하고, 정렬/프레임 모드 선택을 다국어 가운데 정렬과 6종 시각 도움말로 개선했습니다. [구현 화면 및 검증](ui-reviews/launcher-system/README.md). 자동 121개, Windows Qt 100~200% 확인. 실제 호스트 동작 재시험 및 후보 재패키징은 하지 않았습니다.
 
 - **복사 레이어 편집** 영역을 미리보기 안에 두고, 반전·회전과 실행 취소·다시 실행을 두 줄로 구분했습니다. 아이콘과 이름을 함께 표시하고 눌림·포커스·비활성 상태를 정리했습니다. 관련 테스트 25개와 세 언어의 Windows Qt 100~200% 좁은 창 확인을 완료했습니다. [편집 도구 전후 비교](ui-reviews/copied-layer-editing.md). 기존 EXE/ZIP 및 운영은 변경하지 않았습니다.
 

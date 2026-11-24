@@ -31,9 +31,10 @@ try:
     from PIL import Image
     from PySide6.QtWidgets import (QApplication, QMainWindow, QPushButton, QVBoxLayout,
                                    QWidget, QTextEdit, QLabel, QRadioButton, QButtonGroup,
-                                   QHBoxLayout, QMessageBox, QFileDialog, QDialog, QLineEdit, QFormLayout, QDialogButtonBox, QComboBox, QStyle, QScrollArea, QSizePolicy, QLayout, QStackedWidget, QProgressBar)
-    from PySide6.QtCore import QTimer, QThread, Signal, Slot, Qt, QUrl, QEventLoop, QLocale, QObject, QEvent
-    from PySide6.QtGui import QFont, QColor, QPixmap, QDesktopServices
+                                   QHBoxLayout, QMessageBox, QFileDialog, QDialog, QLineEdit, QFormLayout, QDialogButtonBox, QComboBox, QScrollArea, QSizePolicy, QLayout, QStackedWidget, QProgressBar)
+    from PySide6.QtCore import QTimer, QThread, Signal, Slot, Qt, QUrl, QEventLoop, QLocale, QObject, QEvent, QSize
+    from PySide6.QtGui import QFont, QFontDatabase, QColor, QPixmap, QDesktopServices, QPalette
+    from bridge_visuals import OptionHelp, SegmentButton, tool_icon
     import win32com.client
     import pythoncom
 except Exception:
@@ -317,53 +318,79 @@ PRODUCT_NAME = "Photoshop ↔ Aseprite"
 
 WORKSPACE_STYLE = """
 QWidget#bridgeWorkspace, QDialog, QScrollArea, QWidget#guidePage {
-    background: #181b20; color: #edf0f3;
+    background: #151822; color: #f5f3ff;
 }
-QWidget[uiSurface="true"] { background: #22262d; border: 1px solid #383e48; border-radius: 8px; }
-QLabel, QCheckBox, QRadioButton { color: #edf0f3; }
+QWidget[uiSurface="true"], QWidget#optionHelp { background: #202432; border: 1px solid #393e51; border-radius: 8px; }
+QLabel, QCheckBox, QRadioButton { color: #f5f3ff; }
 QLabel[uiHeading="true"] { font-weight: 700; }
-QLabel[uiMuted="true"] { color: #b9c2cd; }
-QLabel#guideStatus { background: #272e37; border: 1px solid #414d5a; border-radius: 6px; padding: 8px; }
-QWidget#warningNote { background: #2e2920; border: 1px solid #66543a; border-radius: 6px; }
-QLabel#warningHeading { color: #f0cb8b; font-weight: 700; }
-QPushButton { color: #eef1f4; background: #2c323b; border: 1px solid #454e5a;
+QLabel[uiMuted="true"] { color: #b7b9cb; }
+QLabel#guideStatus { background: #202432; border: 1px solid #393e51; border-radius: 6px; padding: 8px; }
+QWidget#warningNote { background: #332a25; border: 1px solid #66543a; border-radius: 6px; }
+QLabel#warningHeading { color: #ffd29b; font-weight: 700; }
+QPushButton { color: #f5f3ff; background: #202432; border: 1px solid #50566e;
               border-radius: 6px; padding: 4px 8px; }
-QPushButton[uiRole="quiet"] { background: transparent; color: #c5ced9; border-color: transparent; }
-QPushButton[uiRole="copy"] { background: #333e48; font-weight: 600; }
-QPushButton[uiRole="transform"]:enabled { background: #31404a; border-color: #52616e; font-weight: 600; }
-QPushButton[uiRole="primary"] { background: #176b62; border-color: #248577; font-weight: 700; }
-QPushButton:hover:enabled { border-color: #7b8c9e; }
-QPushButton:pressed:enabled, QPushButton:checked:enabled { background: #3b4653; }
+QPushButton[uiRole="quiet"] { background: transparent; color: #b7b9cb; border-color: transparent; }
+QPushButton[uiRole="copy"], QPushButton[uiRole="transform"] { font-weight: 600; }
+QPushButton[uiRole="transform"] { padding: 4px; }
+QPushButton[uiRole="primary"] { background: #7146bd; border-color: #7146bd; color: #ffffff; font-weight: 700; }
+QPushButton:hover:enabled { background: #292d3e; border-color: #9296ac; }
+QPushButton:pressed:enabled, QPushButton:checked:enabled { background: #302743; }
+QPushButton[uiRole="primary"]:hover:enabled { background: #7b50c9; }
+QPushButton[uiRole="primary"]:pressed:enabled { background: #6039a6; }
 QPushButton:disabled, QPushButton[uiRole="primary"]:disabled, QPushButton[uiRole="copy"]:disabled {
-    background: #262a31; color: #8e9aa8; border-color: #373d46;
+    background: #1b1e2b; color: #9296ac; border-color: #393e51;
 }
-QPushButton:focus:enabled, QRadioButton[uiSegment="true"]:focus, QLineEdit:focus, QComboBox:focus {
-    border-color: #9ac8ef;
+QPushButton:focus:enabled, QLineEdit:focus, QComboBox:focus {
+    border-color: #c5b6ff;
 }
-QLabel:disabled, QCheckBox:disabled, QRadioButton:disabled { color: #8e9aa8; }
-QRadioButton[uiSegment="true"] {
-    background: #272c33; border: 1px solid #454e5a; border-radius: 6px; padding: 5px 4px;
+QLabel:disabled, QCheckBox:disabled, QRadioButton:disabled { color: #9296ac; }
+QPushButton[uiSegment="true"] {
+    background: #202432; border: 1px solid #50566e; border-radius: 6px; padding: 4px 6px;
+    text-align: center; font-weight: 600;
 }
-QRadioButton[uiSegment="true"]::indicator { width: 0; height: 0; border: none; background: transparent; }
-QRadioButton[uiSegment="true"]:checked { background: #203e49; border-color: #6897ad; color: #e0f5ff; }
-QRadioButton[uiSegment="true"]:hover:enabled, QRadioButton[uiSegment="true"]:focus:enabled { border-color: #9ac8ef; }
-QRadioButton[uiSegment="true"]:pressed:enabled { background: #365866; }
-QRadioButton[uiSegment="true"]:disabled { background: #252930; color: #8e9aa8; border-color: #373d46; }
-QRadioButton[uiSegment="true"]:checked:disabled { border-color: #526776; }
+QPushButton[uiSegment="true"]:checked { background: #302743; border-color: #9f87e4; color: #f5f3ff; }
+QPushButton[uiSegment="true"]:hover:enabled { border-color: #c5b6ff; }
+QPushButton[uiSegment="true"]:focus:enabled { border: 1px dashed #c5b6ff; }
+QPushButton[uiSegment="true"]:pressed:enabled { background: #6039a6; }
+QPushButton[uiSegment="true"]:disabled { background: #1b1e2b; color: #9296ac; border-color: #393e51; }
+QPushButton[uiSegment="true"]:checked:disabled { background: #28233b; border-color: #61577e; }
 QLineEdit, QComboBox, QComboBox QAbstractItemView {
-    background: #22262d; color: #edf0f3; border: 1px solid #454e5a; border-radius: 5px; padding: 4px;
-    selection-background-color: #345a70;
+    background: #202432; color: #f5f3ff; border: 1px solid #50566e; border-radius: 5px; padding: 4px;
+    selection-background-color: #6039a6;
 }
-QTextEdit#diagnosticConsole { background: #1a1e24; color: #ccd6e0; border: 1px solid #383e48;
+QTextEdit#diagnosticConsole { background: #191c2a; color: #f5f3ff; border: 1px solid #393e51;
                              border-radius: 6px; padding: 6px; }
-QProgressBar { background: #343a44; border: none; border-radius: 2px; }
-QProgressBar::chunk { background: #65ab9e; border-radius: 2px; }
-QScrollBar:vertical { background: #1c2026; width: 12px; margin: 0; }
-QScrollBar::handle:vertical { background: #515c68; min-height: 24px; border: 2px solid #1c2026; border-radius: 5px; }
-QScrollBar::handle:vertical:hover { background: #728090; }
+QProgressBar { background: #393e51; border: none; border-radius: 2px; }
+QProgressBar::chunk { background: #c5b6ff; border-radius: 2px; }
+QScrollBar:vertical { background: #1b1e2b; width: 12px; margin: 0; }
+QScrollBar::handle:vertical { background: #545a74; min-height: 24px; border: 2px solid #1b1e2b; border-radius: 5px; }
+QScrollBar::handle:vertical:hover { background: #9296ac; }
 QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }
 QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical { background: transparent; }
+QToolTip { color: #f5f3ff; background: #202432; border: 1px solid #50566e; padding: 5px; }
 """
+
+
+def apply_workspace_theme(app):
+    font_id = QFontDatabase.addApplicationFont(get_resource_path("assets/fonts/PretendardVariable.ttf"))
+    bundled = QFontDatabase.applicationFontFamilies(font_id) if font_id >= 0 else []
+    families = QFontDatabase.families()
+    candidates = (*bundled, "Segoe UI Variable", "Segoe UI", "Malgun Gothic", "Yu Gothic UI")
+    font = QFont(app.font())
+    font.setFamilies([name for name in candidates if name in families] or ["sans-serif"])
+    font.setPixelSize(13)
+    app.setFont(font)
+    palette = app.palette()
+    for role, color in ((QPalette.Window, "#151822"), (QPalette.Base, "#202432"),
+                        (QPalette.Button, "#202432"), (QPalette.Highlight, "#6039a6"),
+                        (QPalette.WindowText, "#f5f3ff"), (QPalette.Text, "#f5f3ff"),
+                        (QPalette.ButtonText, "#f5f3ff"), (QPalette.HighlightedText, "#ffffff")):
+        palette.setColor(QPalette.Active, role, QColor(color))
+        palette.setColor(QPalette.Inactive, role, QColor(color))
+    for role in (QPalette.WindowText, QPalette.Text, QPalette.ButtonText):
+        palette.setColor(QPalette.Disabled, role, QColor("#9296ac"))
+    app.setPalette(palette)
+    app.setStyleSheet(WORKSPACE_STYLE)
 
 
 def workspace_section(parent_layout):
@@ -386,13 +413,13 @@ LANG = {
         "clip_empty": "📋 클립보드: 비어있음",
         "clip_ready": "📋 {src} -> {dst} ({count}개 레이어)",
         "align_label": "정렬 기준:",
-        "align_center": "Center",
-        "align_abs": "Absolute",
-        "align_ground_line": "Ground Line",
+        "align_center": "중앙 기준",
+        "align_abs": "원본 좌표",
+        "align_ground_line": "바닥선 기준",
         "frame_mode_label": "PS→Ase 프레임 모드:",
-        "frame_mode_normal": "Normal",
-        "frame_mode_folder_frames": "Folder → Frames",
-        "frame_mode_layer_frames": "Layer → Frames",
+        "frame_mode_normal": "기본",
+        "frame_mode_folder_frames": "폴더 → 프레임",
+        "frame_mode_layer_frames": "레이어 → 프레임",
         "frame_mode_hint": "다음 복사부터 적용",
         "clipboard_mode_none": "클립보드: 없음",
         "clipboard_mode_unknown": "클립보드: 알 수 없음",
@@ -402,8 +429,8 @@ LANG = {
         "btn_ase_paste": "붙여넣기 · F4",
         "btn_ase_copy": "복사 · F5",
         "btn_ps_paste": "붙여넣기",
-        "btn_settings": "⚙️ 설정",
-        "btn_clean": "🗑️ 임시파일 정리",
+        "btn_settings": "설정",
+        "btn_clean": "임시파일 정리",
         "msg_started": "양방향 UI 시작됨.",
         "msg_detecting": "경로 자동 탐지 중...",
         "msg_detect_fail": "❌ 필수 실행 파일 경로를 찾지 못했습니다.",
@@ -451,7 +478,7 @@ LANG = {
         "ase_setup_later": "나중에",
         "ase_setup_need_check": "완료 체크박스를 먼저 체크해 주세요.",
         "ase_setup_saved": "Aseprite 초기 설정 완료 상태가 저장되었습니다.",
-        "btn_tutorial": "❓ 튜토리얼",
+        "btn_tutorial": "튜토리얼",
         "tut_title": "📖 프로그램 사용 방법",
         "tut_content": "<b>[ 💡 Photoshop ↔ Aseprite 사용 가이드 ]</b><br><br>"
                        "<b>1. 정방향 (Photoshop ➔ Aseprite)</b><br>"
@@ -477,11 +504,11 @@ LANG = {
                        "3. 필요 시 Recent 목록은 주기적으로 정리해 주세요.<br>"
                        "👉 이 방법을 사용하면 Recent 목록 문제 없이 쾌적하게 작업할 수 있습니다.",
         "tut_dont_show": "다음 실행부터 이 창을 띄우지 않음",
-        "btn_flip_h": "↔ 좌우 반전",
-        "btn_flip_v": "↕ 상하 반전",
-        "btn_rotate": "↻ 90° 회전",
-        "btn_undo": "↶ 실행 취소",
-        "btn_redo": "↷ 다시 실행"
+        "btn_flip_h": "좌우 반전",
+        "btn_flip_v": "상하 반전",
+        "btn_rotate": "90° 회전",
+        "btn_undo": "실행 취소",
+        "btn_redo": "다시 실행"
     },
     "en": {
         "title": PRODUCT_NAME,
@@ -505,14 +532,14 @@ LANG = {
         "btn_ase_paste": "Paste · F4",
         "btn_ase_copy": "Copy · F5",
         "btn_ps_paste": "Paste",
-        "btn_settings": "⚙️ Settings",
-        "btn_clean": "🗑️ Clean Temp",
-        "btn_flip_h": "↔ Flip Horizontal",
-        "btn_flip_v": "↕ Flip Vertical",
-        "btn_rotate": "↻ Rotate 90°",
-        "btn_undo": "↩ Undo",
-        "btn_redo": "↪ Redo",
-        "btn_tutorial": "❓ Tutorial",
+        "btn_settings": "Settings",
+        "btn_clean": "Clean Temp",
+        "btn_flip_h": "Flip Horizontal",
+        "btn_flip_v": "Flip Vertical",
+        "btn_rotate": "Rotate 90°",
+        "btn_undo": "Undo",
+        "btn_redo": "Redo",
+        "btn_tutorial": "Tutorial",
         "msg_started": "Bi-directional UI Started.",
         "msg_detecting": "Auto-detecting paths...",
         "msg_detect_fail": "❌ Failed to detect essential executable paths.",
@@ -591,13 +618,13 @@ LANG = {
         "clip_empty": "📋 クリップボード：空",
         "clip_ready": "📋 {src} -> {dst} ({count}個のレイヤー)",
         "align_label": "配置の基準:",
-        "align_center": "Center",
-        "align_abs": "Absolute",
-        "align_ground_line": "Ground Line",
+        "align_center": "中央基準",
+        "align_abs": "元の座標",
+        "align_ground_line": "底辺基準",
         "frame_mode_label": "PS→Aseフレームモード:",
-        "frame_mode_normal": "Normal",
-        "frame_mode_folder_frames": "Folder → Frames",
-        "frame_mode_layer_frames": "Layer → Frames",
+        "frame_mode_normal": "標準",
+        "frame_mode_folder_frames": "フォルダー → フレーム",
+        "frame_mode_layer_frames": "レイヤー → フレーム",
         "frame_mode_hint": "次回コピーから適用",
         "clipboard_mode_none": "クリップボード: なし",
         "clipboard_mode_unknown": "クリップボード: 不明",
@@ -607,8 +634,8 @@ LANG = {
         "btn_ase_paste": "貼り付け · F4",
         "btn_ase_copy": "コピー · F5",
         "btn_ps_paste": "貼り付け",
-        "btn_settings": "⚙️ 設定",
-        "btn_clean": "🗑️ 一時ファイル整理",
+        "btn_settings": "設定",
+        "btn_clean": "一時ファイル整理",
         "msg_started": "双方向UIが起動しました。",
         "msg_detecting": "パスの自動検出中...",
         "msg_detect_fail": "❌ 必須の実行ファイルパスが見つかりませんでした。",
@@ -650,7 +677,7 @@ LANG = {
         "ase_setup_later": "後で",
         "ase_setup_need_check": "先に完了チェックボックスをオンにしてください。",
         "ase_setup_saved": "Aseprite初期設定の完了状態を保存しました。",
-        "btn_tutorial": "❓ チュートリアル",
+        "btn_tutorial": "チュートリアル",
         "tut_title": "📖 プログラムの使い方",
         "tut_content": "<b>[ 💡 Photoshop ↔ Aseprite ガイド ]</b><br><br>"
                        "<b>1. 順方向 (Photoshop ➔ Aseprite)</b><br>"
@@ -674,11 +701,11 @@ LANG = {
                        "2. Recentリストの代わりにお気に入りを基準に作業してください。<br>"
                        "3. 必要に応じてRecentリストを定期的に整理してください。",
         "tut_dont_show": "次回からこのウィンドウを表示しない",
-        "btn_flip_h": "↔ 左右反転",
-        "btn_flip_v": "↕ 上下反転",
-        "btn_rotate": "↻ 90° 回転",
-        "btn_undo": "↩ 元に戻す",
-        "btn_redo": "↪ やり直し",
+        "btn_flip_h": "左右反転",
+        "btn_flip_v": "上下反転",
+        "btn_rotate": "90° 回転",
+        "btn_undo": "元に戻す",
+        "btn_redo": "やり直し",
         "msg_transforming": "変形を適用中...",
         "msg_transform_success": "✅ 変形完了 (H:{h}, V:{v}, 角度:{a})",
         "msg_transform_fail": "❌ 変形失敗: {error}",
@@ -1651,7 +1678,7 @@ class SettingsDialog(QDialog):
         
         # 단축키 상태 표시
         self.hotkey_status = QLabel(self.current_settings.get("hotkey_status", "Unknown"))
-        self.hotkey_status.setStyleSheet("color: #059669; font-weight: bold;")
+        self.hotkey_status.setProperty("uiMuted", True)
         layout.addWidget(QLabel(f"<b>{self.lang['set_hotkey']}</b>"))
         layout.addWidget(self.hotkey_status)
 
@@ -2324,7 +2351,7 @@ class BridgeApp(QMainWindow):
         # 상단 상태바 및 세팅 버튼, 클린업 버튼
         top_layout = QHBoxLayout()
         self.status_label = QLabel(self.t["clip_empty"])
-        self.status_label.setFont(QFont("Arial", 10, QFont.Bold))
+        self.status_label.setProperty("uiHeading", True)
         self.status_label.setAlignment(Qt.AlignCenter)
         self.status_label.setWordWrap(True)
         self.update_status(self.t["clip_empty"], "#f3f4f6", "#374151")
@@ -2343,6 +2370,10 @@ class BridgeApp(QMainWindow):
         self.btn_settings.clicked.connect(self.open_settings)
         for button in (self.btn_tutorial, self.btn_settings, self.btn_clean):
             button.setProperty("uiRole", "quiet")
+        for button, name in ((self.btn_tutorial, "help"), (self.btn_settings, "settings"),
+                             (self.btn_clean, "diag_clear")):
+            button.setIcon(tool_icon(name))
+            button.setIconSize(QSize(16, 16))
         
         settings_tut_layout.addWidget(self.btn_tutorial)
         settings_tut_layout.addWidget(self.btn_settings)
@@ -2383,17 +2414,17 @@ class BridgeApp(QMainWindow):
         history_layout = QHBoxLayout()
         edit_layout.addLayout(flip_layout)
         edit_layout.addLayout(history_layout)
-        self.btn_flip_h = QPushButton(self.t.get("btn_flip_h", "↔ 좌우 반전"))
-        self.btn_flip_v = QPushButton(self.t.get("btn_flip_v", "↕ 상하 반전"))
-        self.btn_rotate = QPushButton(self.t.get("btn_rotate", "↻ 90° 회전"))
+        self.btn_flip_h = QPushButton(self.t["btn_flip_h"])
+        self.btn_flip_v = QPushButton(self.t["btn_flip_v"])
+        self.btn_rotate = QPushButton(self.t["btn_rotate"])
         
         self.btn_flip_h.setEnabled(False)
         self.btn_flip_v.setEnabled(False)
         self.btn_rotate.setEnabled(False)
         
         # Undo/Redo 버튼
-        self.btn_undo = QPushButton(self.t.get("btn_undo", "↩ Undo"))
-        self.btn_redo = QPushButton(self.t.get("btn_redo", "↪ Redo"))
+        self.btn_undo = QPushButton(self.t["btn_undo"])
+        self.btn_redo = QPushButton(self.t["btn_redo"])
         self.btn_undo.setEnabled(False)
         self.btn_redo.setEnabled(False)
 
@@ -2408,8 +2439,10 @@ class BridgeApp(QMainWindow):
             (self.btn_flip_h, "btn_flip_h"), (self.btn_flip_v, "btn_flip_v"),
             (self.btn_rotate, "btn_rotate"), (self.btn_undo, "btn_undo"),
             (self.btn_redo, "btn_redo"))
-        for button, _ in self.transform_actions:
+        for button, key in self.transform_actions:
             button.setMinimumHeight(34)
+            button.setIcon(tool_icon(key))
+            button.setIconSize(QSize(20, 20))
         for button in (self.btn_flip_h, self.btn_flip_v, self.btn_rotate):
             button.setProperty("uiRole", "transform")
             flip_layout.addWidget(button, 1)
@@ -2421,9 +2454,9 @@ class BridgeApp(QMainWindow):
 
         # 정렬 모드
         align_layout = QHBoxLayout()
-        self.radio_center = QRadioButton(self.t["align_center"])
-        self.radio_absolute = QRadioButton(self.t["align_abs"])
-        self.radio_ground_line = QRadioButton(self.t["align_ground_line"])
+        self.radio_center = SegmentButton(self.t["align_center"])
+        self.radio_absolute = SegmentButton(self.t["align_abs"])
+        self.radio_ground_line = SegmentButton(self.t["align_ground_line"])
         
         current_alignment = self.settings.get("default_alignment")
         if current_alignment == "absolute":
@@ -2443,16 +2476,16 @@ class BridgeApp(QMainWindow):
         self.align_label.setProperty("uiHeading", True)
         options_layout = workspace_section(layout)
         options_layout.addWidget(self.align_label)
-        align_layout.addWidget(self.radio_ground_line)
-        align_layout.addWidget(self.radio_center)
-        align_layout.addWidget(self.radio_absolute)
+        align_buttons = (self.radio_ground_line, self.radio_center, self.radio_absolute)
+        for button in align_buttons:
+            align_layout.addWidget(button, 1)
         options_layout.addLayout(align_layout)
 
         # Photoshop -> Aseprite 프레임 모드
         frame_mode_layout = QHBoxLayout()
-        self.radio_frame_normal = QRadioButton(self.t["frame_mode_normal"])
-        self.radio_frame_folder = QRadioButton(self.t["frame_mode_folder_frames"])
-        self.radio_frame_layer = QRadioButton(self.t["frame_mode_layer_frames"])
+        self.radio_frame_normal = SegmentButton(self.t["frame_mode_normal"])
+        self.radio_frame_folder = SegmentButton(self.t["frame_mode_folder_frames"])
+        self.radio_frame_layer = SegmentButton(self.t["frame_mode_layer_frames"])
         self.radio_frame_normal.setChecked(True)
 
         self.frame_mode_group = QButtonGroup()
@@ -2460,11 +2493,6 @@ class BridgeApp(QMainWindow):
         self.frame_mode_group.addButton(self.radio_frame_folder, 2)
         self.frame_mode_group.addButton(self.radio_frame_layer, 3)
         self.frame_mode_group.buttonClicked.connect(lambda _: self.update_clipboard_mode_label())
-        for group in (self.align_group, self.frame_mode_group):
-            for button in group.buttons():
-                button.setProperty("uiSegment", True)
-                button.setMinimumHeight(28)
-
         self.frame_mode_label = QLabel(self.t["frame_mode_label"])
         self.frame_mode_info_label = QLabel()
         self.frame_mode_info_label.setWordWrap(True)
@@ -2472,9 +2500,9 @@ class BridgeApp(QMainWindow):
         self.frame_mode_label.setProperty("uiHeading", True)
         self.frame_mode_info_label.setProperty("uiMuted", True)
         options_layout.addWidget(self.frame_mode_label)
-        frame_mode_layout.addWidget(self.radio_frame_normal)
-        frame_mode_layout.addWidget(self.radio_frame_folder)
-        frame_mode_layout.addWidget(self.radio_frame_layer)
+        frame_buttons = (self.radio_frame_normal, self.radio_frame_folder, self.radio_frame_layer)
+        for button in frame_buttons:
+            frame_mode_layout.addWidget(button, 1)
         options_layout.addLayout(frame_mode_layout)
         options_layout.addWidget(self.frame_mode_info_label)
 
@@ -2516,6 +2544,11 @@ class BridgeApp(QMainWindow):
         self.diagnostics_toggle = QPushButton(self.t["diag_toggle"])
         self.diagnostics_toggle.setProperty("uiRole", "quiet")
         self.diagnostics_toggle.setCheckable(True)
+        collapsed_icon = tool_icon("diagnostics")
+        expanded_icon = tool_icon("diagnostics_open")
+        self.diagnostics_toggle.setIcon(collapsed_icon)
+        self.diagnostics_toggle.toggled.connect(
+            lambda expanded: self.diagnostics_toggle.setIcon(expanded_icon if expanded else collapsed_icon))
         utility_row = QHBoxLayout()
         utility_row.addWidget(self.diagnostics_toggle)
         utility_row.addStretch()
@@ -2542,13 +2575,13 @@ class BridgeApp(QMainWindow):
         diagnostic_toolbar.addWidget(self.debug_checkbox)
         diagnostic_toolbar.addStretch()
         self.diagnostic_buttons = []
-        for key, icon, callback in (
-            ("diag_copy", QStyle.SP_FileIcon, self.copy_diagnostic_logs),
-            ("diag_folder", QStyle.SP_DirOpenIcon, self.open_diagnostic_folder),
-            ("diag_clear", QStyle.SP_DialogResetButton, self.clear_diagnostic_display),
+        for key, callback in (
+            ("diag_copy", self.copy_diagnostic_logs),
+            ("diag_folder", self.open_diagnostic_folder),
+            ("diag_clear", self.clear_diagnostic_display),
         ):
             button = QPushButton()
-            button.setIcon(self.style().standardIcon(icon))
+            button.setIcon(tool_icon(key))
             button.setToolTip(self.t[key])
             button.setAccessibleName(self.t[key])
             button.setFixedSize(32, 28)
@@ -2572,6 +2605,8 @@ class BridgeApp(QMainWindow):
         self.content_scroll.setWidgetResizable(True)
         self.content_scroll.setWidget(container)
         self.setCentralWidget(self.content_scroll)
+        self.option_help = OptionHelp(self, align_buttons + frame_buttons)
+        self.option_help.popup.setStyleSheet(WORKSPACE_STYLE)
         
     def show_tutorial(self):
         dlg = TutorialDialog(self.t, self)
@@ -2598,9 +2633,8 @@ class BridgeApp(QMainWindow):
         for button, key in self.transform_actions:
             label = self.t[key]
             button.setText(label)
-            description = label.split(" ", 1)[1]
-            button.setToolTip(description)
-            button.setAccessibleName(description)
+            button.setToolTip(label)
+            button.setAccessibleName(label)
 
     def refresh_ui_language(self):
         self.t = LANG[self.current_lang]
@@ -2622,6 +2656,7 @@ class BridgeApp(QMainWindow):
         self.radio_frame_normal.setText(self.t["frame_mode_normal"])
         self.radio_frame_folder.setText(self.t["frame_mode_folder_frames"])
         self.radio_frame_layer.setText(self.t["frame_mode_layer_frames"])
+        self.option_help.refresh()
         self.update_clipboard_mode_label()
         self.btn_ps_copy.setText(self.t["btn_ps_copy"])
         self.btn_ase_paste.setText(self.t["btn_ase_paste"])
@@ -3113,9 +3148,9 @@ class BridgeApp(QMainWindow):
     def update_status(self, text, bg_color, text_color):
         self.status_label.setText(text)
         bg, fg = {
-            "#f3f4f6": ("#2b313a", "#dce3ea"),
-            "#dbeafe": ("#203c39", "#cbefe8"),
-            "#fef3c7": ("#3c3224", "#f4d59a"),
+            "#f3f4f6": ("#1b1e2b", "#b7b9cb"),
+            "#dbeafe": ("#253b36", "#8ed4b4"),
+            "#fef3c7": ("#332a25", "#ffd29b"),
         }.get(bg_color, (bg_color, text_color))
         self.status_label.setStyleSheet(
             f"padding: 4px 8px; background-color: {bg}; color: {fg}; border-radius: 5px; font-weight: bold;")
@@ -3590,6 +3625,7 @@ if __name__ == "__main__":
     app = QApplication(sys.argv)
     app.setApplicationDisplayName(PRODUCT_NAME)
     app.setStyle("Fusion")
+    apply_workspace_theme(app)
     
     # 앱 전체 기본 아이콘 설정 (Taskbar 및 모든 창)
     from PySide6.QtGui import QIcon
