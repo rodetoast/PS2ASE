@@ -104,7 +104,7 @@ class InitialSetupGuideTests(unittest.TestCase):
         with patch.object(self.b, "installed_photoshops", return_value=[self.fixture.target]):
             dialog = self.b.SettingsDialog(self.window.settings, self.window.t, self.window, photoshop_only=True)
         try:
-            self.assertEqual(dialog.windowTitle(), self.window.t["guide_steps"][0])
+            self.assertEqual(dialog.windowTitle(), f'{self.b.PRODUCT_NAME} | {self.window.t["guide_steps"][0]}')
             self.assertNotIn(self.window.t["ps_warning"],
                              [b.text() for b in dialog.findChildren(self.b.QPushButton)])
             self.assertEqual(dialog.ps_versions.currentData(), self.fixture.target["path"])
@@ -140,6 +140,18 @@ class InitialSetupGuideTests(unittest.TestCase):
                     settings.assert_called_once()
                     dialog.btn_next.click()
                     self.assertEqual(dialog.pages.currentIndex(), 2)
+
+    def test_display_name_preserves_settings_identity(self):
+        name = "Photoshop \u2194 Aseprite"
+        original_path = self.b.SETTINGS_FILE
+        original_data_dir = self.b.BRIDGE_DATA_DIR
+        for language in ("ko", "en", "ja"):
+            self.window.current_lang = language
+            self.window.refresh_ui_language()
+            self.assertEqual(self.window.windowTitle(), name)
+            self.assertTrue(self.guide(language).windowTitle().startswith(name))
+            self.assertEqual(self.b.SETTINGS_FILE, original_path)
+        self.assertEqual(self.b.BRIDGE_DATA_DIR, original_data_dir)
 
     def test_reopening_guide_preserves_pending_path_edit_unless_guide_changes_target(self):
         with patch.object(self.b, "installed_photoshops", return_value=[self.fixture.target]):
@@ -217,6 +229,8 @@ class InitialSetupGuideTests(unittest.TestCase):
             for step in range(4):
                 dialog.set_step(step)
                 self.assertEqual(dialog.step_title.text(), labels["guide_steps"][step])
+                self.assertEqual(dialog.step_count.text(), f"{step + 1} / 4")
+                self.assertEqual(dialog.step_progress.value(), step + 1)
 
     def test_warning_defaults_to_no_then_explicit_consent_preserves_and_backs_up(self):
         path = self.fixture.root / "PSUserConfig.txt"

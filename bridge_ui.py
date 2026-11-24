@@ -31,7 +31,7 @@ try:
     from PIL import Image
     from PySide6.QtWidgets import (QApplication, QMainWindow, QPushButton, QVBoxLayout,
                                    QWidget, QTextEdit, QLabel, QRadioButton, QButtonGroup,
-                                   QHBoxLayout, QMessageBox, QFileDialog, QDialog, QLineEdit, QFormLayout, QDialogButtonBox, QComboBox, QStyle, QScrollArea, QSizePolicy, QLayout, QStackedWidget)
+                                   QHBoxLayout, QMessageBox, QFileDialog, QDialog, QLineEdit, QFormLayout, QDialogButtonBox, QComboBox, QStyle, QScrollArea, QSizePolicy, QLayout, QStackedWidget, QProgressBar)
     from PySide6.QtCore import QTimer, QThread, Signal, Slot, Qt, QUrl, QEventLoop, QLocale, QObject, QEvent
     from PySide6.QtGui import QFont, QColor, QPixmap, QDesktopServices
     import win32com.client
@@ -313,13 +313,14 @@ if not os.path.exists(BRIDGE_DATA_DIR):
         raise
     
 SETTINGS_FILE = os.path.join(BRIDGE_DATA_DIR, "bridge_settings.json")
+PRODUCT_NAME = "Photoshop ↔ Aseprite"
 
 # ==========================================
 # 다국어 지원 (Localization)
 # ==========================================
 LANG = {
     "ko": {
-        "title": "Ase-PS Bridge Pro",
+        "title": PRODUCT_NAME,
         "clip_empty": "📋 클립보드: 비어있음",
         "clip_ready": "📋 {src} -> {dst} ({count}개 레이어)",
         "align_label": "정렬 기준:",
@@ -335,13 +336,13 @@ LANG = {
         "clipboard_mode_unknown": "클립보드: 알 수 없음",
         "clipboard_mode_current": "클립보드: {mode}",
         "clipboard_mode_mismatch": "클립보드: {clip_mode} · 붙여넣기는 클립보드 모드",
-        "btn_ps_copy": "1. Photoshop에서 복사",
-        "btn_ase_paste": "2. Aseprite로 붙여넣기 (F4)",
-        "btn_ase_copy": "3. Aseprite에서 복사 (F5)",
-        "btn_ps_paste": "4. Photoshop으로 붙여넣기",
+        "btn_ps_copy": "복사",
+        "btn_ase_paste": "붙여넣기 · F4",
+        "btn_ase_copy": "복사 · F5",
+        "btn_ps_paste": "붙여넣기",
         "btn_settings": "⚙️ 설정",
         "btn_clean": "🗑️ 임시파일 정리",
-        "msg_started": "🚀 Bridge Pro 양방향 UI 시작됨.",
+        "msg_started": "양방향 UI 시작됨.",
         "msg_detecting": "경로 자동 탐지 중...",
         "msg_detect_fail": "❌ 필수 실행 파일 경로를 찾지 못했습니다.",
         "msg_detect_success": "✅ 프로그램 설치 경로 자동 탐지 완료!",
@@ -390,14 +391,14 @@ LANG = {
         "ase_setup_saved": "Aseprite 초기 설정 완료 상태가 저장되었습니다.",
         "btn_tutorial": "❓ 튜토리얼",
         "tut_title": "📖 프로그램 사용 방법",
-        "tut_content": "<b>[ 💡 Ase-PS Bridge Pro 사용 가이드 ]</b><br><br>"
+        "tut_content": "<b>[ 💡 Photoshop ↔ Aseprite 사용 가이드 ]</b><br><br>"
                        "<b>1. 정방향 (Photoshop ➔ Aseprite)</b><br>"
                        "① Photoshop에서 옮길 레이어(또는 폴더)들을 다중 선택합니다.<br>"
-                       "② 앱에서 <span style='color:#3b82f6;'>[1. Photoshop에서 복사]</span> 버튼을 누릅니다.<br>"
-                       "③ Aseprite 캔버스로 넘어간 뒤, 앱의 <span style='color:#10b981;'>[2. Aseprite로 붙여넣기]</span> 버튼을 누르거나 키보드 <b>F4</b>를 누르면 완벽하게 붙여넣어집니다.<br><br>"
+                       "② 앱에서 <b>[복사]</b> 버튼을 누릅니다.<br>"
+                       "③ Aseprite 캔버스로 넘어간 뒤, 앱의 <b>[붙여넣기 · F4]</b> 버튼을 누르거나 키보드 <b>F4</b>를 누르면 완벽하게 붙여넣어집니다.<br><br>"
                        "<b>2. 역방향 (Aseprite ➔ Photoshop)</b><br>"
-                       "① Aseprite에서 레이어를 선택한 뒤, 앱의 <span style='color:#f59e0b;'>[3. Aseprite에서 복사]</span> 버튼을 누르거나 키보드 <b>F5</b>를 누릅니다.<br>"
-                       "② Photoshop 문서로 넘어가서, 앱의 <span style='color:#8b5cf6;'>[4. Photoshop으로 붙여넣기]</span> 버튼을 누릅니다.<br><br>"
+                       "① Aseprite에서 레이어를 선택한 뒤, 앱의 <b>[복사 · F5]</b> 버튼을 누르거나 키보드 <b>F5</b>를 누릅니다.<br>"
+                       "② Photoshop 문서로 넘어가서, 앱의 <b>[붙여넣기]</b> 버튼을 누릅니다.<br><br>"
                        "<b>⭐ 정렬 모드 설명 (Alignment)</b><br>"
                        "• <b>Center (중앙 정렬)</b>: 캔버스 크기가 달라도 캐릭터 덩어리를 화면 정중앙에 맞춰서 붙여넣습니다. (기본/권장)<br>"
                        "• <b>Absolute (절대 좌표)</b>: 중앙 보정 없이 원래 있던 좌표 그대로 꽂아넣습니다. (양쪽 캔버스 사이즈가 똑같을 때만 쓰세요)<br><br>"
@@ -406,7 +407,7 @@ LANG = {
                        "  Aseprite의 보안 정책상, 단축키(F4/F5)를 누르기 전에 <b>반드시 상단 메뉴 [File] ➔ [Scripts]</b>에서 <b>aseprite_copy</b>와 <b>aseprite_paste</b>를 각각 수동으로 한 번씩 클릭해야 합니다.<br>"
                        "  경고창이 뜨면 <b>'Give full trust to this script(이 스크립트를 전적으로 신뢰함)'</b>에 체크하고 OK를 누르세요. 이후부터는 단축키가 정상 작동합니다.<br><br>"
                        "• <b>Aseprite의 '최근 파일(Recent Files)' 목록이 지저분해질 수 있습니다</b><br>"
-                       "Ase-PS Bridge Pro는 픽셀 정확성과 레이어 보존을 위해 임시 이미지를 생성하여 Aseprite에 불러옵니다.<br>"
+                       "Photoshop ↔ Aseprite는 픽셀 정확성과 레이어 보존을 위해 임시 이미지를 생성하여 Aseprite에 불러옵니다.<br>"
                        "이 과정에서 Aseprite의 '최근 파일(Recent Files)' 목록에 임시 파일들이 추가될 수 있습니다. 이는 정상적인 동작이며, 원본 데이터에는 전혀 영향을 주지 않습니다.<br><br>"
                        "<b>✔ 추천 작업 방식</b><br>"
                        "1. 자주 사용하는 작업 파일을 <b>'즐겨찾기(Favorites)'</b>에 추가하세요.<br>"
@@ -421,7 +422,7 @@ LANG = {
         "btn_redo": "↪ Redo"
     },
     "en": {
-        "title": "Ase-PS Bridge Pro",
+        "title": PRODUCT_NAME,
         "clip_empty": "📋 Clipboard: Empty",
         "clip_ready": "📋 {src} -> {dst} ({count} Layers)",
         "align_label": "Alignment:",
@@ -437,10 +438,10 @@ LANG = {
         "clipboard_mode_unknown": "Clipboard: Unknown",
         "clipboard_mode_current": "Clipboard: {mode}",
         "clipboard_mode_mismatch": "Clipboard: {clip_mode} · Paste uses clipboard mode",
-        "btn_ps_copy": "1. Copy from Photoshop",
-        "btn_ase_paste": "2. Paste to Aseprite (F4)",
-        "btn_ase_copy": "3. Copy from Aseprite (F5)",
-        "btn_ps_paste": "4. Paste to Photoshop",
+        "btn_ps_copy": "Copy",
+        "btn_ase_paste": "Paste · F4",
+        "btn_ase_copy": "Copy · F5",
+        "btn_ps_paste": "Paste",
         "btn_settings": "⚙️ Settings",
         "btn_clean": "🗑️ Clean Temp",
         "btn_flip_h": "↔ Flip Horizontal",
@@ -449,7 +450,7 @@ LANG = {
         "btn_undo": "↩ Undo",
         "btn_redo": "↪ Redo",
         "btn_tutorial": "❓ Tutorial",
-        "msg_started": "🚀 Bridge Pro Bi-directional UI Started.",
+        "msg_started": "Bi-directional UI Started.",
         "msg_detecting": "Auto-detecting paths...",
         "msg_detect_fail": "❌ Failed to detect essential executable paths.",
         "msg_detect_success": "✅ Auto-detection of program paths completed!",
@@ -497,14 +498,14 @@ LANG = {
         "ase_setup_need_check": "Please check the completion box first.",
         "ase_setup_saved": "Aseprite first setup completion was saved.",
         "tut_title": "📖 How to use",
-        "tut_content": "<b>[ 💡 Ase-PS Bridge Pro Guide ]</b><br><br>"
+        "tut_content": "<b>[ 💡 Photoshop ↔ Aseprite Guide ]</b><br><br>"
                        "<b>1. PS ➔ Aseprite</b><br>"
                        "① Select layers/folders in Photoshop.<br>"
-                       "② Click <span style='color:#3b82f6;'>[1. Copy from Photoshop]</span>.<br>"
-                       "③ Go to Aseprite, click <span style='color:#10b981;'>[2. Paste to Aseprite]</span> or press <b>F4</b>.<br><br>"
+                       "② Click <b>[Copy]</b>.<br>"
+                       "③ Go to Aseprite, click <b>[Paste · F4]</b> or press <b>F4</b>.<br><br>"
                        "<b>2. Aseprite ➔ PS</b><br>"
-                       "① Select layers in Aseprite, click <span style='color:#f59e0b;'>[3. Copy from Aseprite]</span> or press <b>F5</b>.<br>"
-                       "② Go to Photoshop, click <span style='color:#8b5cf6;'>[4. Paste to Photoshop]</span>.<br><br>"
+                       "① Select layers in Aseprite, click <b>[Copy · F5]</b> or press <b>F5</b>.<br>"
+                       "② Go to Photoshop, click <b>[Paste]</b>.<br><br>"
                        "<b>⭐ Alignment Mode</b><br>"
                        "• <b>Center</b>: Auto-centers the bounding box of copied layers to the target canvas. (Recommended)<br>"
                        "• <b>Absolute</b>: Keeps the exact original X/Y coordinates. (Use only when canvas sizes are identical)<br><br>"
@@ -522,7 +523,7 @@ LANG = {
         "tut_dont_show": "Do not show this window on startup"
     },
     "ja": {
-        "title": "Ase-PS Bridge Pro",
+        "title": PRODUCT_NAME,
         "clip_empty": "📋 クリップボード：空",
         "clip_ready": "📋 {src} -> {dst} ({count}個のレイヤー)",
         "align_label": "配置の基準:",
@@ -538,13 +539,13 @@ LANG = {
         "clipboard_mode_unknown": "クリップボード: 不明",
         "clipboard_mode_current": "クリップボード: {mode}",
         "clipboard_mode_mismatch": "クリップボード: {clip_mode} · 貼り付けはクリップボードモード",
-        "btn_ps_copy": "1. Photoshopからコピー",
-        "btn_ase_paste": "2. Asepriteへペースト (F4)",
-        "btn_ase_copy": "3. Asepriteからコピー (F5)",
-        "btn_ps_paste": "4. Photoshopへペースト",
+        "btn_ps_copy": "コピー",
+        "btn_ase_paste": "貼り付け · F4",
+        "btn_ase_copy": "コピー · F5",
+        "btn_ps_paste": "貼り付け",
         "btn_settings": "⚙️ 設定",
         "btn_clean": "🗑️ 一時ファイル整理",
-        "msg_started": "🚀 Bridge Pro 双方向UIが起動しました。",
+        "msg_started": "双方向UIが起動しました。",
         "msg_detecting": "パスの自動検出中...",
         "msg_detect_fail": "❌ 必須の実行ファイルパスが見つかりませんでした。",
         "msg_detect_success": "✅ プログラムのインストールパス自動検出完了！",
@@ -587,14 +588,14 @@ LANG = {
         "ase_setup_saved": "Aseprite初期設定の完了状態を保存しました。",
         "btn_tutorial": "❓ チュートリアル",
         "tut_title": "📖 プログラムの使い方",
-        "tut_content": "<b>[ 💡 Ase-PS Bridge Pro ガイド ]</b><br><br>"
+        "tut_content": "<b>[ 💡 Photoshop ↔ Aseprite ガイド ]</b><br><br>"
                        "<b>1. 順方向 (Photoshop ➔ Aseprite)</b><br>"
                        "① Photoshopで転送するレイヤー(またはフォルダ)を複数選択します。<br>"
-                       "② アプリの <span style='color:#3b82f6;'>[1. Photoshopからコピー]</span> ボタンを押します。<br>"
-                       "③ Asepriteのキャンバスに移動し、アプリの <span style='color:#10b981;'>[2. Asepriteへペースト]</span> ボタンを押すか、キーボードの <b>F4</b> を押すと完璧にペーストされます。<br><br>"
+                       "② アプリの <b>[コピー]</b> ボタンを押します。<br>"
+                       "③ Asepriteのキャンバスに移動し、アプリの <b>[貼り付け · F4]</b> ボタンを押すか、キーボードの <b>F4</b> を押すと完璧にペーストされます。<br><br>"
                        "<b>2. 逆方向 (Aseprite ➔ Photoshop)</b><br>"
-                       "① Asepriteでレイヤーを選択した後、アプリの <span style='color:#f59e0b;'>[3. Asepriteからコピー]</span> ボタンを押すか、キーボードの <b>F5</b> を押します。<br>"
-                       "② Photoshopのドキュメントに移動し、アプリの <span style='color:#8b5cf6;'>[4. Photoshopへペースト]</span> ボタンを押します。<br><br>"
+                       "① Asepriteでレイヤーを選択した後、アプリの <b>[コピー · F5]</b> ボタンを押すか、キーボードの <b>F5</b> を押します。<br>"
+                       "② Photoshopのドキュメントに移動し、アプリの <b>[貼り付け]</b> ボタンを押します。<br><br>"
                        "<b>⭐ 配置モードの説明 (Alignment)</b><br>"
                        "• <b>Center (中央揃え)</b>: キャンバスのサイズが異なっても、キャラクター全体を画面の中央に合わせてペーストします。(推奨)<br>"
                        "• <b>Absolute (絶対座標)</b>: 中央補正を行わず、元の座標のままペーストします。(両方のキャンバスサイズが完全に同じ時だけ使用してください)<br><br>"
@@ -707,7 +708,7 @@ for _language, _guide in {
         "guide_warning_disabled": "경고 설정: WarnRunningScripts 0 확인 · 적용 후 재시작 필요 · 실제 승인 여부 미확인",
         "guide_warning_unknown": "경고 설정 미확인: 선택 버전의 사용자 설정 폴더를 확인하세요.",
         "guide_ase_intro": "1. Aseprite를 종료하고 스크립트와 단축키를 설치한 뒤 다시 여세요.\n2. File > Scripts에서 aseprite_paste와 aseprite_copy를 각각 실행해 Trust를 직접 승인하세요.\n3. 테스트 문서에서 F5로 복사하고 유효한 Photoshop 복사 데이터로 F4 붙여넣기를 확인하세요. 파일 설치만으로 권한이나 키 동작이 확인되지는 않습니다.",
-        "guide_ase_open": "Aseprite 설치 / Trust 안내…", "guide_hotkeys_check": "Aseprite에서 F4 붙여넣기 / F5 복사를 직접 확인했습니다.",
+        "guide_ase_open": "Aseprite 설치 / Trust 안내…", "guide_hotkeys_check": "F4 / F5 동작을 직접 확인했습니다.",
         "guide_files_ok": "Aseprite 스크립트: 설치본이 bundled 파일과 일치",
         "guide_files_pending": "Aseprite 스크립트: 설치 또는 갱신 확인 필요",
         "guide_keys_ok": "단축키 설정 파일: F4 Paste / F5 Copy 등록 확인",
@@ -728,8 +729,8 @@ for _language, _guide in {
         "guide_warning_continue": "경고 설정을 바꾸지 않고 계속",
         "diag_toggle": "진단",
         "preview_empty": "복사된 레이어 없음",
-        "tut_content": "<b>Photoshop → Aseprite</b><br>Copy Mode를 먼저 선택하고 Photoshop 레이어/폴더를 선택한 뒤 Photoshop Copy를 누릅니다. Aseprite 대상 캔버스에서 Paste 또는 F4를 사용합니다.<br><br>"
-                       "<b>Aseprite → Photoshop</b><br>Aseprite에서 레이어를 선택하고 Copy 또는 F5를 누른 뒤 Photoshop 대상 문서에서 Photoshop Paste를 사용합니다.<br><br>"
+        "tut_content": "<b>Photoshop → Aseprite</b><br>프레임 모드와 Photoshop 레이어/폴더를 선택한 뒤 이 방향의 복사를 누릅니다. Aseprite 대상 문서에서 붙여넣기 · F4를 실행합니다.<br><br>"
+                       "<b>Aseprite → Photoshop</b><br>Aseprite에서 레이어를 선택하고 이 방향의 복사 · F5를 실행한 뒤, Photoshop 대상 문서에서 붙여넣기를 누릅니다.<br><br>"
                        "<b>Copy Mode (다음 Photoshop 복사부터 적용)</b><br>Normal: 기존 레이어/폴더 구조로 붙여넣기.<br>Folder → Frames: 선택 폴더별로 연속 프레임에 배치합니다. 선택한 하위 폴더도 개별 프레임이 됩니다. 같은 순번의 레이어는 선택 Aseprite 레이어 포함 아래쪽의 같은 row를 재사용합니다.<br>Layer → Frames: 선택한 픽셀 레이어 하나당 한 프레임, 선택 Aseprite 레이어 한 row에 순차 배치합니다. 폴더 선택은 지원하지 않습니다.<br>프레임 순서는 Photoshop 패널 위→아래이며 Aseprite 현재 프레임부터 시작합니다. 현재 클립보드 모드 표시는 실제 복사된 모드입니다. 라디오를 바꿔도 기존 복사 데이터의 모드는 바뀌지 않습니다.<br><br>"
                        "<b>Alignment (붙여넣기 시 적용)</b><br>Ground Line: 기본값. Aseprite에서 X축 중앙, 이미지 바닥을 캔버스 중앙 가로선 바로 위에 맞춥니다.<br>Center: 이미지 덩어리를 캔버스 중앙에 배치합니다.<br>Absolute: 원본 좌표를 유지합니다.<br>복사 후에도 정렬을 변경할 수 있습니다. Ground Line의 바닥 정렬은 Aseprite Paste용입니다.<br><br>"
                        "<b>Preview / 변환</b><br>여러 프레임은 첫 프레임만 미리 봅니다. 좌우/상하 반전, 90° 회전, Undo/Redo는 복사한 작업 데이터와 Preview에 반영됩니다.<br><br>"
@@ -749,7 +750,7 @@ for _language, _guide in {
         "guide_warning_disabled": "Warning setting: WarnRunningScripts 0 found · restart after applying · actual approval unverified",
         "guide_warning_unknown": "Warning setting unverified: check the selected version's preferences folder.",
         "guide_ase_intro": "1. Close Aseprite, install the scripts and shortcuts, then reopen it.\n2. Run aseprite_paste and aseprite_copy separately from File > Scripts and approve Trust yourself.\n3. In a test document, try F5 Copy and F4 Paste with valid Photoshop copy data. Installed files do not prove Trust or shortcut operation.",
-        "guide_ase_open": "Aseprite installation / Trust guide…", "guide_hotkeys_check": "I tested F4 Paste / F5 Copy in Aseprite.",
+        "guide_ase_open": "Aseprite installation / Trust guide…", "guide_hotkeys_check": "I tested F4 and F5.",
         "guide_files_ok": "Aseprite scripts: installed files match the bundled files",
         "guide_files_pending": "Aseprite scripts: installation or update needs checking",
         "guide_keys_ok": "Hotkey file: F4 Paste / F5 Copy registered",
@@ -759,7 +760,7 @@ for _language, _guide in {
         "guide_keys_tested": "Actual hotkey operation: user confirmation recorded",
         "guide_keys_untested": "Actual hotkey operation: unverified",
         "guide_summary_intro": "Review the status below. Closing this guide does not approve external permissions or certify a connection test. You can revisit unchecked items later in Settings.",
-        "guide_dont_show": "Do not show the Initial Setup Guide automatically on next launch",
+        "guide_dont_show": "Don't show this guide on startup",
         "guide_back": "Back", "guide_next": "Next", "guide_finish": "Close guide", "guide_later": "Set up later",
         "guide_tutorial": "Open How to Use", "guide_close": "OK",
         "guide_ps_continue": "Continue with this version",
@@ -770,8 +771,8 @@ for _language, _guide in {
         "guide_warning_continue": "Continue without changing warnings",
         "diag_toggle": "Diagnostics",
         "preview_empty": "No copied layers",
-        "tut_content": "<b>Photoshop → Aseprite</b><br>Choose Copy Mode first, select Photoshop layers/folders, then use Photoshop Copy. Switch to the target Aseprite canvas and use Paste or F4.<br><br>"
-                       "<b>Aseprite → Photoshop</b><br>Select layers in Aseprite and use Copy or F5, then use Photoshop Paste in the target Photoshop document.<br><br>"
+        "tut_content": "<b>Photoshop → Aseprite</b><br>Choose the frame mode and select Photoshop layers/folders, then click Copy in this row. Switch to the target Aseprite canvas and use Paste · F4.<br><br>"
+                       "<b>Aseprite → Photoshop</b><br>Select layers in Aseprite and use Copy · F5 in this row, then click Paste in the target Photoshop document.<br><br>"
                        "<b>Copy Mode (applies to the next Photoshop copy)</b><br>Normal: paste the existing layer/folder structure.<br>Folder → Frames: paste folders into consecutive frames, including directly selected nested folders. Matching layer positions reuse the same rows, starting at the active Aseprite layer and continuing downward.<br>Layer → Frames: each selected pixel layer becomes a frame on one active Aseprite layer row. Selecting groups is not supported.<br>Frames follow Photoshop panel top-to-bottom order and start at the active Aseprite frame. The clipboard mode shows how the data was copied; changing a radio does not reinterpret existing data.<br><br>"
                        "<b>Alignment (applies at paste time)</b><br>Ground Line: default. In Aseprite, center horizontally and put the image bottom just above the canvas horizontal center line.<br>Center: center the content bounding box on the canvas.<br>Absolute: keep original coordinates.<br>Alignment can change after copying. Ground Line bottom alignment is for Aseprite Paste.<br><br>"
                        "<b>Preview / transforms</b><br>Multi-frame data previews the first frame only. Flip Horizontal/Vertical, Rotate 90°, Undo and Redo update copied job data and Preview.<br><br>"
@@ -791,7 +792,7 @@ for _language, _guide in {
         "guide_warning_disabled": "警告設定: WarnRunningScripts 0 を確認 · 適用後に再起動が必要 · 実際の承認は未確認",
         "guide_warning_unknown": "警告設定は未確認です。選択したバージョンの設定フォルダーを確認してください。",
         "guide_ase_intro": "1. Aseprite を終了し、スクリプトとキーをインストールして再起動します。\n2. File > Scripts から aseprite_paste と aseprite_copy を個別に実行し、自分で Trust を承認します。\n3. テスト文書で F5 コピーと、有効な Photoshop データで F4 貼り付けを確認します。インストールだけでは権限やキー動作は確認できません。",
-        "guide_ase_open": "Aseprite インストール / Trust 案内…", "guide_hotkeys_check": "Aseprite で F4 貼り付け / F5 コピーを実際に確認しました。",
+        "guide_ase_open": "Aseprite インストール / Trust 案内…", "guide_hotkeys_check": "F4 / F5 の動作を確認しました。",
         "guide_files_ok": "Aseprite スクリプト: インストール済みファイルが同梱ファイルと一致",
         "guide_files_pending": "Aseprite スクリプト: インストールまたは更新の確認が必要",
         "guide_keys_ok": "キー設定ファイル: F4 貼り付け / F5 コピーの登録を確認",
@@ -812,8 +813,8 @@ for _language, _guide in {
         "guide_warning_continue": "警告を変更せず続ける",
         "diag_toggle": "診断",
         "preview_empty": "コピーされたレイヤーなし",
-        "tut_content": "<b>Photoshop → Aseprite</b><br>先に Copy Mode を選び、Photoshop のレイヤー/フォルダーを選択して Photoshop Copy を押します。Aseprite の対象キャンバスで Paste または F4 を使います。<br><br>"
-                       "<b>Aseprite → Photoshop</b><br>Aseprite でレイヤーを選択して Copy または F5 を押し、対象の Photoshop 文書で Photoshop Paste を使います。<br><br>"
+        "tut_content": "<b>Photoshop → Aseprite</b><br>フレームモードと Photoshop のレイヤー/フォルダーを選択し、この行のコピーを押します。Aseprite の対象キャンバスで貼り付け · F4 を実行します。<br><br>"
+                       "<b>Aseprite → Photoshop</b><br>Aseprite でレイヤーを選択し、この行のコピー · F5 を実行してから、対象の Photoshop 文書で貼り付けを押します。<br><br>"
                        "<b>Copy Mode (次の Photoshop コピーから適用)</b><br>Normal: 既存のレイヤー/フォルダー構造で貼り付けます。<br>Folder → Frames: 選択したフォルダーごとに連続フレームへ配置します。直接選択した下位フォルダーにも対応します。同じ順番のレイヤーは、選択した Aseprite レイヤーを含む下方向の同じ行を再利用します。<br>Layer → Frames: 選択したピクセルレイヤーごとに一つのフレームへ配置し、選択中の Aseprite レイヤー一行を使います。グループの選択には対応しません。<br>フレーム順は Photoshop パネルの上から下で、Aseprite の現在のフレームから始まります。クリップボードのモードは実際にコピーした方式です。ラジオを変更しても既存データのモードは変わりません。<br><br>"
                        "<b>Alignment (貼り付け時に適用)</b><br>Ground Line: 既定値。Aseprite で横方向を中央にし、画像の底をキャンバスの中央横線のすぐ上に合わせます。<br>Center: 画像全体の範囲をキャンバス中央に配置します。<br>Absolute: 元の座標を維持します。<br>コピー後でも変更できます。Ground Line の接地配置は Aseprite Paste 用です。<br><br>"
                        "<b>Preview / 変形</b><br>複数フレームでは最初のフレームだけ表示します。左右/上下反転、90° 回転、Undo/Redo はコピーした作業データと Preview に反映されます。<br><br>"
@@ -1472,7 +1473,7 @@ class SettingsDialog(QDialog):
     def __init__(self, current_settings, lang_dict, parent=None, photoshop_only=False):
         super().__init__(parent)
         self.lang = lang_dict
-        self.setWindowTitle(self.lang["set_title"])
+        self.setWindowTitle(f'{PRODUCT_NAME} | {self.lang["set_title"]}')
         self.setMinimumSize(560, 470)
         self.current_settings = current_settings
         self.photoshop_only = photoshop_only
@@ -1509,8 +1510,7 @@ class SettingsDialog(QDialog):
         self.ps_versions.activated.connect(self.select_photoshop_version)
         form_layout.addRow(self.lang["ps_versions"], self.ps_versions)
         if photoshop_only:
-            self.setWindowTitle(self.lang["guide_steps"][0])
-            self.setMinimumSize(480, 0)
+            self.setWindowTitle(f'{PRODUCT_NAME} | {self.lang["guide_steps"][0]}')
             layout.addLayout(form_layout)
             self.button_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
             self.button_box.accepted.connect(self.accept)
@@ -1766,7 +1766,7 @@ class AsepriteSetupDialog(QDialog):
         super().__init__(parent)
         self.lang = lang_dict
         self.parent_app = app or parent
-        self.setWindowTitle(self.lang["ase_setup_title"])
+        self.setWindowTitle(f'{PRODUCT_NAME} | {self.lang["ase_setup_title"]}')
         self.setMinimumSize(460, 360)
 
         layout = QVBoxLayout(self)
@@ -1821,10 +1821,22 @@ class InitialSetupDialog(QDialog):
         self.lang = lang_dict
         self.app = app
         self.open_tutorial_requested = False
-        self.setWindowTitle(self.lang["guide_title"])
-        self.setMinimumSize(480, 440)
-        self.resize(560, 510)
+        self.setWindowTitle(f'{PRODUCT_NAME} | {self.lang["guide_title"]}')
+        self.setMinimumSize(330, 290)
+        available = self.screen().availableGeometry()
+        self.resize(min(500, available.width() - 24), min(400, available.height() - 64))
         layout = QVBoxLayout(self)
+        header = QHBoxLayout()
+        header.addWidget(QLabel(self.lang["guide_title"]))
+        header.addStretch()
+        self.step_count = QLabel()
+        header.addWidget(self.step_count)
+        layout.addLayout(header)
+        self.step_progress = QProgressBar()
+        self.step_progress.setRange(0, 4)
+        self.step_progress.setTextVisible(False)
+        self.step_progress.setFixedHeight(5)
+        layout.addWidget(self.step_progress)
         self.step_title = QLabel()
         self.step_title.setWordWrap(True)
         self.step_title.setStyleSheet("font-weight: bold; font-size: 15px;")
@@ -1837,20 +1849,20 @@ class InitialSetupDialog(QDialog):
             content = QVBoxLayout(page)
             if step == 0:
                 self.add_text(content, self.lang["guide_ps_intro"])
-                self.ps_status = self.add_text(content, "")
+                self.ps_status = self.add_status(content, "")
                 self.ps_edit = QPushButton(self.lang["guide_ps_edit"])
                 self.ps_edit.clicked.connect(self.edit_photoshop)
                 content.addWidget(self.ps_edit)
             elif step == 1:
                 self.add_text(content, self.lang["guide_warning_intro"])
+                self.warning_status = self.add_status(content, "")
                 self.add_text(content, self.lang["guide_warning_optional"])
-                self.warning_status = self.add_text(content, "")
                 self.warning_edit = QPushButton(self.lang["guide_warning_edit"])
                 self.warning_edit.clicked.connect(self.edit_warning)
                 content.addWidget(self.warning_edit)
             elif step == 2:
                 self.add_text(content, self.lang["guide_ase_intro"])
-                self.ase_status = self.add_text(content, "")
+                self.ase_status = self.add_status(content, "")
                 self.ase_edit = QPushButton(self.lang["guide_ase_open"])
                 self.ase_edit.clicked.connect(self.edit_aseprite)
                 content.addWidget(self.ase_edit)
@@ -1860,7 +1872,7 @@ class InitialSetupDialog(QDialog):
                 content.addWidget(self.hotkeys_confirmed)
             else:
                 self.add_text(content, self.lang["guide_summary_intro"])
-                self.summary = self.add_text(content, "")
+                self.summary = self.add_status(content, "")
                 self.btn_tutorial = QPushButton(self.lang["guide_tutorial"])
                 self.btn_tutorial.clicked.connect(self.finish_with_tutorial)
                 content.addWidget(self.btn_tutorial)
@@ -1881,8 +1893,12 @@ class InitialSetupDialog(QDialog):
         self.btn_next.setObjectName("setup_guide_next")
         for button in (self.btn_later, self.btn_back, self.btn_next):
             button.setAutoDefault(False)
-            buttons.addWidget(button)
+        buttons.addWidget(self.btn_later)
+        buttons.addStretch()
+        buttons.addWidget(self.btn_back)
         layout.addLayout(buttons)
+        self.btn_next.setMinimumHeight(32)
+        layout.addWidget(self.btn_next)
         self.input_trace = DialogInputTrace(self, app)
         self.btn_later.clicked.connect(self.reject)
         self.btn_back.clicked.connect(lambda: self.set_step(self.pages.currentIndex() - 1))
@@ -1896,8 +1912,18 @@ class InitialSetupDialog(QDialog):
         label = QLabel(text)
         label.setTextFormat(Qt.PlainText)
         label.setWordWrap(True)
+        policy = QSizePolicy(QSizePolicy.Ignored, QSizePolicy.Maximum)
+        policy.setHeightForWidth(True)
+        label.setSizePolicy(policy)
         label.setTextInteractionFlags(Qt.TextSelectableByMouse)
         layout.addWidget(label)
+        return label
+
+    @classmethod
+    def add_status(cls, layout, text):
+        label = cls.add_text(layout, text)
+        label.setStyleSheet("background: palette(alternate-base); color: palette(text);"
+                            "border: 1px solid palette(mid); border-radius: 6px; padding: 8px;")
         return label
 
     def refresh_status(self):
@@ -1930,7 +1956,8 @@ class InitialSetupDialog(QDialog):
                 pass
         self.ps_target_valid = info is not None
         self.ps_status.setText("\n".join(filter(None, (connection, path, self.lang[runtime]))))
-        self.warning_status.setText("\n".join((connection, warning)))
+        self.warning_state = warning
+        self.warning_status.setText("\n".join((connection, self.lang[runtime], warning)))
         self.warning_edit.setEnabled(self.ps_target_valid)
         if self.pages.currentIndex() == 0:
             self.update_next_text(0)
@@ -1962,7 +1989,7 @@ class InitialSetupDialog(QDialog):
             return
         trust_key = "guide_trust_yes" if self.app.settings.get("aseprite_trust_confirmed") is True else "guide_trust_no"
         keys_key = "guide_keys_tested" if self.hotkeys_confirmed.isChecked() else "guide_keys_untested"
-        self.summary.setText("\n\n".join((self.ps_status.text(), self.warning_status.text().split("\n", 1)[-1],
+        self.summary.setText("\n\n".join((self.ps_status.text(), self.warning_state,
                                           *self.ase_status.text().splitlines(), self.lang[trust_key], self.lang[keys_key])))
 
     def edit_photoshop(self):
@@ -1984,6 +2011,8 @@ class InitialSetupDialog(QDialog):
 
     def set_step(self, index):
         self.pages.setCurrentIndex(index)
+        self.step_count.setText(f"{index + 1} / {self.pages.count()}")
+        self.step_progress.setValue(index + 1)
         self.step_title.setText(self.lang["guide_steps"][index])
         self.btn_back.setEnabled(index > 0)
         self.update_next_text(index)
@@ -2020,7 +2049,7 @@ class InitialSetupDialog(QDialog):
 class TutorialDialog(QDialog):
     def __init__(self, lang_dict, parent=None, app=None):
         super().__init__(parent)
-        self.setWindowTitle(lang_dict["tut_title"])
+        self.setWindowTitle(f'{PRODUCT_NAME} | {lang_dict["tut_title"]}')
         self.setMinimumSize(440, 400)
         self.resize(560, 580)
         self.parent_app = app or parent
@@ -2069,8 +2098,8 @@ class BridgeApp(QMainWindow):
         self.diagnostic_log = DiagnosticLog(os.path.join(BRIDGE_DATA_DIR, "logs"))
         self.diagnostic_received.connect(self.record_diagnostic, Qt.QueuedConnection)
 
-        self.setMinimumSize(460, 680)
-        self.resize(520, 760)
+        self.setMinimumSize(390, 380)
+        self.resize(460, 620)
         self.setWindowFlags(Qt.WindowStaysOnTopHint | Qt.Window)
 
         # 경로 캐싱
@@ -2149,7 +2178,7 @@ class BridgeApp(QMainWindow):
             self._startup_dialogs_complete = True
         except Exception:
             self.trace_job("-", "STARTUP_DIALOG_FAILED", traceback=traceback.format_exc())
-            QMessageBox.critical(self, "Ase-PS Bridge Pro", self.t["startup_failed"])
+            QMessageBox.critical(self, PRODUCT_NAME, self.t["startup_failed"])
             self.close()
             return
         finally:
@@ -2207,8 +2236,8 @@ class BridgeApp(QMainWindow):
 
     def init_ui(self):
         layout = QVBoxLayout()
-        layout.setContentsMargins(15, 15, 15, 15)
-        layout.setSpacing(10)
+        layout.setContentsMargins(12, 12, 12, 12)
+        layout.setSpacing(7)
 
         # 상단 상태바 및 세팅 버튼, 클린업 버튼
         top_layout = QHBoxLayout()
@@ -2216,7 +2245,8 @@ class BridgeApp(QMainWindow):
         self.status_label.setFont(QFont("Arial", 10, QFont.Bold))
         self.status_label.setAlignment(Qt.AlignCenter)
         self.status_label.setWordWrap(True)
-        self.status_label.setStyleSheet("padding: 10px; background-color: #f0f0f0; border-radius: 5px;")
+        self.status_label.setStyleSheet("padding: 6px; background: palette(alternate-base);"
+                                        "color: palette(text); border-radius: 5px;")
         
         btn_layout = QVBoxLayout()
         btn_layout.setSpacing(5)
@@ -2234,7 +2264,6 @@ class BridgeApp(QMainWindow):
         settings_tut_layout.addWidget(self.btn_tutorial)
         settings_tut_layout.addWidget(self.btn_settings)
         
-        btn_layout.addWidget(self.btn_clean)
         btn_layout.addLayout(settings_tut_layout)
         
         top_layout.addWidget(self.status_label, stretch=1)
@@ -2244,16 +2273,14 @@ class BridgeApp(QMainWindow):
         # === 썸네일 Preview 영역 ===
         self.preview_label = QLabel(self.t["preview_empty"])
         self.preview_label.setAlignment(Qt.AlignCenter)
-        self.preview_label.setFixedSize(350, 160)
+        self.preview_label.setFixedSize(340, 160)
         self.preview_label.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         self.preview_label.setScaledContents(False)
         self.preview_label.setStyleSheet("""
-            background-color: #e5e7eb;
-            background-image: repeating-linear-gradient(45deg, #d1d5db 25%, transparent 25%, transparent 75%, #d1d5db 75%, #d1d5db);
-            background-position: 0 0, 10px 10px;
-            background-size: 20px 20px;
+            background: palette(alternate-base);
+            color: palette(text);
             border-radius: 5px;
-            border: 1px solid #d1d5db;
+            border: 1px solid palette(mid);
         """)
         layout.addWidget(self.preview_label, alignment=Qt.AlignCenter)
 
@@ -2271,18 +2298,11 @@ class BridgeApp(QMainWindow):
         self.btn_flip_v.setEnabled(False)
         self.btn_rotate.setEnabled(False)
         
-        btn_style = "background-color: #4b5563; color: white; border-radius: 4px; padding: 5px;"
-        self.btn_flip_h.setStyleSheet(btn_style)
-        self.btn_flip_v.setStyleSheet(btn_style)
-        self.btn_rotate.setStyleSheet(btn_style)
-
         # Undo/Redo 버튼
         self.btn_undo = QPushButton(self.t.get("btn_undo", "↩ Undo"))
         self.btn_redo = QPushButton(self.t.get("btn_redo", "↪ Redo"))
         self.btn_undo.setEnabled(False)
         self.btn_redo.setEnabled(False)
-        self.btn_undo.setStyleSheet(btn_style)
-        self.btn_redo.setStyleSheet(btn_style)
 
         # 클릭 이벤트 연결 (Lambda 제거)
         self.btn_flip_h.clicked.connect(self.handle_flip_h)
@@ -2296,6 +2316,13 @@ class BridgeApp(QMainWindow):
         flip_layout.addWidget(self.btn_flip_v)
         flip_layout.addWidget(self.btn_rotate)
         flip_layout.addWidget(self.btn_redo)
+        self.transform_actions = (
+            (self.btn_undo, "↶", "btn_undo"), (self.btn_flip_h, "↔", "btn_flip_h"),
+            (self.btn_flip_v, "↕", "btn_flip_v"), (self.btn_rotate, "⟳", "btn_rotate"),
+            (self.btn_redo, "↷", "btn_redo"))
+        for button, _, _ in self.transform_actions:
+            button.setFixedSize(48, 28)
+        self.refresh_transform_labels()
         layout.addWidget(self.transform_bar)
 
         # 정렬 모드
@@ -2318,7 +2345,8 @@ class BridgeApp(QMainWindow):
         self.align_group.addButton(self.radio_ground_line, 3)
         self.align_group.buttonClicked.connect(lambda _: self.update_clipboard_align_mode())
         
-        align_layout.addWidget(QLabel(self.t["align_label"]))
+        self.align_label = QLabel(self.t["align_label"])
+        layout.addWidget(self.align_label)
         align_layout.addWidget(self.radio_ground_line)
         align_layout.addWidget(self.radio_center)
         align_layout.addWidget(self.radio_absolute)
@@ -2341,8 +2369,7 @@ class BridgeApp(QMainWindow):
         self.frame_mode_info_label = QLabel()
         self.frame_mode_info_label.setWordWrap(True)
         self.frame_mode_info_label.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
-        self.frame_mode_info_label.setStyleSheet("color: #4b5563; font-size: 11px; font-weight: bold;")
-        frame_mode_layout.addWidget(self.frame_mode_label)
+        layout.addWidget(self.frame_mode_label)
         frame_mode_layout.addWidget(self.radio_frame_normal)
         frame_mode_layout.addWidget(self.radio_frame_folder)
         frame_mode_layout.addWidget(self.radio_frame_layer)
@@ -2353,25 +2380,32 @@ class BridgeApp(QMainWindow):
         self.btn_ps_copy = QPushButton(self.t["btn_ps_copy"])
         self.btn_ps_copy.setMinimumHeight(40)
         self.btn_ps_copy.clicked.connect(self.run_ps_copy)
-        layout.addWidget(self.btn_ps_copy)
 
         self.btn_ase_paste = QPushButton(self.t["btn_ase_paste"])
         self.btn_ase_paste.setMinimumHeight(40)
         self.btn_ase_paste.setEnabled(False)
         self.btn_ase_paste.clicked.connect(self.run_ase_paste)
-        layout.addWidget(self.btn_ase_paste)
 
         # === 역방향 ===
         self.btn_ase_copy = QPushButton(self.t["btn_ase_copy"])
         self.btn_ase_copy.setMinimumHeight(40)
         self.btn_ase_copy.clicked.connect(self.run_ase_copy)
-        layout.addWidget(self.btn_ase_copy)
 
         self.btn_ps_paste = QPushButton(self.t["btn_ps_paste"])
         self.btn_ps_paste.setMinimumHeight(40)
         self.btn_ps_paste.setEnabled(False)
         self.btn_ps_paste.clicked.connect(self.run_ps_paste)
-        layout.addWidget(self.btn_ps_paste)
+        for title, copy, paste in (
+            ("Photoshop → Aseprite", self.btn_ps_copy, self.btn_ase_paste),
+            ("Aseprite → Photoshop", self.btn_ase_copy, self.btn_ps_paste),
+        ):
+            heading = QLabel(title)
+            heading.setStyleSheet("font-weight: bold;")
+            layout.addWidget(heading)
+            row = QHBoxLayout()
+            row.addWidget(copy, 1)
+            row.addWidget(paste, 1)
+            layout.addLayout(row)
         for button in (self.btn_ase_paste, self.btn_ps_paste):
             button.setStyleSheet(
                 "QPushButton:enabled { background-color: #1d4ed8; color: white; font-weight: bold; border-radius: 5px; }"
@@ -2382,7 +2416,11 @@ class BridgeApp(QMainWindow):
         # 로그 콘솔
         self.diagnostics_toggle = QPushButton(self.t["diag_toggle"])
         self.diagnostics_toggle.setCheckable(True)
-        layout.addWidget(self.diagnostics_toggle)
+        utility_row = QHBoxLayout()
+        utility_row.addWidget(self.diagnostics_toggle)
+        utility_row.addStretch()
+        utility_row.addWidget(self.btn_clean)
+        layout.addLayout(utility_row)
         self.diagnostics_panel = QWidget()
         panel_layout = QVBoxLayout(self.diagnostics_panel)
         panel_layout.setContentsMargins(0, 0, 0, 0)
@@ -2447,8 +2485,15 @@ class BridgeApp(QMainWindow):
             QTimer.singleShot(0, self.trace_startup_modal)
         dlg.exec()
         
+    def refresh_transform_labels(self):
+        for button, symbol, key in self.transform_actions:
+            button.setText(symbol)
+            button.setToolTip(self.t[key])
+            button.setAccessibleName(self.t[key])
+
     def refresh_ui_language(self):
         self.t = LANG[self.current_lang]
+        self.align_label.setText(self.t["align_label"])
         self.debug_checkbox.setText(self.t["diag_debug"])
         self.diagnostics_toggle.setText(self.t["diag_toggle"])
         if self.preview_label.text() in {lang["preview_empty"] for lang in LANG.values()}:
@@ -2476,11 +2521,7 @@ class BridgeApp(QMainWindow):
         self.btn_settings.setText(self.t["btn_settings"])
         
         # 변환 버튼 텍스트 갱신
-        self.btn_flip_h.setText(self.t.get("btn_flip_h", "↔ 좌우 반전"))
-        self.btn_flip_v.setText(self.t.get("btn_flip_v", "↕ 상하 반전"))
-        self.btn_rotate.setText(self.t.get("btn_rotate", "↻ 90° 회전"))
-        self.btn_undo.setText(self.t.get("btn_undo", "↩ Undo"))
-        self.btn_redo.setText(self.t.get("btn_redo", "↪ Redo"))
+        self.refresh_transform_labels()
 
         if not self.last_job_id:
             self.update_status(self.t["clip_empty"], "#f3f4f6", "#374151")
@@ -3270,7 +3311,7 @@ class SourceStartupWindow(QWidget):
     """A layout-based Qt splash without QSplashScreen's mapped-window wait."""
     def __init__(self, pixmap):
         super().__init__(None, Qt.SplashScreen | Qt.FramelessWindowHint)
-        self.setWindowTitle("Ase-PS Bridge Pro")
+        self.setWindowTitle(PRODUCT_NAME)
         self.setFixedSize(pixmap.size())
         self.setStyleSheet("background-color: #24272b; color: #e5e7eb;")
         layout = QVBoxLayout(self)
@@ -3370,7 +3411,7 @@ class StartupSplash:
             except Exception:
                 timer.stop()
                 window.trace_job("-", "STARTUP_HANDOFF_FAILED", traceback=traceback.format_exc())
-                QMessageBox.critical(window, "Ase-PS Bridge Pro", window.t["startup_failed"])
+                QMessageBox.critical(window, PRODUCT_NAME, window.t["startup_failed"])
                 window.close()
 
         timer.timeout.connect(handoff)
@@ -3428,6 +3469,7 @@ if __name__ == "__main__":
         pass
 
     app = QApplication(sys.argv)
+    app.setApplicationDisplayName(PRODUCT_NAME)
     app.setStyle("Fusion")
     
     # 앱 전체 기본 아이콘 설정 (Taskbar 및 모든 창)
@@ -3441,6 +3483,6 @@ if __name__ == "__main__":
     except Exception:
         traceback.print_exc()
         language = QLocale.system().name().split("_")[0]
-        QMessageBox.critical(None, "Ase-PS Bridge Pro", LANG.get(language, LANG["en"])["startup_failed"])
+        QMessageBox.critical(None, PRODUCT_NAME, LANG.get(language, LANG["en"])["startup_failed"])
         sys.exit(1)
     sys.exit(app.exec())

@@ -6,10 +6,11 @@ VSVersionInfo(
   kids=[
     StringFileInfo([StringTable('040904B0', [
       StringStruct('CompanyName', 'Southpaw Games'),
-      StringStruct('FileDescription', 'Ase-PS Bridge Pro'),
+      StringStruct('FileDescription', 'Photoshop \u2194 Aseprite'),
       StringStruct('FileVersion', '0.3.7'),
       StringStruct('InternalName', 'bridge_ui'),
       StringStruct('OriginalFilename', 'bridge_ui.exe'),
-      StringStruct('ProductName', 'Ase-PS Bridge Pro'),
+      StringStruct('ProductName', 'Photoshop \u2194 Aseprite'),
+      StringStruct('Comments', 'Transfer and align layers and frames between Photoshop and Aseprite.'),
       StringStruct('ProductVersion', '0.3.7')])]),
     VarFileInfo([VarStruct('Translation', [1033, 1200])])])

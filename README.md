@@ -6,7 +6,9 @@
 
 ---
 
-# PS2ASE (Ase-PS Bridge Pro)
+# Photoshop ↔ Aseprite (PS2ASE)
+
+Photoshop과 Aseprite 사이에서 레이어와 프레임을 손쉽게 주고받고 정렬합니다.
 
 Photoshop과 Aseprite 간의 완벽한 **양방향 다중 레이어 복사/붙여넣기(Copy & Paste)**를 지원하는 궁극의 브릿지 도구입니다. 
 무거운 픽셀 데이터를 시스템 클립보드에 직접 욱여넣는 대신, 로컬 임시 폴더와 가벼운 JSON 페이로드(Payload)를 활용하여 오류 없이 빠르고 안전하게 레이어를 전송합니다.
@@ -56,8 +58,8 @@ Photoshop과 Aseprite 간의 완벽한 **양방향 다중 레이어 복사/붙�
 
 ### 2. 사용 (양방향 워크플로우)
 화면에 나타난 플로팅 UI 창을 통해 Photoshop과 Aseprite를 자유롭게 오가며 버튼을 클릭하여 작업합니다.
-*   **[정방향] PS -> Ase**: 포토샵에서 레이어를 다중 선택한 뒤 `1. Photoshop에서 Copy` 클릭 -> Aseprite 창을 열고 `2. Aseprite로 Paste` 클릭.
-*   **[역방향] Ase -> PS**: Aseprite에서 레이어를 다중 선택한 뒤 `3. Aseprite에서 Copy` 클릭 -> Photoshop 캔버스를 열고 `4. Photoshop으로 Paste` 클릭.
+*   **Photoshop → Aseprite**: Photoshop에서 레이어를 선택하고 해당 행의 `복사`를 누른 뒤, Aseprite 문서에서 `붙여넣기 · F4`를 실행합니다.
+*   **Aseprite → Photoshop**: Aseprite에서 레이어를 선택하고 해당 행의 `복사 · F5`를 실행한 뒤, Photoshop 문서에서 `붙여넣기`를 누릅니다.
 
 ---
 *Developed as an internal tool by SOUTHPAW GAMES.*
