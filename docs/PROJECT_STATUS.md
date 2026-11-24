@@ -1,6 +1,6 @@
 # Ase-PS Bridge Pro 개발 현황
 
-확인일 2026-11-24 · 기본 브랜치 `main` · [개발 브랜치](https://github.com/rodetoast/PS2ASE/tree/codex/migration-checkpoint-20261117) · [조사 기준 소스 커밋](https://github.com/rodetoast/PS2ASE/commit/fee0a4e07e2131f256a1d0dda08473c85f59015d)
+확인일 2026-11-24 · 기본 브랜치 `main` · [개발 브랜치](https://github.com/rodetoast/PS2ASE/tree/codex/photoshop-2027-candidate-20261124) · [조사 기준 소스 커밋](https://github.com/rodetoast/PS2ASE/commit/fee0a4e07e2131f256a1d0dda08473c85f59015d)
 
 아티스트가 Photoshop과 Aseprite 사이에서 레이어와 프레임을 주고받습니다.
 
@@ -16,9 +16,9 @@
 
 ## 개발과 검증
 
-0.3.7 개발 노트에 시작·Photoshop 버전 선택·복사·진단 변경이 기록되어 있습니다. 운영은 0.3.6입니다.
+0.3.7-rc1 Windows 후보가 준비됐습니다. Photoshop 2027·Aseprite 실제 연동과 패키징 EXE를 검증했습니다. 운영은 0.3.6입니다.
 
-**알려진 제약과 미검증** 0.3.7 바이너리와 실제 Photoshop·Aseprite 조합 검증은 미확인입니다.
+**알려진 제약과 미검증** 이번 후보에서 2026 및 이전 버전의 실제 호스트 동작과 모든 DPI·Windows 환경은 미확인입니다. 아래에 자세한 검증 범위를 기록합니다.
 
 이번 확인에서는 원격 Git과 공개 서명 카탈로그를 대조했습니다. 기능 시험과 패키징은 기존 보고서의 범위를 따릅니다.
 
@@ -41,6 +41,6 @@
 - 최신 상세 근거: [2027 검증 기록](PHOTOSHOP_2027_VALIDATION.md), [직원용 릴리스 노트](../RELEASE_v0.3.7.md). 소스 commit/후보 ZIP 해시는 패키징 후 인계 기록에 고정합니다.
 - 운영 카탈로그/Latest/서명/태그/직원 설치는 수정하지 않았습니다. 후보와 운영 공개를 구분합니다.
 - **후보 소스 commit** `74f57bbf9c01443d1eda6267559762a1088a9236`; 이후 문서 전용 commit은 코드/EXE를 바꾸지 않습니다. 후보 `ps2ase--0.3.7-rc1-74f57bb.zip` (55,955,225 bytes)과 EXE (56,345,607 bytes)를 생성·검증했습니다. 정확한 SHA-256 및 보존/실행 계약은 [런처 인계](RELEASE_0.3.7_HANDOFF.md)에 고정했습니다. 운영 공개는 아직 하지 않았습니다.
-- **허브 동기화 대기**: 중앙 요약/목록 변경은 허브 로컬 개발 브랜치 `codex/ps2ase-2027-candidate-20261124`, commit `9338317`에 보존했습니다. 현재 등록 GitHub 계정 toast-source의 허브 push는 403(쓰기 권한 없음)으로 거절됐습니다. 인증/권한을 임의 변경하지 않았으며, `development-hub-ps2ase-2027.patch`를 후보 인계 폴더에 준비했습니다. 허브 원격 main/개발 브랜치에는 아직 반영되지 않았습니다.
+- **허브 동기화 완료**: 보호된 로컬 인계 패치와 최신 허브 main을 대조하고 [중앙 요약·프로젝트 목록 반영](https://github.com/rodetoast/southpaw-development-hub/commit/7b5c7fc8b51954c22ce4f6c10ad94826fcb3f224)을 원격에서 확인했습니다. 운영 후보 게시 여부는 이 동기화와 별개입니다.
 
 [README.md](https://github.com/rodetoast/PS2ASE/blob/fee0a4e07e2131f256a1d0dda08473c85f59015d/README.md) · [bridge_ui.spec](https://github.com/rodetoast/PS2ASE/blob/fee0a4e07e2131f256a1d0dda08473c85f59015d/bridge_ui.spec) · [RELEASE_v0.3.7.md](https://github.com/rodetoast/PS2ASE/blob/fee0a4e07e2131f256a1d0dda08473c85f59015d/RELEASE_v0.3.7.md) · [개발 허브 요약](https://github.com/rodetoast/southpaw-development-hub/blob/main/projects/ps2ase.md)
