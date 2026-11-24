@@ -315,12 +315,70 @@ if not os.path.exists(BRIDGE_DATA_DIR):
 SETTINGS_FILE = os.path.join(BRIDGE_DATA_DIR, "bridge_settings.json")
 PRODUCT_NAME = "Photoshop ↔ Aseprite"
 
+WORKSPACE_STYLE = """
+QWidget#bridgeWorkspace, QDialog, QScrollArea, QWidget#guidePage {
+    background: #181b20; color: #edf0f3;
+}
+QWidget[uiSurface="true"] { background: #22262d; border: 1px solid #383e48; border-radius: 8px; }
+QLabel, QCheckBox, QRadioButton { color: #edf0f3; }
+QLabel[uiHeading="true"] { font-weight: 700; }
+QLabel[uiMuted="true"] { color: #b9c2cd; }
+QLabel#guideStatus { background: #272e37; border: 1px solid #414d5a; border-radius: 6px; padding: 8px; }
+QWidget#warningNote { background: #2e2920; border: 1px solid #66543a; border-radius: 6px; }
+QLabel#warningHeading { color: #f0cb8b; font-weight: 700; }
+QPushButton { color: #eef1f4; background: #2c323b; border: 1px solid #454e5a;
+              border-radius: 6px; padding: 4px 8px; }
+QPushButton[uiRole="quiet"] { background: transparent; color: #c5ced9; border-color: transparent; }
+QPushButton[uiRole="copy"] { background: #333e48; font-weight: 600; }
+QPushButton[uiRole="primary"] { background: #176b62; border-color: #248577; font-weight: 700; }
+QPushButton:hover:enabled { border-color: #7b8c9e; }
+QPushButton:pressed:enabled, QPushButton:checked:enabled { background: #3b4653; }
+QPushButton:disabled, QPushButton[uiRole="primary"]:disabled, QPushButton[uiRole="copy"]:disabled {
+    background: #262a31; color: #8e9aa8; border-color: #373d46;
+}
+QPushButton:focus:enabled, QRadioButton[uiSegment="true"]:focus, QLineEdit:focus, QComboBox:focus {
+    border-color: #9ac8ef;
+}
+QLabel:disabled, QCheckBox:disabled, QRadioButton:disabled { color: #8e9aa8; }
+QRadioButton[uiSegment="true"] {
+    background: #272c33; border: 1px solid #454e5a; border-radius: 6px; padding: 5px 4px;
+}
+QRadioButton[uiSegment="true"]::indicator { width: 0; height: 0; border: none; background: transparent; }
+QRadioButton[uiSegment="true"]:checked { background: #203e49; border-color: #6897ad; color: #e0f5ff; }
+QRadioButton[uiSegment="true"]:hover { border-color: #9ac8ef; }
+QLineEdit, QComboBox, QComboBox QAbstractItemView {
+    background: #22262d; color: #edf0f3; border: 1px solid #454e5a; border-radius: 5px; padding: 4px;
+    selection-background-color: #345a70;
+}
+QTextEdit#diagnosticConsole { background: #1a1e24; color: #ccd6e0; border: 1px solid #383e48;
+                             border-radius: 6px; padding: 6px; }
+QProgressBar { background: #343a44; border: none; border-radius: 2px; }
+QProgressBar::chunk { background: #65ab9e; border-radius: 2px; }
+QScrollBar:vertical { background: #1c2026; width: 12px; margin: 0; }
+QScrollBar::handle:vertical { background: #515c68; min-height: 24px; border: 2px solid #1c2026; border-radius: 5px; }
+QScrollBar::handle:vertical:hover { background: #728090; }
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }
+QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical { background: transparent; }
+"""
+
+
+def workspace_section(parent_layout):
+    panel = QWidget()
+    panel.setProperty("uiSurface", True)
+    panel.setAttribute(Qt.WA_StyledBackground)
+    layout = QVBoxLayout(panel)
+    layout.setContentsMargins(8, 8, 8, 8)
+    layout.setSpacing(5)
+    parent_layout.addWidget(panel)
+    return layout
+
 # ==========================================
 # 다국어 지원 (Localization)
 # ==========================================
 LANG = {
     "ko": {
         "title": PRODUCT_NAME,
+        "workspace_heading": "작업 공간",
         "clip_empty": "📋 클립보드: 비어있음",
         "clip_ready": "📋 {src} -> {dst} ({count}개 레이어)",
         "align_label": "정렬 기준:",
@@ -423,6 +481,7 @@ LANG = {
     },
     "en": {
         "title": PRODUCT_NAME,
+        "workspace_heading": "Workspace",
         "clip_empty": "📋 Clipboard: Empty",
         "clip_ready": "📋 {src} -> {dst} ({count} Layers)",
         "align_label": "Alignment:",
@@ -524,6 +583,7 @@ LANG = {
     },
     "ja": {
         "title": PRODUCT_NAME,
+        "workspace_heading": "ワークスペース",
         "clip_empty": "📋 クリップボード：空",
         "clip_ready": "📋 {src} -> {dst} ({count}個のレイヤー)",
         "align_label": "配置の基準:",
@@ -702,7 +762,8 @@ for _language, _guide in {
         "guide_ps_valid": "선택한 Photoshop: {product} ({version})",
         "guide_ps_missing": "Photoshop 연결 미확인: EXE 경로와 버전을 연결 설정에서 확인하세요.",
         "guide_warning_intro": "반복 복사·붙여넣기 중 매번 JSX 실행을 승인하지 않아도 됩니다. 원할 때만 선택한 Photoshop 버전의 실행 경고를 끌 수 있습니다.",
-        "guide_warning_optional": "이 설정은 Bridge뿐 아니라 선택한 버전의 모든 외부 JSX에 적용됩니다. 기본값인 경고 유지를 권장하며, Bridge는 실제 승인 여부를 확인할 수 없습니다. 적용하려면 Photoshop을 모두 종료하고 아래에서 대상을 확인한 뒤 동의하세요. 적용 후 Photoshop을 다시 시작하세요.",
+        "guide_warning_caution": "변경 전 확인",
+        "guide_warning_optional": "이 설정은 선택한 버전의 모든 외부 JSX에 적용됩니다. 경고 유지를 권장하며, 앱은 실제 승인 여부를 확인할 수 없습니다. 변경하려면 Photoshop을 모두 종료하고 대상 확인 후 동의하세요. 기존 파일은 백업되며, 적용 후 Photoshop을 다시 시작해야 합니다.",
         "guide_warning_edit": "실행 경고 변경 검토…",
         "guide_warning_keep": "경고 설정: 기본값 또는 경고 유지 · 실제 승인 여부 미확인",
         "guide_warning_disabled": "경고 설정: WarnRunningScripts 0 확인 · 적용 후 재시작 필요 · 실제 승인 여부 미확인",
@@ -744,7 +805,8 @@ for _language, _guide in {
         "guide_ps_valid": "Selected Photoshop: {product} ({version})",
         "guide_ps_missing": "Photoshop connection unverified: check the EXE path and version in connection settings.",
         "guide_warning_intro": "Skip the repeated JSX confirmation during Copy and Paste. You can turn off script warnings for the selected Photoshop version if you choose.",
-        "guide_warning_optional": "This affects all external JSX in the selected version, not just Bridge. Keeping warnings is recommended, and Bridge cannot verify individual approvals. To apply, close all Photoshop processes, review the target below and explicitly confirm. Restart Photoshop afterward.",
+        "guide_warning_caution": "Before changing warnings",
+        "guide_warning_optional": "This affects all external JSX in the selected version. Keeping warnings is recommended; the app cannot verify individual approvals. To apply, close Photoshop, review the target and explicitly confirm. Existing files are backed up. Restart Photoshop afterward.",
         "guide_warning_edit": "Review script warning change…",
         "guide_warning_keep": "Warning setting: default or warnings kept · actual approval unverified",
         "guide_warning_disabled": "Warning setting: WarnRunningScripts 0 found · restart after applying · actual approval unverified",
@@ -786,7 +848,8 @@ for _language, _guide in {
         "guide_ps_valid": "選択中の Photoshop: {product} ({version})",
         "guide_ps_missing": "Photoshop の接続は未確認です。接続設定で EXE パスとバージョンを確認してください。",
         "guide_warning_intro": "コピーや貼り付けのたびに JSX の実行を承認する手間を省けます。希望する場合のみ、選択した Photoshop の警告を無効にできます。",
-        "guide_warning_optional": "Bridge に限らず、選択したバージョンのすべての外部 JSX に影響します。警告の維持を推奨します。Bridge は実際の承認を確認できません。変更する場合は Photoshop をすべて終了し、対象を確認して明示的に同意してください。適用後に再起動が必要です。",
+        "guide_warning_caution": "変更前の確認",
+        "guide_warning_optional": "選択したバージョンのすべての外部 JSX に影響します。警告の維持を推奨します。アプリは個別の承認を確認できません。変更する場合は Photoshop をすべて終了し、対象の確認後に同意してください。既存ファイルをバックアップします。適用後は Photoshop を再起動してください。",
         "guide_warning_edit": "実行警告の変更を確認…",
         "guide_warning_keep": "警告設定: 既定値または警告を維持 · 実際の承認は未確認",
         "guide_warning_disabled": "警告設定: WarnRunningScripts 0 を確認 · 適用後に再起動が必要 · 実際の承認は未確認",
@@ -1474,6 +1537,7 @@ class SettingsDialog(QDialog):
         super().__init__(parent)
         self.lang = lang_dict
         self.setWindowTitle(f'{PRODUCT_NAME} | {self.lang["set_title"]}')
+        self.setStyleSheet(WORKSPACE_STYLE)
         self.setMinimumSize(560, 470)
         self.current_settings = current_settings
         self.photoshop_only = photoshop_only
@@ -1822,6 +1886,7 @@ class InitialSetupDialog(QDialog):
         self.app = app
         self.open_tutorial_requested = False
         self.setWindowTitle(f'{PRODUCT_NAME} | {self.lang["guide_title"]}')
+        self.setStyleSheet(WORKSPACE_STYLE)
         self.setMinimumSize(330, 290)
         available = self.screen().availableGeometry()
         self.resize(min(500, available.width() - 24), min(400, available.height() - 64))
@@ -1830,6 +1895,7 @@ class InitialSetupDialog(QDialog):
         header.addWidget(QLabel(self.lang["guide_title"]))
         header.addStretch()
         self.step_count = QLabel()
+        self.step_count.setProperty("uiMuted", True)
         header.addWidget(self.step_count)
         layout.addLayout(header)
         self.step_progress = QProgressBar()
@@ -1846,6 +1912,7 @@ class InitialSetupDialog(QDialog):
 
         for step in range(4):
             page = QWidget()
+            page.setObjectName("guidePage")
             content = QVBoxLayout(page)
             if step == 0:
                 self.add_text(content, self.lang["guide_ps_intro"])
@@ -1856,7 +1923,15 @@ class InitialSetupDialog(QDialog):
             elif step == 1:
                 self.add_text(content, self.lang["guide_warning_intro"])
                 self.warning_status = self.add_status(content, "")
-                self.add_text(content, self.lang["guide_warning_optional"])
+                note = QWidget()
+                note.setObjectName("warningNote")
+                note.setAttribute(Qt.WA_StyledBackground)
+                note_layout = QVBoxLayout(note)
+                note_layout.setContentsMargins(8, 7, 8, 7)
+                caution = self.add_text(note_layout, self.lang["guide_warning_caution"])
+                caution.setObjectName("warningHeading")
+                self.add_text(note_layout, self.lang["guide_warning_optional"])
+                content.addWidget(note)
                 self.warning_edit = QPushButton(self.lang["guide_warning_edit"])
                 self.warning_edit.clicked.connect(self.edit_warning)
                 content.addWidget(self.warning_edit)
@@ -1891,6 +1966,7 @@ class InitialSetupDialog(QDialog):
         self.btn_back = QPushButton(self.lang["guide_back"])
         self.btn_next = QPushButton()
         self.btn_next.setObjectName("setup_guide_next")
+        self.btn_next.setProperty("uiRole", "primary")
         for button in (self.btn_later, self.btn_back, self.btn_next):
             button.setAutoDefault(False)
         buttons.addWidget(self.btn_later)
@@ -1922,8 +1998,7 @@ class InitialSetupDialog(QDialog):
     @classmethod
     def add_status(cls, layout, text):
         label = cls.add_text(layout, text)
-        label.setStyleSheet("background: palette(alternate-base); color: palette(text);"
-                            "border: 1px solid palette(mid); border-radius: 6px; padding: 8px;")
+        label.setObjectName("guideStatus")
         return label
 
     def refresh_status(self):
@@ -2245,8 +2320,7 @@ class BridgeApp(QMainWindow):
         self.status_label.setFont(QFont("Arial", 10, QFont.Bold))
         self.status_label.setAlignment(Qt.AlignCenter)
         self.status_label.setWordWrap(True)
-        self.status_label.setStyleSheet("padding: 6px; background: palette(alternate-base);"
-                                        "color: palette(text); border-radius: 5px;")
+        self.update_status(self.t["clip_empty"], "#f3f4f6", "#374151")
         
         btn_layout = QVBoxLayout()
         btn_layout.setSpacing(5)
@@ -2260,29 +2334,34 @@ class BridgeApp(QMainWindow):
         
         self.btn_settings = QPushButton(self.t["btn_settings"])
         self.btn_settings.clicked.connect(self.open_settings)
+        for button in (self.btn_tutorial, self.btn_settings, self.btn_clean):
+            button.setProperty("uiRole", "quiet")
         
         settings_tut_layout.addWidget(self.btn_tutorial)
         settings_tut_layout.addWidget(self.btn_settings)
         
         btn_layout.addLayout(settings_tut_layout)
         
-        top_layout.addWidget(self.status_label, stretch=1)
+        self.workspace_heading = QLabel(self.t["workspace_heading"])
+        self.workspace_heading.setStyleSheet("font-weight: 700; font-size: 15px;")
+        top_layout.addWidget(self.workspace_heading, 1)
         top_layout.addLayout(btn_layout)
         layout.addLayout(top_layout)
 
         # === 썸네일 Preview 영역 ===
+        self.preview_panel = QWidget()
+        self.preview_panel.setProperty("uiSurface", True)
+        self.preview_panel.setAttribute(Qt.WA_StyledBackground)
+        preview_layout = QVBoxLayout(self.preview_panel)
+        preview_layout.setContentsMargins(6, 6, 6, 6)
+        preview_layout.setSpacing(4)
+        preview_layout.addWidget(self.status_label)
         self.preview_label = QLabel(self.t["preview_empty"])
         self.preview_label.setAlignment(Qt.AlignCenter)
         self.preview_label.setFixedSize(340, 160)
         self.preview_label.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         self.preview_label.setScaledContents(False)
-        self.preview_label.setStyleSheet("""
-            background: palette(alternate-base);
-            color: palette(text);
-            border-radius: 5px;
-            border: 1px solid palette(mid);
-        """)
-        layout.addWidget(self.preview_label, alignment=Qt.AlignCenter)
+        preview_layout.addWidget(self.preview_label, alignment=Qt.AlignCenter)
 
         # === 🔄 변환(Transform) 컨트롤 영역 ===
         self.transform_bar = QWidget()
@@ -2323,7 +2402,8 @@ class BridgeApp(QMainWindow):
         for button, _, _ in self.transform_actions:
             button.setFixedSize(48, 28)
         self.refresh_transform_labels()
-        layout.addWidget(self.transform_bar)
+        preview_layout.addWidget(self.transform_bar)
+        layout.addWidget(self.preview_panel)
 
         # 정렬 모드
         align_layout = QHBoxLayout()
@@ -2346,11 +2426,13 @@ class BridgeApp(QMainWindow):
         self.align_group.buttonClicked.connect(lambda _: self.update_clipboard_align_mode())
         
         self.align_label = QLabel(self.t["align_label"])
-        layout.addWidget(self.align_label)
+        self.align_label.setProperty("uiHeading", True)
+        options_layout = workspace_section(layout)
+        options_layout.addWidget(self.align_label)
         align_layout.addWidget(self.radio_ground_line)
         align_layout.addWidget(self.radio_center)
         align_layout.addWidget(self.radio_absolute)
-        layout.addLayout(align_layout)
+        options_layout.addLayout(align_layout)
 
         # Photoshop -> Aseprite 프레임 모드
         frame_mode_layout = QHBoxLayout()
@@ -2364,17 +2446,23 @@ class BridgeApp(QMainWindow):
         self.frame_mode_group.addButton(self.radio_frame_folder, 2)
         self.frame_mode_group.addButton(self.radio_frame_layer, 3)
         self.frame_mode_group.buttonClicked.connect(lambda _: self.update_clipboard_mode_label())
+        for group in (self.align_group, self.frame_mode_group):
+            for button in group.buttons():
+                button.setProperty("uiSegment", True)
+                button.setMinimumHeight(28)
 
         self.frame_mode_label = QLabel(self.t["frame_mode_label"])
         self.frame_mode_info_label = QLabel()
         self.frame_mode_info_label.setWordWrap(True)
         self.frame_mode_info_label.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
-        layout.addWidget(self.frame_mode_label)
+        self.frame_mode_label.setProperty("uiHeading", True)
+        self.frame_mode_info_label.setProperty("uiMuted", True)
+        options_layout.addWidget(self.frame_mode_label)
         frame_mode_layout.addWidget(self.radio_frame_normal)
         frame_mode_layout.addWidget(self.radio_frame_folder)
         frame_mode_layout.addWidget(self.radio_frame_layer)
-        layout.addLayout(frame_mode_layout)
-        layout.addWidget(self.frame_mode_info_label)
+        options_layout.addLayout(frame_mode_layout)
+        options_layout.addWidget(self.frame_mode_info_label)
 
         # === 정방향 ===
         self.btn_ps_copy = QPushButton(self.t["btn_ps_copy"])
@@ -2399,22 +2487,20 @@ class BridgeApp(QMainWindow):
             ("Photoshop → Aseprite", self.btn_ps_copy, self.btn_ase_paste),
             ("Aseprite → Photoshop", self.btn_ase_copy, self.btn_ps_paste),
         ):
+            transfer_layout = workspace_section(layout)
             heading = QLabel(title)
-            heading.setStyleSheet("font-weight: bold;")
-            layout.addWidget(heading)
+            heading.setProperty("uiHeading", True)
+            transfer_layout.addWidget(heading)
             row = QHBoxLayout()
+            copy.setProperty("uiRole", "copy")
+            paste.setProperty("uiRole", "primary")
             row.addWidget(copy, 1)
             row.addWidget(paste, 1)
-            layout.addLayout(row)
-        for button in (self.btn_ase_paste, self.btn_ps_paste):
-            button.setStyleSheet(
-                "QPushButton:enabled { background-color: #1d4ed8; color: white; font-weight: bold; border-radius: 5px; }"
-                "QPushButton:hover:enabled { background-color: #1e40af; }"
-                "QPushButton:focus:enabled { border: 2px solid #60a5fa; }"
-                "QPushButton:pressed:enabled { background-color: #1e3a8a; }")
+            transfer_layout.addLayout(row)
 
         # 로그 콘솔
         self.diagnostics_toggle = QPushButton(self.t["diag_toggle"])
+        self.diagnostics_toggle.setProperty("uiRole", "quiet")
         self.diagnostics_toggle.setCheckable(True)
         utility_row = QHBoxLayout()
         utility_row.addWidget(self.diagnostics_toggle)
@@ -2422,15 +2508,21 @@ class BridgeApp(QMainWindow):
         utility_row.addWidget(self.btn_clean)
         layout.addLayout(utility_row)
         self.diagnostics_panel = QWidget()
+        self.diagnostics_panel.setProperty("uiSurface", True)
+        self.diagnostics_panel.setAttribute(Qt.WA_StyledBackground)
         panel_layout = QVBoxLayout(self.diagnostics_panel)
-        panel_layout.setContentsMargins(0, 0, 0, 0)
+        panel_layout.setContentsMargins(8, 8, 8, 8)
         self.log_console = QTextEdit()
         self.log_console.setReadOnly(True)
         self.log_console.setFont(QFont("Consolas", 8))
         self.log_console.setMinimumHeight(120)
-        self.log_console.setStyleSheet("background-color: #1e1e1e; color: #d4d4d4; padding: 5px;")
+        self.log_console.setObjectName("diagnosticConsole")
         self.log_console.document().setMaximumBlockCount(2000)
         diagnostic_toolbar = QHBoxLayout()
+        self.diagnostic_heading = QLabel(self.t["diag_toggle"])
+        self.diagnostic_heading.setProperty("uiHeading", True)
+        diagnostic_toolbar.addWidget(self.diagnostic_heading)
+        diagnostic_toolbar.addStretch()
         self.debug_checkbox = QCheckBox(self.t["diag_debug"])
         self.debug_checkbox.toggled.connect(self.refresh_diagnostic_display)
         diagnostic_toolbar.addWidget(self.debug_checkbox)
@@ -2445,7 +2537,7 @@ class BridgeApp(QMainWindow):
             button.setIcon(self.style().standardIcon(icon))
             button.setToolTip(self.t[key])
             button.setAccessibleName(self.t[key])
-            button.setFixedSize(28, 24)
+            button.setFixedSize(32, 28)
             button.clicked.connect(callback)
             diagnostic_toolbar.addWidget(button)
             self.diagnostic_buttons.append((key, button))
@@ -2457,9 +2549,11 @@ class BridgeApp(QMainWindow):
         self.diagnostics_toggle.toggled.connect(self.diagnostics_panel.setVisible)
 
         container = QWidget()
+        container.setObjectName("bridgeWorkspace")
         layout.setSizeConstraint(QLayout.SetMinimumSize)
         container.setLayout(layout)
         self.content_scroll = QScrollArea()
+        self.content_scroll.setStyleSheet(WORKSPACE_STYLE)
         self.content_scroll.setFrameShape(QScrollArea.NoFrame)
         self.content_scroll.setWidgetResizable(True)
         self.content_scroll.setWidget(container)
@@ -2493,9 +2587,11 @@ class BridgeApp(QMainWindow):
 
     def refresh_ui_language(self):
         self.t = LANG[self.current_lang]
+        self.workspace_heading.setText(self.t["workspace_heading"])
         self.align_label.setText(self.t["align_label"])
         self.debug_checkbox.setText(self.t["diag_debug"])
         self.diagnostics_toggle.setText(self.t["diag_toggle"])
+        self.diagnostic_heading.setText(self.t["diag_toggle"])
         if self.preview_label.text() in {lang["preview_empty"] for lang in LANG.values()}:
             self.preview_label.setText(self.t["preview_empty"])
         for key, button in self.diagnostic_buttons:
@@ -2999,7 +3095,13 @@ class BridgeApp(QMainWindow):
 
     def update_status(self, text, bg_color, text_color):
         self.status_label.setText(text)
-        self.status_label.setStyleSheet(f"padding: 10px; background-color: {bg_color}; color: {text_color}; border-radius: 5px; font-weight: bold;")
+        bg, fg = {
+            "#f3f4f6": ("#2b313a", "#dce3ea"),
+            "#dbeafe": ("#203c39", "#cbefe8"),
+            "#fef3c7": ("#3c3224", "#f4d59a"),
+        }.get(bg_color, (bg_color, text_color))
+        self.status_label.setStyleSheet(
+            f"padding: 4px 8px; background-color: {bg}; color: {fg}; border-radius: 5px; font-weight: bold;")
 
     # === 변환(Transform) 안정성 패치 영역 ===
     def handle_flip_h(self):

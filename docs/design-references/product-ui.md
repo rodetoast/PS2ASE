@@ -2,6 +2,8 @@
 
 User-supplied ChatGPT design mockups, not running software or security dialog evidence:
 
+- Follow-up reference set: [HTML](PS2ASE_UI_Design_Reference.html), [workspace PNG](PS2ASE_Main_UI_Reference.png), [setup PNG](PS2ASE_Setup_UI_Reference.png). Archived verbatim; sample host states are fictional.
+
 - [Workspace concept](workspace-concept.png)
 - [Setup guide concept](setup-guide-concept.png)
 

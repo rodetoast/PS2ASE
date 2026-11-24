@@ -42,6 +42,10 @@ class PreviewLayoutTests(unittest.TestCase):
         self.app.processEvents()
         preview = self.rect(w.preview_label)
         row = self.rect(w.transform_bar)
+        panel = self.rect(w.preview_panel)
+        for part in (self.rect(w.status_label), preview, row):
+            self.assertTrue(panel.contains(part))
+        self.assertLess(self.rect(w.status_label).bottom(), preview.top())
         self.assertGreater(row.top(), preview.bottom())
         for button in (w.btn_undo, w.btn_flip_h, w.btn_flip_v, w.btn_rotate, w.btn_redo):
             self.assertFalse(preview.intersects(self.rect(button)))
