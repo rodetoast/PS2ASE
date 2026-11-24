@@ -21,6 +21,7 @@ from test_photoshop_compatibility import ROOT
 class JobLifecycleTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        (ROOT / "temp").mkdir(exist_ok=True)
         cls.profile = tempfile.TemporaryDirectory(dir=ROOT / "temp", prefix="job_lifecycle_")
         cls.addClassCleanup(cls.profile.cleanup)
         environment = patch.dict(os.environ, APPDATA=cls.profile.name, QT_QPA_PLATFORM="offscreen")
@@ -354,7 +355,7 @@ class JobLifecycleTests(unittest.TestCase):
 
 class JSXDiagnosticTests(unittest.TestCase):
     def test_folder_tree_cache_preserves_groups_and_reduces_dom_reads(self):
-        node = Path(sys.executable).parent.parent / "node" / "bin" / "node.exe"
+        node = Path(os.environ.get("NODE_BINARY", str(Path(sys.executable).parent.parent / "node" / "bin" / "node.exe")))
         if not node.is_file():
             self.skipTest("Bundled Node not available")
         source = (ROOT / "scripts" / "photoshop_copy.jsx").read_text(encoding="utf-8")
@@ -396,13 +397,18 @@ console.log(JSON.stringify({results:results,touched:touched,details:details}));
         self.assertEqual(data["details"], [])
 
     def normal_scenario(self, scenario, active_id=None, unavailable_context=False, debug=True, mode="normal", retry=False, baseline=False):
-        node = Path(sys.executable).parent.parent / "node" / "bin" / "node.exe"
+        node = Path(os.environ.get("NODE_BINARY", str(Path(sys.executable).parent.parent / "node" / "bin" / "node.exe")))
         if not node.is_file():
             self.skipTest("Bundled Node not available")
         source = (ROOT / "scripts" / "photoshop_copy.jsx").read_text(encoding="utf-8")
         if baseline:
-            source = subprocess.run(["git", "show", "v0.3.6:scripts/photoshop_copy.jsx"], cwd=ROOT,
-                                    capture_output=True, text=True, encoding="utf-8", check=True).stdout
+            git_env = {k: v for k, v in os.environ.items()
+                       if k != "GIT_CONFIG_COUNT" and not k.startswith(("GIT_CONFIG_KEY_", "GIT_CONFIG_VALUE_"))}
+            comparison = subprocess.run(["git", "show", "v0.3.6:scripts/photoshop_copy.jsx"], cwd=ROOT,
+                                        capture_output=True, text=True, encoding="utf-8", env=git_env)
+            if comparison.returncode:
+                raise RuntimeError("Cannot read v0.3.6 baseline: " + comparison.stderr)
+            source = comparison.stdout
         source = source.replace("#target photoshop", "").split("// 스크립트 실행 시작", 1)[0]
         prelude = r'''
 var files={}, closed=[], trimmed=[], commands=[], saved=[], closeAttempts=[], Units={PIXELS:1}, scenario=SCENARIO;
@@ -789,7 +795,7 @@ console.log(JSON.stringify({files:files,first_files:firstFiles,closed:closed,clo
                              {k: v for k, v in current["files"].items() if k.endswith(".png")})
 
     def test_folder_duplication_failure_reports_number_line_and_document_without_names(self):
-        node = Path(sys.executable).parent.parent / "node" / "bin" / "node.exe"
+        node = Path(os.environ.get("NODE_BINARY", str(Path(sys.executable).parent.parent / "node" / "bin" / "node.exe")))
         if not node.is_file():
             self.skipTest("Bundled Node not available")
         source = (ROOT / "scripts" / "photoshop_copy.jsx").read_text(encoding="utf-8")

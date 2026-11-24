@@ -82,6 +82,22 @@ class CompatibilityTests(unittest.TestCase):
             self.ns["photoshop_config_path"](self.target, str(self.root))
         self.assertEqual(list(self.root.iterdir()), [])
 
+    def test_new_product_year_uses_verified_product_not_install_folder(self):
+        for major, year in ((28, 2027), (29, 2028)):
+            folder = self.root / "Adobe" / f"Adobe Photoshop {year}" / f"Adobe Photoshop {year} Settings"
+            folder.mkdir(parents=True)
+            info = dict(self.target, major=major, product=f"Adobe Photoshop {year}",
+                        path=str(self.root / "Adobe Photoshop 2025" / "Photoshop.exe"))
+            self.assertEqual(self.ns["photoshop_config_path"](info, str(self.root)),
+                             str(folder / "PSUserConfig.txt"))
+
+    def test_unidentified_future_product_and_version_disagreement_fail_closed(self):
+        for info in (dict(self.target, major=28),
+                     dict(self.target, major=27, product="Adobe Photoshop 2027"),
+                     dict(self.target, major=28, product="Adobe Photoshop 2027 Beta")):
+            with self.assertRaises(ValueError):
+                self.ns["photoshop_config_path"](info, str(self.root))
+
     def test_no_arbitrary_version_fallback(self):
         other = dict(self.target, path=str(self.root / "other" / "Photoshop.exe"))
         with patch.dict(self.ns, photoshop_exe_info=lambda path: self.target):
@@ -257,7 +273,7 @@ class CompatibilityTests(unittest.TestCase):
         self.assertEqual(updates[0]["settings"]["align_mode"], "ground_line")
 
     def test_generated_wrapper_with_mock_photoshop_runtime(self):
-        node = Path(sys.executable).parent.parent / "node" / "bin" / "node.exe"
+        node = Path(os.environ.get("NODE_BINARY", str(Path(sys.executable).parent.parent / "node" / "bin" / "node.exe")))
         if not node.is_file():
             self.skipTest("Bundled Node unavailable; JSX runtime mock not run")
         wrapper = self.ns["make_photoshop_wrapper"](self.target, "body.jsx", "attempt.txt", "token",

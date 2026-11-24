@@ -958,9 +958,13 @@ def resolve_photoshop_target(configured, running, installed):
 
 
 def photoshop_config_path(info, appdata=None):
-    # Only known release versions with an existing, unambiguous preferences folder.
-    year = {20: 2019, 21: 2020, 22: 2021, 23: 2022, 24: 2023,
-            25: 2024, 26: 2025, 27: 2026}.get(info["major"])
+    # A verified EXE's product name is authoritative, not its install folder.
+    known_year = {20: 2019, 21: 2020, 22: 2021, 23: 2022, 24: 2023,
+                  25: 2024, 26: 2025, 27: 2026}.get(info["major"])
+    match = re.fullmatch(r"Adobe Photoshop (20\d{2})", info["product"].strip(), re.IGNORECASE)
+    year = int(match.group(1)) if match else known_year
+    if known_year and year != known_year:
+        raise ValueError("Photoshop product name and executable version disagree.")
     if not year or "beta" in (info["path"] + info["product"]).lower():
         raise ValueError("Cannot identify this Photoshop preferences version safely.")
     adobe = os.path.join(appdata or os.environ["APPDATA"], "Adobe")

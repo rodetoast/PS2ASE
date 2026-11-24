@@ -19,7 +19,7 @@ def validate_qt_icu(binaries):
                          '. Build in an isolated environment with a clean PATH.')
 
 a = Analysis(
-    ['C:\\Users\\SOUTHPAW GAMES\\Desktop\\AI TS\\bridge_ui.py'],
+    ['bridge_ui.py'],
     pathex=[],
     binaries=[],
     datas=[('bridge_icon.ico', '.'), ('bridge_splash.png', '.'), ('scripts', 'scripts')],
@@ -51,6 +51,7 @@ exe = EXE(
     a.datas,
     [],
     name='bridge_ui',
+    version='bridge_version_info.txt',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,

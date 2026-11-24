@@ -219,15 +219,15 @@ class InitialSetupGuideTests(unittest.TestCase):
             finally:
                 self.fixture.shiboken.delete(dialog)
 
-    def test_2024_2025_2026_warning_paths_are_read_only_and_version_scoped(self):
+    def test_2024_through_2027_warning_paths_are_read_only_and_version_scoped(self):
         paths = []
-        for year in (2024, 2025, 2026):
+        for year in (2024, 2025, 2026, 2027):
             name = "Adobe Photoshop " + str(year)
             folder = Path(os.environ["APPDATA"]) / "Adobe" / name / (name + " Settings")
             folder.mkdir(parents=True, exist_ok=True)
             paths.append(folder / "PSUserConfig.txt")
-        for major, path in zip((25, 26, 27), paths):
-            target = dict(self.fixture.target, major=major)
+        for major, path in zip((25, 26, 27, 28), paths):
+            target = dict(self.fixture.target, major=major, product=f"Adobe Photoshop {major + 1999}")
             self.assertEqual(Path(self.b.photoshop_config_path(target)), path)
         self.assertTrue(all(not p.exists() for p in paths))
         dialog = self.guide()
