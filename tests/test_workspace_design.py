@@ -106,6 +106,59 @@ class WorkspaceDesignTests(unittest.TestCase):
                         (canvas.height() - bounds.height()) // 2)
             self.assertEqual(bounds.top(), expected)
 
+    def test_short_workspace_keeps_both_transfers_visible_without_scrolling(self):
+        from PySide6.QtCore import QPoint, QRect
+        w = self.w
+        viewport = w.content_scroll.viewport()
+        for language in ('ko', 'en', 'ja'):
+            w.current_lang = language
+            w.refresh_ui_language()
+            w.resize(390, 380)
+            w.content_scroll.verticalScrollBar().setValue(0)
+            for copied in (False, True):
+                if copied:
+                    w.set_preview_image(self.fixture.image(144, 96))
+                    status = w.t["clip_ready"].format(src="PS", dst="Ase", count=3)
+                else:
+                    w.clear_preview()
+                    status = w.t["clip_empty"]
+                w.update_status(status, "#f3f4f6", "#374151")
+                self.fixture.app.processEvents()
+                compact = w.preview_label.height()
+                for button in (w.btn_ps_copy, w.btn_ase_copy, w.btn_ps_paste, w.btn_ase_paste):
+                    self.assertTrue(viewport.rect().contains(QRect(button.mapTo(viewport, QPoint()), button.size())),
+                                    (language, button.text(), copied))
+            w.resize(460, 620)
+            self.fixture.app.processEvents()
+            self.assertEqual(w.content_scroll.verticalScrollBar().maximum(), 0, language)
+            w.resize(460, 730)
+            self.fixture.app.processEvents()
+            self.assertGreater(w.preview_label.height(), compact)
+
+    def test_preview_restores_original_raster_and_nearest_neighbor_colors(self):
+        from io import BytesIO
+        from PIL import Image
+        source = Image.new('RGB', (128, 160))
+        source.paste('red', (0, 0, 64, 160))
+        source.paste('blue', (64, 0, 128, 160))
+        encoded = BytesIO()
+        source.save(encoded, 'PNG')
+        w = self.w
+        w.set_preview_image(encoded.getvalue())
+        compact = w.preview_label.pixmap().deviceIndependentSize().height()
+        w.resize(460, 750)
+        self.fixture.app.processEvents()
+        large = w.preview_label.pixmap()
+        self.assertGreater(large.deviceIndependentSize().height(), compact)
+        self.assertEqual(large.deviceIndependentSize().height(), 160)
+        raster = large.toImage()
+        self.assertEqual({raster.pixelColor(x, 20).name() for x in range(raster.width())},
+                         {'#ff0000', '#0000ff'})
+        w.clear_preview()
+        w.resize(390, 380)
+        self.fixture.app.processEvents()
+        self.assertTrue(w.preview_label.pixmap().isNull())
+
     def test_font_and_vector_icon_modes(self):
         from PySide6.QtCore import QSize
         from PySide6.QtGui import QIcon, QRawFont

@@ -9,8 +9,9 @@ from PySide6.QtWidgets import (QApplication, QLabel, QPushButton, QSizePolicy, Q
 
 # Original 24-unit line drawings; no external icon dependency.
 _PATHS = {
-    'btn_flip_h': 'M12 2v3m0 3v3m0 3v3m0 3v2 M9 6l-6 12h6z M15 6l6 12h-6z',
-    'btn_flip_v': 'M2 12h3m3 0h3m3 0h3m3 0h2 M6 9l12-6v6z M6 15l12 6v-6z',
+    'btn_flip_h': 'M12 3v18 M9 7H4v10h5 M15 7h5v10h-5',
+    'btn_flip_v': 'M3 12h18 M7 9V4h10v5 M7 15v5h10v-5',
+    'clipboard': 'M9 5H5v16h14V5h-4 M9 3h6v5H9z M8 12h8m-8 4h8',
     'btn_rotate': 'M20 4v6h-6m6 0a8 8 0 1 0 0 5',
     'btn_undo': 'M9 4L3 10l6 6m-6-6h11a6 6 0 0 1 6 6v3',
     'btn_redo': 'M15 4l6 6-6 6m6-6H10a6 6 0 0 0-6 6v3',
@@ -40,6 +41,56 @@ def tool_icon(name):
             pixmap.setDevicePixelRatio(scale)
             icon.addPixmap(pixmap, mode)
     return icon
+
+
+class PixelPreview(QLabel):
+    """Keep the original raster so enlarging the viewport restores lost detail."""
+
+    MIN_HEIGHT = 48
+
+    def __init__(self, text):
+        super().__init__(text)
+        self.source = QPixmap()
+        self.setAlignment(Qt.AlignCenter)
+        self.setFixedWidth(340)
+        self.setMinimumHeight(self.MIN_HEIGHT)
+        self.setMaximumHeight(160)
+        self.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
+
+    def sizeHint(self):
+        return QSize(340, self.MIN_HEIGHT)
+
+    minimumSizeHint = sizeHint
+
+    def set_image(self, data):
+        self.source.loadFromData(data, 'PNG')
+        self.render_image()
+
+    def setText(self, text):
+        self.source = QPixmap()
+        super().setText(text)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        if not self.source.isNull():
+            self.render_image()
+
+    def event(self, event):
+        if event.type() == QEvent.DevicePixelRatioChange and not self.source.isNull():
+            self.render_image()
+        return super().event(event)
+
+    def render_image(self):
+        if self.source.isNull():
+            self.setPixmap(QPixmap())
+            return
+        area = self.contentsRect()
+        dpr = self.devicePixelRatioF()
+        target = QSize(int(min(area.width(), self.source.width()) * dpr),
+                       int(min(area.height(), self.source.height()) * dpr))
+        pixmap = self.source.scaled(target, Qt.KeepAspectRatio, Qt.FastTransformation)
+        pixmap.setDevicePixelRatio(dpr)
+        self.setPixmap(pixmap)
 
 
 class SegmentButton(QPushButton):
@@ -119,6 +170,7 @@ class OptionDiagram(QWidget):
     def __init__(self):
         super().__init__()
         self.index = 0
+        self.lang = 'en'
         self.setFixedHeight(98)
 
     def paintEvent(self, _):
@@ -130,22 +182,45 @@ class OptionDiagram(QWidget):
         p.scale(scale, scale)
         colors = tuple(map(QColor, ('#9bc8ed', '#c5b6ff', '#8ed4b4')))
         if self.index < 3:
-            p.translate(-60, -36)
+            p.translate(-73, -35)
             canvas, art = alignment_example(self.index)
             p.setPen(QColor('#393e51'))
             p.drawRect(QRect(QPoint(), canvas))
-            p.setPen(QPen(QColor('#c5b6ff'), 1, Qt.DashLine))
-            if self.index == 2:
-                p.drawLine(0, 0, 98, 0)
-                p.drawLine(0, 0, 0, 62)
-            else:
-                p.drawLine(0, 36, 120, 36)
-                p.drawLine(60, 0, 60, 72)
             for rect, color in zip(art, colors):
                 p.fillRect(rect, color)
             p.setPen(QPen(QColor('#f5f3ff'), 1, Qt.DotLine))
             bounds = art[0].united(art[1])
-            p.drawRect(bounds.adjusted(0, 0, 1, 1))
+            p.drawRect(bounds)
+            accent = QColor('#c5b6ff')
+            p.setPen(QPen(accent, 1, Qt.DashLine))
+            if self.index == 0:
+                p.drawLine(-6, 36, 126, 36)
+                p.setPen(QPen(accent, 2))
+                p.drawLine(bounds.x(), 36, bounds.x() + bounds.width(), 36)
+                p.drawLine(bounds.x(), 32, bounds.x(), 39)
+                p.drawLine(bounds.x() + bounds.width(), 32, bounds.x() + bounds.width(), 39)
+            elif self.index == 1:
+                p.drawLine(0, 36, 120, 36)
+                p.drawLine(60, 0, 60, 72)
+                p.setPen(QPen(accent, 1))
+                p.setBrush(Qt.NoBrush)
+                p.drawEllipse(QPoint(60, 36), 5, 5)
+                p.setPen(Qt.NoPen)
+                p.setBrush(accent)
+                p.drawEllipse(QPoint(bounds.x() + bounds.width() // 2,
+                                     bounds.y() + bounds.height() // 2), 2, 2)
+            else:
+                x, y = bounds.x(), bounds.y()
+                p.drawLine(x, 0, x, y)
+                p.drawLine(0, y, x, y)
+                p.setPen(QPen(accent, 1))
+                p.drawLine(0, 0, 0, 60)
+                p.drawLine(0, 0, 108, 0)
+                p.setBrush(accent)
+                p.drawEllipse(QPoint(0, 0), 2, 2)
+                p.drawEllipse(QPoint(x, y), 2, 2)
+                p.drawText(6, -3, '(0, 0)')
+                p.drawText(44, 15, f'({x}, {y})')
         else:
             p.translate(-100, -33)
             p.setPen(QColor('#b7b9cb'))
@@ -174,6 +249,11 @@ class OptionDiagram(QWidget):
                     p.drawRect(cell)
                     if item is not None:
                         p.fillRect(cell.adjusted(3, 3, -2, -2), colors[item])
+            p.setPen(QColor('#b7b9cb'))
+            p.drawText(QRect(0, 65, 205, 17), Qt.AlignCenter,
+                       {'ko': '열: 프레임 · 행: 레이어',
+                        'en': 'Cols: Frames / Rows: Layers',
+                        'ja': '列: フレーム / 行: レイヤー'}[self.lang])
         p.end()
 
 
@@ -237,6 +317,7 @@ class OptionHelp(QObject):
         self.title.setText(button.text())
         self.description.setText(button.accessibleDescription())
         self.diagram.index = self.buttons.index(button)
+        self.diagram.lang = self.window.current_lang
         self.diagram.update()
         self.popup.adjustSize()
         height = self.popup.height()

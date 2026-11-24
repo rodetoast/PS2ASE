@@ -30,11 +30,11 @@ def close_bootloader_on_import_error():
 try:
     from PIL import Image
     from PySide6.QtWidgets import (QApplication, QMainWindow, QPushButton, QVBoxLayout,
-                                   QWidget, QTextEdit, QLabel, QRadioButton, QButtonGroup,
+                                   QWidget, QTextEdit, QLabel, QButtonGroup,
                                    QHBoxLayout, QMessageBox, QFileDialog, QDialog, QLineEdit, QFormLayout, QDialogButtonBox, QComboBox, QScrollArea, QSizePolicy, QLayout, QStackedWidget, QProgressBar)
     from PySide6.QtCore import QTimer, QThread, Signal, Slot, Qt, QUrl, QEventLoop, QLocale, QObject, QEvent, QSize
     from PySide6.QtGui import QFont, QFontDatabase, QColor, QPixmap, QDesktopServices, QPalette
-    from bridge_visuals import OptionHelp, SegmentButton, tool_icon
+    from bridge_visuals import OptionHelp, PixelPreview, SegmentButton, tool_icon
     import win32com.client
     import pythoncom
 except Exception:
@@ -393,14 +393,17 @@ def apply_workspace_theme(app):
     app.setStyleSheet(WORKSPACE_STYLE)
 
 
-def workspace_section(parent_layout):
+def workspace_section(parent_layout, index=None):
     panel = QWidget()
     panel.setProperty("uiSurface", True)
     panel.setAttribute(Qt.WA_StyledBackground)
     layout = QVBoxLayout(panel)
     layout.setContentsMargins(8, 8, 8, 8)
     layout.setSpacing(5)
-    parent_layout.addWidget(panel)
+    if index is None:
+        parent_layout.addWidget(panel)
+    else:
+        parent_layout.insertWidget(index, panel)
     return layout
 
 # ==========================================
@@ -410,8 +413,8 @@ LANG = {
     "ko": {
         "title": PRODUCT_NAME,
         "workspace_heading": "작업 공간",
-        "clip_empty": "📋 클립보드: 비어있음",
-        "clip_ready": "📋 {src} -> {dst} ({count}개 레이어)",
+        "clip_empty": "클립보드: 비어 있음",
+        "clip_ready": "{src} → {dst} ({count}개 레이어)",
         "align_label": "정렬 기준:",
         "align_center": "중앙 기준",
         "align_abs": "원본 좌표",
@@ -513,8 +516,8 @@ LANG = {
     "en": {
         "title": PRODUCT_NAME,
         "workspace_heading": "Workspace",
-        "clip_empty": "📋 Clipboard: Empty",
-        "clip_ready": "📋 {src} -> {dst} ({count} Layers)",
+        "clip_empty": "Clipboard: Empty",
+        "clip_ready": "{src} → {dst} ({count} Layers)",
         "align_label": "Alignment:",
         "align_center": "Center",
         "align_abs": "Absolute",
@@ -615,8 +618,8 @@ LANG = {
     "ja": {
         "title": PRODUCT_NAME,
         "workspace_heading": "ワークスペース",
-        "clip_empty": "📋 クリップボード：空",
-        "clip_ready": "📋 {src} -> {dst} ({count}個のレイヤー)",
+        "clip_empty": "クリップボード：空",
+        "clip_ready": "{src} → {dst} ({count}個のレイヤー)",
         "align_label": "配置の基準:",
         "align_center": "中央基準",
         "align_abs": "元の座標",
@@ -792,7 +795,7 @@ for _language, _guide in {
         "guide_ps_edit": "버전 선택 / 경로 변경…",
         "guide_ps_valid": "선택한 Photoshop: {product} ({version})",
         "guide_ps_missing": "Photoshop 연결 미확인: EXE 경로와 버전을 연결 설정에서 확인하세요.",
-        "guide_warning_intro": "반복 복사·붙여넣기 중 매번 JSX 실행을 승인하지 않아도 됩니다. 원할 때만 선택한 Photoshop 버전의 실행 경고를 끌 수 있습니다.",
+        "guide_warning_intro": "스크립트 실행 경고를 끄면 복사·붙여넣기 작업을 할 때마다 승인 버튼을 누르지 않아도 됩니다.",
         "guide_warning_caution": "변경 전 확인",
         "guide_warning_optional": "이 설정은 선택한 버전의 모든 외부 JSX에 적용됩니다. 경고 유지를 권장하며, 앱은 실제 승인 여부를 확인할 수 없습니다. 변경하려면 Photoshop을 모두 종료하고 대상 확인 후 동의하세요. 기존 파일은 백업되며, 적용 후 Photoshop을 다시 시작해야 합니다.",
         "guide_warning_edit": "실행 경고 변경 검토…",
@@ -801,7 +804,7 @@ for _language, _guide in {
         "guide_warning_unknown": "경고 설정 미확인: 선택 버전의 사용자 설정 폴더를 확인하세요.",
         "guide_ase_intro": "1. Aseprite를 종료하고 스크립트와 단축키를 설치한 뒤 다시 여세요.\n2. File > Scripts에서 aseprite_paste와 aseprite_copy를 각각 실행해 Trust를 직접 승인하세요.\n3. 테스트 문서에서 F5로 복사하고 유효한 Photoshop 복사 데이터로 F4 붙여넣기를 확인하세요. 파일 설치만으로 권한이나 키 동작이 확인되지는 않습니다.",
         "guide_ase_open": "Aseprite 설치 / Trust 안내…", "guide_hotkeys_check": "F4 / F5 동작을 직접 확인했습니다.",
-        "guide_files_ok": "Aseprite 스크립트: 설치본이 bundled 파일과 일치",
+        "guide_files_ok": "Aseprite 스크립트: 설치본이 내장 스크립트와 일치",
         "guide_files_pending": "Aseprite 스크립트: 설치 또는 갱신 확인 필요",
         "guide_keys_ok": "단축키 설정 파일: F4 Paste / F5 Copy 등록 확인",
         "guide_keys_pending": "단축키 설정 파일: 미확인 또는 재설치 필요",
@@ -810,7 +813,7 @@ for _language, _guide in {
         "guide_keys_tested": "단축키 실제 동작: 사용자 확인 기록 있음",
         "guide_keys_untested": "단축키 실제 동작: 미확인",
         "guide_summary_intro": "아래 상태를 확인하세요. 가이드를 닫는 것은 외부 프로그램의 권한 승인이나 연결 테스트 완료를 의미하지 않습니다. 미확인 항목은 나중에 설정에서 다시 확인할 수 있습니다.",
-        "guide_dont_show": "다음 실행 시 초기 설정 가이드를 자동으로 표시하지 않음",
+        "guide_dont_show": "시작 시 이 가이드 숨기기",
         "guide_back": "이전", "guide_next": "다음", "guide_finish": "가이드 닫기", "guide_later": "나중에 설정",
         "guide_tutorial": "프로그램 사용 방법 열기", "guide_close": "확인",
         "guide_ps_continue": "이 버전으로 계속",
@@ -836,7 +839,7 @@ for _language, _guide in {
         "guide_ps_edit": "Choose version / change path…",
         "guide_ps_valid": "Selected Photoshop: {product} ({version})",
         "guide_ps_missing": "Photoshop connection unverified: check the EXE path and version in connection settings.",
-        "guide_warning_intro": "Skip the repeated JSX confirmation during Copy and Paste. You can turn off script warnings for the selected Photoshop version if you choose.",
+        "guide_warning_intro": "Turning off script warnings removes the approval prompt each time you copy or paste.",
         "guide_warning_caution": "Before changing warnings",
         "guide_warning_optional": "This affects all external JSX in the selected version. Keeping warnings is recommended; the app cannot verify individual approvals. To apply, close Photoshop, review the target and explicitly confirm. Existing files are backed up. Restart Photoshop afterward.",
         "guide_warning_edit": "Review script warning change…",
@@ -880,7 +883,7 @@ for _language, _guide in {
         "guide_ps_edit": "バージョン選択 / パス変更…",
         "guide_ps_valid": "選択中の Photoshop: {product} ({version})",
         "guide_ps_missing": "Photoshop の接続は未確認です。接続設定で EXE パスとバージョンを確認してください。",
-        "guide_warning_intro": "コピーや貼り付けのたびに JSX の実行を承認する手間を省けます。希望する場合のみ、選択した Photoshop の警告を無効にできます。",
+        "guide_warning_intro": "スクリプト実行警告をオフにすると、コピーや貼り付けのたびに承認する必要がなくなります。",
         "guide_warning_caution": "変更前の確認",
         "guide_warning_optional": "選択したバージョンのすべての外部 JSX に影響します。警告の維持を推奨します。アプリは個別の承認を確認できません。変更する場合は Photoshop をすべて終了し、対象の確認後に同意してください。既存ファイルをバックアップします。適用後は Photoshop を再起動してください。",
         "guide_warning_edit": "実行警告の変更を確認…",
@@ -898,7 +901,7 @@ for _language, _guide in {
         "guide_keys_tested": "実際のキー動作: ユーザーの確認記録あり",
         "guide_keys_untested": "実際のキー動作: 未確認",
         "guide_summary_intro": "以下の状態を確認してください。ガイドを閉じても外部権限の承認や接続テストの完了にはなりません。未確認の項目は後で設定から確認できます。",
-        "guide_dont_show": "次回起動時に初期設定ガイドを自動表示しない",
+        "guide_dont_show": "起動時にこのガイドを表示しない",
         "guide_back": "戻る", "guide_next": "次へ", "guide_finish": "ガイドを閉じる", "guide_later": "後で設定",
         "guide_tutorial": "使い方を開く", "guide_close": "確認",
         "guide_ps_continue": "このバージョンで続ける",
@@ -1566,19 +1569,84 @@ class AsepriteWorker(QThread):
 # ==========================================
 # Settings Dialog
 # ==========================================
+SETTINGS_SECTIONS = {
+    "ko": ("Photoshop 연결", "Aseprite 설치 및 단축키", "기본 설정", "도움말", "취소"),
+    "en": ("Photoshop connection", "Aseprite installation and shortcuts", "Preferences", "Help", "Cancel"),
+    "ja": ("Photoshop 接続", "Aseprite のインストールとショートカット", "基本設定", "ヘルプ", "キャンセル"),
+}
+
+
+def aseprite_installation_status(orig_paste_lua, orig_copy_lua):
+    """Inspect files and key bindings, not host Trust or runtime behavior."""
+    import filecmp
+    appdata = os.environ.get("APPDATA")
+    if not appdata:
+        return False, False
+    folder = os.path.join(appdata, "Aseprite")
+    pairs = [(orig_paste_lua, "aseprite_paste.lua", "F4"),
+             (orig_copy_lua, "aseprite_copy.lua", "F5")]
+    try:
+        scripts_current = all(filecmp.cmp(source, os.path.join(folder, "scripts", name), shallow=False)
+                              for source, name, _ in pairs)
+    except OSError:
+        scripts_current = False
+    try:
+        root = ET.parse(os.path.join(folder, "user.aseprite-keys")).getroot()
+        keys_registered = True
+        for _, name, shortcut in pairs:
+            expected = os.path.normcase(os.path.abspath(os.path.join(folder, "scripts", name)))
+            matches = root.findall("./commands/key[@shortcut='" + shortcut + "']")
+            keys_registered = keys_registered and len(matches) == 1 and matches[0].get("command") == "RunScript" and any(
+                p.get("name") == "filename" and os.path.normcase(os.path.abspath(p.get("value", ""))) == expected
+                for p in matches[0].findall("param"))
+    except (OSError, ET.ParseError):
+        keys_registered = False
+    return scripts_current, keys_registered
+
+
 class SettingsDialog(QDialog):
     def __init__(self, current_settings, lang_dict, parent=None, photoshop_only=False):
         super().__init__(parent)
         self.lang = lang_dict
         self.setWindowTitle(f'{PRODUCT_NAME} | {self.lang["set_title"]}')
         self.setStyleSheet(WORKSPACE_STYLE)
-        self.setMinimumSize(560, 470)
+        self.setMinimumSize(390, 280)
+        available = self.screen().availableGeometry()
+        self.resize(min(520, available.width() - 24), min(615 if not photoshop_only else 280, available.height() - 64))
         self.current_settings = current_settings
         self.photoshop_only = photoshop_only
+        self._hotkey_result = None
+        language = next((key for key, labels in LANG.items() if labels is self.lang), "en")
+        photoshop_title, aseprite_title, preferences_title, help_title, cancel = SETTINGS_SECTIONS[language]
         
         layout = QVBoxLayout(self)
-        
-        form_layout = QFormLayout()
+        layout.setContentsMargins(8, 9, 8, 9)
+        content = QWidget()
+        content.setObjectName("guidePage")
+        content_layout = QVBoxLayout(content)
+        content_layout.setContentsMargins(1, 1, 1, 1)
+        scroll = QScrollArea()
+        scroll.setFrameShape(QScrollArea.NoFrame)
+        scroll.setWidgetResizable(True)
+        scroll.setWidget(content)
+        layout.addWidget(scroll, 1)
+
+        def section(title):
+            panel = workspace_section(content_layout)
+            heading = QLabel(title)
+            heading.setWordWrap(True)
+            heading.setProperty("uiHeading", True)
+            panel.addWidget(heading)
+            return panel
+
+        def form(panel):
+            fields = QFormLayout()
+            fields.setRowWrapPolicy(QFormLayout.WrapLongRows)
+            fields.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow)
+            panel.addLayout(fields)
+            return fields
+
+        form_layout = form(section(photoshop_title))
         
         # Photoshop 경로
         self.ps_path_input = QLineEdit(self.current_settings.get("photoshop_exe", ""))
@@ -1590,6 +1658,8 @@ class SettingsDialog(QDialog):
         form_layout.addRow(self.lang["set_ps_path"], ps_layout)
 
         self.ps_versions = QComboBox()
+        self.ps_versions.setMinimumContentsLength(18)
+        self.ps_versions.setSizeAdjustPolicy(QComboBox.AdjustToMinimumContentsLengthWithIcon)
         self.ps_versions.addItem(self.lang["ps_versions"], "")
         try:
             running = running_photoshops()
@@ -1607,17 +1677,20 @@ class SettingsDialog(QDialog):
         self.sync_photoshop_version_selection()
         self.ps_versions.activated.connect(self.select_photoshop_version)
         form_layout.addRow(self.lang["ps_versions"], self.ps_versions)
+        self.button_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        self.button_box.button(QDialogButtonBox.Ok).setText(self.lang["guide_close"])
+        self.button_box.button(QDialogButtonBox.Ok).setProperty("uiRole", "primary")
+        self.button_box.button(QDialogButtonBox.Cancel).setText(cancel)
+        self.button_box.accepted.connect(self.accept)
+        self.button_box.rejected.connect(self.reject)
+        layout.addWidget(self.button_box)
         if photoshop_only:
             self.setWindowTitle(f'{PRODUCT_NAME} | {self.lang["guide_steps"][0]}')
-            layout.addLayout(form_layout)
-            self.button_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
-            self.button_box.accepted.connect(self.accept)
-            self.button_box.rejected.connect(self.reject)
-            layout.addWidget(self.button_box)
+            content_layout.addStretch()
             return
         ps_warning_btn = QPushButton(self.lang["ps_warning"])
         ps_warning_btn.clicked.connect(self.configure_photoshop_warning)
-        form_layout.addRow("", ps_warning_btn)
+        form_layout.addRow(ps_warning_btn)
         
         # Aseprite 경로
         self.ase_path_input = QLineEdit(self.current_settings.get("aseprite_exe", ""))
@@ -1626,14 +1699,27 @@ class SettingsDialog(QDialog):
         ase_layout = QHBoxLayout()
         ase_layout.addWidget(self.ase_path_input)
         ase_layout.addWidget(ase_btn)
-        form_layout.addRow(self.lang["set_ase_path"], ase_layout)
+        aseprite_panel = section(aseprite_title)
+        form(aseprite_panel).addRow(self.lang["set_ase_path"], ase_layout)
+        self.hotkey_status = QLabel()
+        self.hotkey_status.setTextFormat(Qt.PlainText)
+        self.hotkey_status.setWordWrap(True)
+        self.hotkey_status.setProperty("uiMuted", True)
+        aseprite_panel.addWidget(self.hotkey_status)
+        self.refresh_aseprite_status()
+
+        btn_reconfigure = QPushButton(self.lang["set_force_reinstall"])
+        btn_reconfigure.clicked.connect(self.force_reconfigure)
+        aseprite_panel.addWidget(btn_reconfigure)
+
+        form_layout = form(section(preferences_title))
         
         # Alignment 기본값
         self.align_combo = QButtonGroup(self)
         align_hlayout = QHBoxLayout()
-        self.rb_center = QRadioButton(self.lang["align_center"])
-        self.rb_absolute = QRadioButton(self.lang["align_abs"])
-        self.rb_ground_line = QRadioButton(self.lang["align_ground_line"])
+        self.rb_center = SegmentButton(self.lang["align_center"])
+        self.rb_absolute = SegmentButton(self.lang["align_abs"])
+        self.rb_ground_line = SegmentButton(self.lang["align_ground_line"])
         self.align_combo.addButton(self.rb_center, 1)
         self.align_combo.addButton(self.rb_absolute, 2)
         self.align_combo.addButton(self.rb_ground_line, 3)
@@ -1646,17 +1732,16 @@ class SettingsDialog(QDialog):
         else:
             self.rb_ground_line.setChecked(True)
             
-        align_hlayout.addWidget(self.rb_ground_line)
-        align_hlayout.addWidget(self.rb_center)
-        align_hlayout.addWidget(self.rb_absolute)
+        for button in (self.rb_ground_line, self.rb_center, self.rb_absolute):
+            align_hlayout.addWidget(button, 1)
         form_layout.addRow(self.lang["set_align"], align_hlayout)
         
         # 언어 설정 (Language)
         self.lang_combo = QButtonGroup(self)
         lang_hlayout = QHBoxLayout()
-        self.rb_ko = QRadioButton("한국어")
-        self.rb_en = QRadioButton("English")
-        self.rb_ja = QRadioButton("日本語")
+        self.rb_ko = SegmentButton("한국어")
+        self.rb_en = SegmentButton("English")
+        self.rb_ja = SegmentButton("日本語")
         self.lang_combo.addButton(self.rb_ko, 1)
         self.lang_combo.addButton(self.rb_en, 2)
         self.lang_combo.addButton(self.rb_ja, 3)
@@ -1669,33 +1754,25 @@ class SettingsDialog(QDialog):
         else:
             self.rb_ko.setChecked(True)
             
-        lang_hlayout.addWidget(self.rb_ko)
-        lang_hlayout.addWidget(self.rb_en)
-        lang_hlayout.addWidget(self.rb_ja)
+        for button in (self.rb_ko, self.rb_en, self.rb_ja):
+            lang_hlayout.addWidget(button, 1)
         form_layout.addRow(self.lang["set_lang"], lang_hlayout)
-        
-        layout.addLayout(form_layout)
-        
-        # 단축키 상태 표시
-        self.hotkey_status = QLabel(self.current_settings.get("hotkey_status", "Unknown"))
-        self.hotkey_status.setProperty("uiMuted", True)
-        layout.addWidget(QLabel(f"<b>{self.lang['set_hotkey']}</b>"))
-        layout.addWidget(self.hotkey_status)
-
-        # 재설정 버튼
-        btn_reconfigure = QPushButton(self.lang["set_force_reinstall"])
-        btn_reconfigure.clicked.connect(self.force_reconfigure)
-        layout.addWidget(btn_reconfigure)
 
         self.btn_setup_guide = QPushButton(self.lang["guide_reopen"])
         self.btn_setup_guide.clicked.connect(self.show_initial_setup)
-        layout.addWidget(self.btn_setup_guide)
-        
-        # 확인/취소
-        self.button_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
-        self.button_box.accepted.connect(self.accept)
-        self.button_box.rejected.connect(self.reject)
-        layout.addWidget(self.button_box)
+        section(help_title).addWidget(self.btn_setup_guide)
+        content_layout.addStretch()
+
+    def refresh_aseprite_status(self):
+        files, keys = aseprite_installation_status(
+            get_resource_path(os.path.join("scripts", "aseprite_paste.lua")),
+            get_resource_path(os.path.join("scripts", "aseprite_copy.lua")))
+        settings = self.current_settings
+        labels = ("guide_files_ok" if files else "guide_files_pending",
+                  "guide_keys_ok" if keys else "guide_keys_pending",
+                  "guide_trust_yes" if settings.get("aseprite_trust_confirmed") is True else "guide_trust_no",
+                  "guide_keys_tested" if settings.get("aseprite_hotkeys_confirmed") is True else "guide_keys_untested")
+        self.hotkey_status.setText("\n".join(self.lang[key] for key in labels))
 
     def browse_exe(self, line_edit):
         path, _ = QFileDialog.getOpenFileName(self, "Select Executable", "C:\\", "Executables (*.exe)")
@@ -1728,10 +1805,11 @@ class SettingsDialog(QDialog):
         success, msg = setup_aseprite_environment(ase_paste_lua_orig, ase_copy_lua_orig)
         if success:
             QMessageBox.information(self, "Success", msg)
-            self.hotkey_status.setText("✅ 정상 (F4=Paste, F5=Copy)")
+            self._hotkey_result = "✅ 정상 (F4=Paste, F5=Copy)"
         else:
             QMessageBox.critical(self, "Failed", msg)
-            self.hotkey_status.setText(f"❌ Failed: {msg}")
+            self._hotkey_result = f"❌ Failed: {msg}"
+        self.refresh_aseprite_status()
 
     def show_aseprite_setup(self):
         parent_app = self.parent()
@@ -1744,7 +1822,7 @@ class SettingsDialog(QDialog):
             previous_path = app.settings.get("photoshop_exe", "")
             dialog = InitialSetupDialog(self.lang, app, self)
             dialog.exec()
-            self.hotkey_status.setText(self.current_settings.get("hotkey_status", ""))
+            self.refresh_aseprite_status()
             if app.settings.get("photoshop_exe", "") != previous_path:
                 self.ps_path_input.setText(app.settings.get("photoshop_exe", ""))
             if dialog.open_tutorial_requested:
@@ -1766,9 +1844,10 @@ class SettingsDialog(QDialog):
             "aseprite_exe": self.ase_path_input.text(),
             "default_alignment": "ground_line" if self.rb_ground_line.isChecked() else ("center" if self.rb_center.isChecked() else "absolute"),
             "language": lang,
-            "hotkey_status": self.hotkey_status.text(),
             "aseprite_trust_confirmed": self.current_settings.get("aseprite_trust_confirmed", False)
         })
+        if self._hotkey_result is not None:
+            settings["hotkey_status"] = self._hotkey_result
         return settings
 
 # ==========================================
@@ -2071,24 +2150,8 @@ class InitialSetupDialog(QDialog):
         if self.pages.currentIndex() == 0:
             self.update_next_text(0)
 
-        scripts_current, keys_registered = False, False
-        try:
-            import filecmp
-            folder = os.path.join(os.environ["APPDATA"], "Aseprite")
-            pairs = [(self.app.ase_paste_lua_orig, "aseprite_paste.lua", "F4"),
-                     (self.app.ase_copy_lua_orig, "aseprite_copy.lua", "F5")]
-            scripts_current = all(filecmp.cmp(source, os.path.join(folder, "scripts", name), shallow=False)
-                                  for source, name, _ in pairs)
-            root = ET.parse(os.path.join(folder, "user.aseprite-keys")).getroot()
-            keys_registered = True
-            for _, name, shortcut in pairs:
-                expected = os.path.normcase(os.path.abspath(os.path.join(folder, "scripts", name)))
-                matches = root.findall("./commands/key[@shortcut='" + shortcut + "']")
-                keys_registered = keys_registered and len(matches) == 1 and matches[0].get("command") == "RunScript" and any(
-                    p.get("name") == "filename" and os.path.normcase(os.path.abspath(p.get("value", ""))) == expected
-                    for p in matches[0].findall("param"))
-        except Exception:
-            pass
+        scripts_current, keys_registered = aseprite_installation_status(
+            self.app.ase_paste_lua_orig, self.app.ase_copy_lua_orig)
         self.ase_status.setText(self.lang["guide_files_ok" if scripts_current else "guide_files_pending"] + "\n" +
                                 self.lang["guide_keys_ok" if keys_registered else "guide_keys_pending"])
         self.update_summary()
@@ -2350,10 +2413,20 @@ class BridgeApp(QMainWindow):
 
         # 상단 상태바 및 세팅 버튼, 클린업 버튼
         top_layout = QHBoxLayout()
+        self.status_strip = QWidget()
+        self.status_strip.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
+        self.status_strip.setObjectName("clipboardStatus")
+        self.status_strip.setAttribute(Qt.WA_StyledBackground)
+        status_layout = QHBoxLayout(self.status_strip)
+        status_layout.setContentsMargins(7, 3, 7, 3)
+        status_layout.setSpacing(6)
+        status_icon = QLabel()
+        status_icon.setPixmap(tool_icon("clipboard").pixmap(QSize(16, 16), self.devicePixelRatioF()))
         self.status_label = QLabel(self.t["clip_empty"])
         self.status_label.setProperty("uiHeading", True)
-        self.status_label.setAlignment(Qt.AlignCenter)
         self.status_label.setWordWrap(True)
+        status_layout.addWidget(status_icon)
+        status_layout.addWidget(self.status_label, 1)
         self.update_status(self.t["clip_empty"], "#f3f4f6", "#374151")
         
         btn_layout = QVBoxLayout()
@@ -2391,15 +2464,12 @@ class BridgeApp(QMainWindow):
         self.preview_panel.setProperty("uiSurface", True)
         self.preview_panel.setAttribute(Qt.WA_StyledBackground)
         preview_layout = QVBoxLayout(self.preview_panel)
+        preview_layout.setSizeConstraint(QLayout.SetMinAndMaxSize)
         preview_layout.setContentsMargins(6, 6, 6, 6)
         preview_layout.setSpacing(4)
-        preview_layout.addWidget(self.status_label)
-        self.preview_label = QLabel(self.t["preview_empty"])
-        self.preview_label.setAlignment(Qt.AlignCenter)
-        self.preview_label.setFixedSize(340, 160)
-        self.preview_label.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
-        self.preview_label.setScaledContents(False)
-        preview_layout.addWidget(self.preview_label, alignment=Qt.AlignCenter)
+        preview_layout.addWidget(self.status_strip)
+        self.preview_label = PixelPreview(self.t["preview_empty"])
+        preview_layout.addWidget(self.preview_label, 1, Qt.AlignHCenter)
 
         # === 🔄 변환(Transform) 컨트롤 영역 ===
         self.transform_bar = QWidget()
@@ -2450,7 +2520,8 @@ class BridgeApp(QMainWindow):
             history_layout.addWidget(button, 1)
         self.refresh_transform_labels()
         preview_layout.addWidget(self.transform_bar)
-        layout.addWidget(self.preview_panel)
+        layout.addWidget(self.preview_panel, 1)
+        transfer_index = layout.count()
 
         # 정렬 모드
         align_layout = QHBoxLayout()
@@ -2508,28 +2579,30 @@ class BridgeApp(QMainWindow):
 
         # === 정방향 ===
         self.btn_ps_copy = QPushButton(self.t["btn_ps_copy"])
-        self.btn_ps_copy.setMinimumHeight(40)
+        self.btn_ps_copy.setMinimumHeight(36)
         self.btn_ps_copy.clicked.connect(self.run_ps_copy)
 
         self.btn_ase_paste = QPushButton(self.t["btn_ase_paste"])
-        self.btn_ase_paste.setMinimumHeight(40)
+        self.btn_ase_paste.setMinimumHeight(36)
         self.btn_ase_paste.setEnabled(False)
         self.btn_ase_paste.clicked.connect(self.run_ase_paste)
 
         # === 역방향 ===
         self.btn_ase_copy = QPushButton(self.t["btn_ase_copy"])
-        self.btn_ase_copy.setMinimumHeight(40)
+        self.btn_ase_copy.setMinimumHeight(36)
         self.btn_ase_copy.clicked.connect(self.run_ase_copy)
 
         self.btn_ps_paste = QPushButton(self.t["btn_ps_paste"])
-        self.btn_ps_paste.setMinimumHeight(40)
+        self.btn_ps_paste.setMinimumHeight(36)
         self.btn_ps_paste.setEnabled(False)
         self.btn_ps_paste.clicked.connect(self.run_ps_paste)
-        for title, copy, paste in (
+        for offset, (title, copy, paste) in enumerate((
             ("Photoshop → Aseprite", self.btn_ps_copy, self.btn_ase_paste),
             ("Aseprite → Photoshop", self.btn_ase_copy, self.btn_ps_paste),
-        ):
-            transfer_layout = workspace_section(layout)
+        )):
+            transfer_layout = workspace_section(layout, transfer_index + offset)
+            transfer_layout.setContentsMargins(8, 5, 8, 5)
+            transfer_layout.setSpacing(3)
             heading = QLabel(title)
             heading.setProperty("uiHeading", True)
             transfer_layout.addWidget(heading)
@@ -2968,12 +3041,7 @@ class BridgeApp(QMainWindow):
 
     # 🌟 [신규 추가] Preview 처리 메서드
     def set_preview_image(self, img_bytes):
-        pixmap = QPixmap()
-        pixmap.loadFromData(img_bytes, "PNG")
-        available = self.preview_label.contentsRect().size()
-        if pixmap.width() > available.width() or pixmap.height() > available.height():
-            pixmap = pixmap.scaled(available, Qt.KeepAspectRatio, Qt.FastTransformation)
-        self.preview_label.setPixmap(pixmap)
+        self.preview_label.set_image(img_bytes)
 
     def is_transforming(self):
         return self.ui_busy_transform or (hasattr(self, "transform_worker") and self.transform_worker.isRunning())
@@ -3152,8 +3220,8 @@ class BridgeApp(QMainWindow):
             "#dbeafe": ("#253b36", "#8ed4b4"),
             "#fef3c7": ("#332a25", "#ffd29b"),
         }.get(bg_color, (bg_color, text_color))
-        self.status_label.setStyleSheet(
-            f"padding: 4px 8px; background-color: {bg}; color: {fg}; border-radius: 5px; font-weight: bold;")
+        self.status_strip.setStyleSheet(f"QWidget#clipboardStatus {{ background: {bg}; border-radius: 5px; }}")
+        self.status_label.setStyleSheet(f"color: {fg}; font-weight: bold;")
 
     # === 변환(Transform) 안정성 패치 영역 ===
     def handle_flip_h(self):

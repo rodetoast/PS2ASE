@@ -180,6 +180,43 @@ class InitialSetupGuideTests(unittest.TestCase):
         self.assertIn(dialog.lang["guide_keys_tested"], dialog.summary.text())
         self.assertFalse(self.window.settings["aseprite_trust_confirmed"])
 
+    def test_settings_separate_installation_trust_and_runtime_without_overwriting_settings(self):
+        b = self.b
+        values = dict(self.window.settings, hotkey_status="legacy", aseprite_trust_confirmed=False,
+                      aseprite_hotkeys_confirmed=True)
+        with patch.object(b, "aseprite_installation_status", return_value=(False, True)):
+            dialog = b.SettingsDialog(values, b.LANG["ko"], self.window)
+        self.addCleanup(lambda: self.fixture.shiboken.delete(dialog))
+        lang = b.LANG["ko"]
+        self.assertEqual(dialog.hotkey_status.text().splitlines(),
+                         [lang["guide_files_pending"], lang["guide_keys_ok"],
+                          lang["guide_trust_no"], lang["guide_keys_tested"]])
+        self.assertEqual(dialog.button_box.button(b.QDialogButtonBox.Ok).text(), lang["guide_close"])
+        self.assertEqual(dialog.button_box.button(b.QDialogButtonBox.Cancel).text(), "취소")
+        self.assertEqual(dialog.get_settings()["hotkey_status"], "legacy")
+        self.assertFalse(dialog.get_settings()["aseprite_trust_confirmed"])
+        self.assertTrue(dialog.get_settings()["aseprite_hotkeys_confirmed"])
+
+    def test_settings_keep_footer_visible_at_compact_size(self):
+        from PySide6.QtCore import QPoint, QRect
+        b = self.b
+        self.app.setStyle("Fusion")
+        b.apply_workspace_theme(self.app)
+        for language in ("ko", "en", "ja"):
+            with self.subTest(language=language):
+                dialog = b.SettingsDialog(self.window.settings, b.LANG[language], self.window)
+                try:
+                    dialog.resize(390, 380)
+                    dialog.show()
+                    self.app.processEvents()
+                    scroll = dialog.findChild(b.QScrollArea)
+                    self.assertEqual(scroll.horizontalScrollBar().maximum(), 0)
+                    self.assertGreater(scroll.verticalScrollBar().maximum(), 0)
+                    footer = dialog.button_box
+                    self.assertTrue(dialog.rect().contains(QRect(footer.mapTo(dialog, QPoint()), footer.size())))
+                finally:
+                    self.fixture.shiboken.delete(dialog)
+
     def test_first_synthetic_click_advances_and_does_not_query_dom_or_files(self):
         from PySide6.QtTest import QTest
         dialog = self.guide()

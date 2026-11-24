@@ -8,3 +8,5 @@ User-supplied ChatGPT design mockups, not running software or security dialog ev
 - [Setup guide concept](setup-guide-concept.png)
 
 Retained ideas: directional transfer grouping, quieter utilities, a progress header and an explicit optional warning step. The implementation prioritizes a compact side window and the current Qt palette instead of forcing a dark theme.
+
+The HTML submitted for the refinement is byte-for-byte identical to the archived copy. See [refinement review](../ui-reviews/ui-refinement/README.md) for actual Windows Qt screenshots.
