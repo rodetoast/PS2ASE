@@ -4,7 +4,41 @@ from PySide6.QtCore import QEvent, QObject, QPoint, QRect, QSize, Qt, QTimer
 from PySide6.QtGui import QColor, QIcon, QPainter, QPen, QPixmap
 from PySide6.QtSvg import QSvgRenderer
 from PySide6.QtWidgets import (QApplication, QLabel, QPushButton, QSizePolicy, QStyle,
-                               QStyleOptionButton, QStylePainter, QToolTip, QVBoxLayout, QWidget)
+                               QStyleOptionButton, QStylePainter, QToolTip, QVBoxLayout, QWidget,
+                               QDialog, QMainWindow)
+
+
+class NativeDarkCaption(QObject):
+    """Use the same DWM caption attributes as the Southpaw launcher."""
+
+    def __init__(self, app):
+        super().__init__(app)
+        import ctypes
+        from ctypes import wintypes
+
+        self.ctypes = ctypes
+        self.set_attribute = ctypes.WinDLL("dwmapi").DwmSetWindowAttribute
+        self.set_attribute.argtypes = (wintypes.HWND, wintypes.DWORD, ctypes.c_void_p, wintypes.DWORD)
+        self.set_attribute.restype = wintypes.LONG
+        app.installEventFilter(self)
+
+    def eventFilter(self, watched, event):
+        if (event.type() == QEvent.Show and isinstance(watched, (QDialog, QMainWindow))
+                and watched.isWindow() and not watched.windowFlags() & Qt.FramelessWindowHint):
+            try:
+                hwnd = int(watched.winId())
+                apply = self.set_attribute
+                c = self.ctypes
+                caption = c.c_uint32(0x2B1E1B)
+                ink = c.c_uint32(0xFFF3F5)
+                if apply(hwnd, 35, c.byref(caption), 4) == 0 and apply(hwnd, 36, c.byref(ink), 4) != 0:
+                    default = c.c_uint32(0xFFFFFFFF)
+                    apply(hwnd, 35, c.byref(default), 4)
+                dark = c.c_int(1)
+                apply(hwnd, 20, c.byref(dark), 4)
+            except (OSError, RuntimeError):
+                pass
+        return False
 
 
 # Original 24-unit line drawings; no external icon dependency.

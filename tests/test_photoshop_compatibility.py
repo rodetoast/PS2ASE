@@ -40,7 +40,7 @@ def helpers():
     names = {"_photoshop_query", "photoshop_exe_info", "running_photoshops",
              "installed_photoshops", "resolve_photoshop_target", "photoshop_config_path",
              "photoshop_warning_config", "disable_photoshop_warning",
-             "make_photoshop_wrapper", "PhotoshopCLIWorker", "diagnostic_event"}
+             "make_photoshop_wrapper", "PhotoshopCLIWorker", "diagnostic_event", "setup_probe_name"}
     nodes = [node for node in tree.body
              if isinstance(node, (ast.FunctionDef, ast.ClassDef)) and node.name in names]
     bridge = next(node for node in tree.body if isinstance(node, ast.ClassDef) and node.name == "BridgeApp")

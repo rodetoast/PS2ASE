@@ -22,16 +22,20 @@ def render(directory):
         path = r"C:\Program Files\Adobe\Adobe Photoshop 2027\Photoshop.exe"
         target = dict(path=path, major=28, version="28.0 (illustrative build)", product="Adobe Photoshop 2027")
         case.window.settings["photoshop_exe"] = path
+        case.window.settings["aseprite_exe"] = r"C:\Program Files\Aseprite\aseprite.exe"
         with patch.object(bridge, "photoshop_exe_info", return_value=target), \
                 patch.object(bridge, "running_photoshops", return_value=[{"Path": path}]), \
-                patch.object(bridge, "photoshop_config_path", return_value=str(case.fixture.root / "PSUserConfig.txt")):
+                patch.object(bridge, "photoshop_config_path", return_value=str(case.fixture.root / "PSUserConfig.txt")), \
+                patch.object(bridge, "aseprite_installation_status", return_value=(True, True)), \
+                patch.object(bridge, "aseprite_runtime", return_value=(True, "guide_ps_running")):
             dialog = case.guide("ko")
         dialog.show()
         scale = round(dialog.devicePixelRatioF() * 100)
-        pages = ((0, "connection"), (1, "warning"), (3, "summary")) if scale == 100 else ((0, "compact-200"),)
+        pages = (((0, "connection"), (1, "warning"), (2, "aseprite"), (3, "summary"))
+                 if scale == 100 else ((1, "compact-200"),))
         for step, name in pages:
-            size = (330, 480) if scale == 200 else (500, 440 if step == 0 else 595)
-            dialog.resize(*size)
+            if scale == 200:
+                dialog.resize(330, 420)
             dialog.set_step(step)
             app.processEvents()
             if not dialog.grab().save(str(directory / f"{name}.png")):
@@ -46,8 +50,9 @@ def contact_sheet(directory):
     title = ImageFont.truetype(fonts, 22)
     caption = ImageFont.truetype(fonts, 16)
     pages = (
-        (("Connection / 100%", "connection"), ("Compact connection / 200%", "compact-200")),
-        (("Warning / 100%", "warning"), ("Summary / 100%", "summary")),
+        (("Connection / 100%", "connection"), ("Warnings / 100%", "warning")),
+        (("Aseprite / 100% / installed", "aseprite"), ("Summary / 100%", "summary")),
+        (("Warnings / 200% / compact", "compact-200"),),
     )
     for index, entries in enumerate(pages, 1):
         views = [(label, Image.open(directory / f"{file}.png").convert("RGB")) for label, file in entries]

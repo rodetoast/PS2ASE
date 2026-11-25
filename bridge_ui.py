@@ -13,6 +13,7 @@ import logging
 import logging.handlers
 import queue
 import threading
+import tempfile
 from collections import deque
 import winreg
 import xml.etree.ElementTree as ET
@@ -34,7 +35,7 @@ try:
                                    QHBoxLayout, QGridLayout, QMessageBox, QFileDialog, QFileIconProvider, QDialog, QLineEdit, QFormLayout, QDialogButtonBox, QComboBox, QScrollArea, QSizePolicy, QLayout, QStackedWidget, QProgressBar)
     from PySide6.QtCore import QTimer, QThread, Signal, Slot, Qt, QUrl, QEventLoop, QLocale, QObject, QEvent, QSize, QFileInfo
     from PySide6.QtGui import QFont, QFontDatabase, QColor, QPixmap, QDesktopServices, QPalette
-    from bridge_visuals import OptionHelp, PixelPreview, SegmentButton, tool_icon
+    from bridge_visuals import NativeDarkCaption, OptionHelp, PixelPreview, SegmentButton, tool_icon
     import win32com.client
     import pythoncom
 except Exception:
@@ -349,6 +350,7 @@ QPushButton[uiSegment="true"] {
     background: #202432; border: 1px solid #50566e; border-radius: 6px; padding: 4px 6px;
     text-align: center; font-weight: 600;
 }
+QPushButton[uiSegment="true"][guideVisited="true"]:!checked { background: #28233b; }
 QPushButton[uiSegment="true"]:checked { background: #302743; border-color: #9f87e4; color: #f5f3ff; }
 QPushButton[uiSegment="true"]:hover:enabled { border-color: #c5b6ff; }
 QPushButton[uiSegment="true"]:focus:enabled { border: 1px dashed #c5b6ff; }
@@ -373,6 +375,11 @@ QToolTip { color: #f5f3ff; background: #202432; border: 1px solid #50566e; paddi
 
 
 def apply_workspace_theme(app):
+    if app.platformName() == "windows" and not hasattr(app, "_bridge_caption"):
+        try:
+            app._bridge_caption = NativeDarkCaption(app)
+        except (OSError, AttributeError):
+            pass
     font_id = QFontDatabase.addApplicationFont(get_resource_path("assets/fonts/PretendardVariable.ttf"))
     bundled = QFontDatabase.applicationFontFamilies(font_id) if font_id >= 0 else []
     families = QFontDatabase.families()
@@ -791,7 +798,7 @@ for _language, _messages in {
 for _language, _guide in {
     "ko": {
         "guide_title": "초기 설정 가이드", "guide_reopen": "초기 설정 가이드 다시 보기",
-        "guide_steps": ("1. Photoshop 연결", "2. Photoshop 실행 경고", "3. Aseprite 권한", "4. 확인 및 마침"),
+        "guide_steps": ("1. Photoshop 연결", "2. Photoshop 실행 경고", "3. Aseprite 설정", "4. 확인 및 마침"),
         "guide_ps_title": "사용할 Photoshop",
         "guide_ps_intro": "버전과 경로를 확인할 때는 Photoshop을 종료하지 않아도 됩니다.",
         "guide_ps_edit": "버전 및 경로 변경",
@@ -804,7 +811,7 @@ for _language, _guide in {
         "guide_warning_status": "스크립트 실행 경고",
         "guide_warning_intro": "스크립트 실행 경고를 끄면 복사·붙여넣기 작업을 할 때마다 승인 버튼을 누르지 않아도 됩니다.",
         "guide_warning_caution": "변경 전 확인",
-        "guide_warning_optional": "이 설정은 선택한 버전의 모든 외부 JSX에 적용됩니다. 경고 유지를 권장하며, 앱은 실제 승인 여부를 확인할 수 없습니다. 변경하려면 Photoshop을 모두 종료하고 대상 확인 후 동의하세요. 기존 파일은 백업되며, 적용 후 Photoshop을 다시 시작해야 합니다.",
+        "guide_warning_optional": "선택한 버전의 모든 외부 JSX에 적용됩니다. 경고 유지를 권장합니다. 변경하려면 Photoshop을 모두 종료하고 대상을 확인한 뒤 동의하세요. 기존 파일은 백업되며, 변경 후 Photoshop을 다시 시작해야 합니다.",
         "guide_warning_edit": "실행 경고 변경 검토…",
         "guide_warning_keep": "기본값 또는 경고 유지",
         "guide_warning_disabled": "설정 파일에서 경고 끔 확인 · 적용하려면 재시작 필요",
@@ -854,7 +861,7 @@ for _language, _guide in {
         "guide_warning_status": "Script warnings",
         "guide_warning_intro": "Turning off script warnings removes the approval prompt each time you copy or paste.",
         "guide_warning_caution": "Before changing warnings",
-        "guide_warning_optional": "This affects all external JSX in the selected version. Keeping warnings is recommended; the app cannot verify individual approvals. To apply, close Photoshop, review the target and explicitly confirm. Existing files are backed up. Restart Photoshop afterward.",
+        "guide_warning_optional": "This affects all external JSX in the selected version. Keeping warnings is recommended. To change the setting, close Photoshop, review the target and confirm. Existing files are backed up. Restart Photoshop afterward.",
         "guide_warning_edit": "Review script warning change…",
         "guide_warning_keep": "Default or warnings kept",
         "guide_warning_disabled": "Disabled in preferences · restart to apply",
@@ -904,7 +911,7 @@ for _language, _guide in {
         "guide_warning_status": "スクリプト実行警告",
         "guide_warning_intro": "スクリプト実行警告をオフにすると、コピーや貼り付けのたびに承認する必要がなくなります。",
         "guide_warning_caution": "変更前の確認",
-        "guide_warning_optional": "選択したバージョンのすべての外部 JSX に影響します。警告の維持を推奨します。アプリは個別の承認を確認できません。変更する場合は Photoshop をすべて終了し、対象の確認後に同意してください。既存ファイルをバックアップします。適用後は Photoshop を再起動してください。",
+        "guide_warning_optional": "選択したバージョンの全外部 JSX に適用されます。警告の維持を推奨します。変更する場合は Photoshop をすべて終了し、対象を確認して同意してください。既存ファイルはバックアップされます。変更後に Photoshop を再起動してください。",
         "guide_warning_edit": "実行警告の変更を確認…",
         "guide_warning_keep": "既定値または警告を維持",
         "guide_warning_disabled": "設定ファイルで警告オフを確認 · 適用には再起動が必要",
@@ -941,6 +948,86 @@ for _language, _guide in {
     },
 }.items():
     LANG[_language].update(_guide)
+
+GUIDE_FLOW = {
+    "ko": (
+        ("연결", "실행 경고", "Aseprite", "마침"),
+        "초기 설정", "다른 버전으로 전환하려면 먼저 Photoshop을 종료하는 것을 권장합니다.",
+        "상태 다시 확인", "작업을 저장하고 Photoshop을 모두 종료한 뒤 다시 확인하세요.",
+        "설정 파일에서 경고 끔 확인", "실제 적용 여부 미확인",
+        "이 세션에서 변경했습니다. 적용하려면 Photoshop을 다시 시작하세요.",
+        "실제 연결: 이 가이드에서는 검증하지 않음",
+        "Aseprite 실행 파일 선택", "설치 / Trust 안내", "단축키 테스트 시작", "F4 결과 기록",
+        "아래 테스트 PNG를 Aseprite에서 열고 그 문서에서만 F5를 누르세요. 기존 Photoshop 복사본이 있을 때만 같은 문서에서 F4를 눌러 붙여넣기를 확인하세요. 테스트 문서는 저장하지 마세요.",
+        "테스트 파일 폴더 열기", "F5: 새 복사 결과 대기 중", "F5: 새 결과 확인 (키 입력은 미검증)",
+        "테스트 문서에서 F4로 새 레이어 또는 셀이 붙여넣어지는 것을 직접 봤나요?",
+        "F4: 사용자 확인", "F4: 미확인", "F5: 미확인",
+        "현재 클립보드에 테스트에 사용할 Photoshop 복사본이 없습니다. 기존 데이터를 보존하려면 F4는 건너뛰세요.",
+        "Aseprite 실행 파일 미확인",
+        "F5: 새 결과 없음 · Trust와 단축키를 확인한 뒤 다시 시도하세요.",
+        "Trust 승인 안내",
+        "이 가이드에서 만든 테스트 PNG에서만 File > Scripts의 aseprite_copy와 aseprite_paste를 실행하세요. Trust 창이 나타나면 직접 승인하세요. 붙여넣기는 기존 Photoshop 복사본이 있을 때만 시도하세요.",
+        ("Photoshop 버전", "실제 연결", "실행 경고", "스크립트", "단축키 설정", "Trust", "F4 동작", "F5 결과"),
+        ("이 가이드에서 미검증", "설치본 일치", "등록 확인", "사용자 기록 있음", "미확인",
+         "사용자 확인", "새 결과 확인 · 키 입력 미검증"),
+        "설치하려면 작업을 저장하고 Aseprite를 종료한 뒤 상태를 다시 확인하세요.",
+        "스크립트와 단축키 설치", "F4/F5에 기존 단축키가 있으면 새 바인딩으로 변경될 수 있습니다. 설치할까요?",
+        "테스트 취소",
+    ),
+    "en": (
+        ("Connection", "Warnings", "Aseprite", "Review"),
+        "Initial setup", "Close Photoshop before switching to a different version.",
+        "Refresh status", "Save your work, close all Photoshop versions, then refresh.",
+        "Disabled in the preferences file", "Live policy not verified",
+        "Changed in this session. Restart Photoshop to apply it.",
+        "Live connection: not tested by this guide",
+        "Choose Aseprite executable", "Installation / Trust", "Start shortcut test", "Record F4 result",
+        "Open the test PNG below in Aseprite and press F5 in that document only. With an existing Photoshop copy, press F4 in the same test document and check the paste. Do not save the test document.",
+        "Open test file folder", "F5: Waiting for a fresh copy result", "F5: Fresh result found (key input unverified)",
+        "Did you see F4 paste a new layer or cel in the test document?",
+        "F4: User confirmed", "F4: Not verified", "F5: Not verified",
+        "There is no Photoshop copy on the clipboard. Skip F4 to leave the clipboard intact.",
+        "Aseprite executable not verified",
+        "F5: No fresh result. Check Trust and the shortcut, then retry.",
+        "Trust instructions",
+        "Only use the test PNG created by this guide. Run aseprite_copy and aseprite_paste from File > Scripts and approve Trust yourself when prompted. Only test paste when you already have a Photoshop copy.",
+        ("Photoshop version", "Live connection", "Script warnings", "Scripts", "Shortcut bindings", "Trust", "F4 behavior", "F5 result"),
+        ("Not tested by this guide", "Installed files match", "Bindings found", "User record on file", "Not verified",
+         "User confirmed", "Fresh result · key unverified"),
+        "To install, save your work, close Aseprite, and refresh the status.",
+        "Install scripts and shortcuts", "Installation can replace existing F4/F5 bindings. Proceed?",
+        "Cancel test",
+    ),
+    "ja": (
+        ("接続", "実行警告", "Aseprite", "確認"),
+        "初期設定", "別のバージョンに切り替える前に Photoshop を終了してください。",
+        "状態を再確認", "作業を保存してすべての Photoshop を終了し、再確認してください。",
+        "設定ファイルで警告オフを確認", "実際の適用は未確認",
+        "このセッションで変更しました。適用するには Photoshop を再起動してください。",
+        "実際の接続: このガイドでは未検証",
+        "Aseprite の実行ファイルを選択", "インストールと Trust", "ショートカットを試す", "F4 の結果を記録",
+        "下のテスト PNG を Aseprite で開き、その文書でのみ F5 を押します。既存の Photoshop コピーがある場合だけ同じテスト文書で F4 を押し、貼り付けを確認します。テスト文書は保存しないでください。",
+        "テストファイルのフォルダーを開く", "F5: 新しいコピー結果を待っています", "F5: 新しい結果を捕捉 (キー入力は未検証)",
+        "テスト文書で F4 を押し、新しいレイヤーまたはセルが貼り付けられたことを確認しましたか？",
+        "F4: ユーザー確認済み", "F4: 未確認", "F5: 未確認",
+        "クリップボードに Photoshop のコピーがありません。既存のデータを保持するには F4 をスキップしてください。",
+        "Aseprite の実行ファイルを確認できません",
+        "F5: 新しい結果がありません。Trust とキー設定を確認して再試行してください。",
+        "Trust の手順",
+        "このガイドのテスト PNG だけを使用し、File > Scripts から aseprite_copy と aseprite_paste を実行してください。Trust が表示されたら手動で承認します。貼り付けは既存の Photoshop コピーがある場合のみ試してください。",
+        ("Photoshop バージョン", "実際の接続", "実行警告", "スクリプト", "キー設定", "Trust", "F4 の動作", "F5 の結果"),
+        ("ガイドでは未検証", "インストール済み", "登録を確認", "ユーザーの記録あり", "未確認",
+         "ユーザー確認済み", "新しい結果 · キー未検証"),
+        "インストールするには作業を保存して Aseprite を終了し、状態を再確認してください。",
+        "スクリプトとキーをインストール", "既存の F4/F5 の割り当てが置き換わる場合があります。続けますか？",
+        "テストを中止",
+    ),
+}
+_FLOW_KEYS = """nav name switch refresh stop disabled live restart connection choose_ase trust test f4_record
+    probe_intro probe_folder f5_wait f5_seen f4_question f4_seen f4_unknown f5_unknown f4_no_copy ase_missing f5_timeout
+    trust_ready trust_safe review_titles review_states ase_stop install install_confirm probe_cancel""".split()
+for _language, _flow in GUIDE_FLOW.items():
+    LANG[_language].update({f"guide_flow_{key}": value for key, value in zip(_FLOW_KEYS, _flow)})
 
 
 def diagnostic_event(job_id, component, state, **details):
@@ -1198,11 +1285,15 @@ def configure_photoshop_warning(parent, lang, settings, target_path):
         # Revalidate the selected version/path after consent; never touch another version.
         if photoshop_config_path(photoshop_exe_info(target_path())) != path:
             raise ValueError("Photoshop preferences target changed.")
+        _, _, previous_text, previous_values = photoshop_warning_config(path)
+        already_disabled = previous_values == ["0"] and len(re.findall(
+            r"(?mi)^\s*WarnRunningScripts\b", previous_text)) == 1
         backup = disable_photoshop_warning(path)
         settings["photoshop_warning_choice"] = {"exe": info["path"], "disabled": True}
         save_settings(settings)
         QMessageBox.information(parent, lang["ps_warning_title"],
                                 lang["ps_warning_done"].format(backup=backup or lang["ps_no_backup"]))
+        return None if already_disabled else path
     except Exception as e:
         QMessageBox.warning(parent, lang["ps_warning_title"], str(e))
 
@@ -1623,17 +1714,45 @@ def aseprite_installation_status(orig_paste_lua, orig_copy_lua):
     return scripts_current, keys_registered
 
 
+def aseprite_runtime(path):
+    if not path or not os.path.isfile(path) or os.path.basename(path).casefold() != "aseprite.exe":
+        return False, "guide_ps_runtime_unknown"
+    try:
+        items = _photoshop_query(
+            "@(Get-Process -Name aseprite -ErrorAction SilentlyContinue | "
+            "Select-Object Path) | ConvertTo-Json -Compress") or []
+        items = [items] if isinstance(items, dict) else items
+        expected = os.path.normcase(os.path.abspath(path))
+        if any(isinstance(item, dict) and item.get("Path")
+               and os.path.normcase(item["Path"]) == expected for item in items):
+            return True, "guide_ps_running"
+        return True, "guide_ps_runtime_unknown" if items else "guide_ps_closed"
+    except (OSError, RuntimeError, ValueError, subprocess.TimeoutExpired):
+        return True, "guide_ps_runtime_unknown"
+
+
+def setup_probe_name(payload):
+    summary = payload.get("summary")
+    name = summary.get("document_name") if isinstance(summary, dict) else None
+    if payload.get("signature") == "ase_ps_bridge_payload" and payload.get("source_app") == "aseprite" and isinstance(name, str):
+        name = name.replace("\\", "/").rsplit("/", 1)[-1]
+        if re.fullmatch(r"ps2ase-setup-[a-f0-9]{32}\.png", name):
+            return name
+    return None
+
+
 class SettingsDialog(QDialog):
     def __init__(self, current_settings, lang_dict, parent=None, photoshop_only=False):
         super().__init__(parent)
         self.lang = lang_dict
-        self.setWindowTitle(f'{PRODUCT_NAME} | {self.lang["set_title"]}')
+        self.setWindowTitle(self.lang["set_title"].removeprefix("⚙️ "))
         self.setStyleSheet(WORKSPACE_STYLE)
         self.setMinimumSize(390, 280)
         available = self.screen().availableGeometry()
         self.resize(min(520, available.width() - 24), min(615 if not photoshop_only else 280, available.height() - 64))
         self.current_settings = current_settings
         self.photoshop_only = photoshop_only
+        self.open_guide_requested = False
         self._hotkey_result = None
         language = next((key for key, labels in LANG.items() if labels is self.lang), "en")
         photoshop_title, aseprite_title, preferences_title, help_title, cancel = SETTINGS_SECTIONS[language]
@@ -1704,7 +1823,7 @@ class SettingsDialog(QDialog):
         self.button_box.rejected.connect(self.reject)
         layout.addWidget(self.button_box)
         if photoshop_only:
-            self.setWindowTitle(f'{PRODUCT_NAME} | {self.lang["guide_steps"][0]}')
+            self.setWindowTitle(self.lang["guide_steps"][0].removeprefix("1. "))
             content_layout.addStretch()
             return
         ps_warning_btn = QPushButton(self.lang["ps_warning"])
@@ -1816,7 +1935,9 @@ class SettingsDialog(QDialog):
         self.sync_photoshop_version_selection()
 
     def configure_photoshop_warning(self):
-        configure_photoshop_warning(self, self.lang, self.current_settings, self.ps_path_input.text)
+        changed = configure_photoshop_warning(self, self.lang, self.current_settings, self.ps_path_input.text)
+        if changed and hasattr(self.parent(), "guide_warning_changes"):
+            self.parent().guide_warning_changes.add(changed)
 
     def force_reconfigure(self):
         ase_paste_lua_orig = get_resource_path(os.path.join("scripts", "aseprite_paste.lua"))
@@ -1836,16 +1957,8 @@ class SettingsDialog(QDialog):
             parent_app.show_aseprite_setup()
 
     def show_initial_setup(self):
-        app = self.parent()
-        if app and hasattr(app, "settings"):
-            previous_path = app.settings.get("photoshop_exe", "")
-            dialog = InitialSetupDialog(self.lang, app, self)
-            dialog.exec()
-            self.refresh_aseprite_status()
-            if app.settings.get("photoshop_exe", "") != previous_path:
-                self.ps_path_input.setText(app.settings.get("photoshop_exe", ""))
-            if dialog.open_tutorial_requested:
-                TutorialDialog(self.lang, self, app=app).exec()
+        self.open_guide_requested = True
+        self.reject()
 
     def get_settings(self):
         settings = dict(self.current_settings)
@@ -1958,23 +2071,34 @@ class DialogInputTrace(QObject):
 
 
 class AsepriteSetupDialog(QDialog):
-    def __init__(self, lang_dict, parent=None, app=None):
+    def __init__(self, lang_dict, parent=None, app=None, probe_path=None):
         super().__init__(parent)
         self.lang = lang_dict
         self.parent_app = app or parent
-        self.setWindowTitle(f'{PRODUCT_NAME} | {self.lang["ase_setup_title"]}')
+        self.setWindowTitle(self.lang["ase_setup_title"])
         self.setMinimumSize(460, 360)
 
         layout = QVBoxLayout(self)
 
-        content_label = QLabel(self.lang["ase_setup_content"])
+        content_label = QLabel(self.lang["guide_flow_trust_safe"] if probe_path else self.lang["ase_setup_content"])
         content_label.setWordWrap(True)
         content_label.setStyleSheet("font-size: 13px; line-height: 1.5;")
         layout.addWidget(content_label)
 
         btn_install = QPushButton(self.lang["ase_setup_install"])
         btn_install.clicked.connect(self.install_scripts)
-        layout.addWidget(btn_install)
+        if not probe_path:
+            layout.addWidget(btn_install)
+        else:
+            btn_install.hide()
+            path = QLabel(probe_path)
+            path.setTextFormat(Qt.PlainText)
+            path.setWordWrap(True)
+            path.setTextInteractionFlags(Qt.TextSelectableByMouse)
+            layout.addWidget(path)
+            folder = QPushButton(self.lang["guide_flow_probe_folder"])
+            folder.clicked.connect(lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(os.path.dirname(probe_path))))
+            layout.addWidget(folder)
 
         self.cb_done = QCheckBox(self.lang["ase_setup_done"])
         layout.addWidget(self.cb_done)
@@ -2049,6 +2173,8 @@ class GuidePhotoshopCard:
         path_label.setProperty("uiHeading", True)
         self.path = add_text(panel, "")
         self.path.setProperty("uiMuted", True)
+        path_label.setVisible(connection)
+        self.path.setVisible(connection)
         self.other = add_text(panel, lang["guide_ps_other"])
         self.other.setObjectName("warningHeading")
         if connection:
@@ -2089,13 +2215,22 @@ class InitialSetupDialog(QDialog):
         self.lang = lang_dict
         self.app = app
         self.open_tutorial_requested = False
-        self.setWindowTitle(f'{PRODUCT_NAME} | {self.lang["guide_title"]}')
+        # Qt's Windows platform adds the application display name to dialog titles.
+        self.setWindowTitle(self.flow("name"))
         self.setStyleSheet(WORKSPACE_STYLE)
-        self.setMinimumSize(330, 290)
+        self.setMinimumSize(320, 285)
         available = self.screen().availableGeometry()
-        self.resize(min(500, available.width() - 24), min(440, available.height() - 64))
+        self.resize(min(580, available.width() - 24), min(685, available.height() - 64))
         self._photoshop_icon_path = None
         self._photoshop_icon = tool_icon("app_window")
+        self._probe_dir = None
+        self._probe_name = None
+        self._probe_can_paste = False
+        self._trust_dialog = None
+        self.f5_seen = False
+        self.f4_seen = False
+        self.probe_timer = QTimer(self, interval=20000, singleShot=True)
+        self.probe_timer.timeout.connect(self.update_summary)
         layout = QVBoxLayout(self)
         header = QHBoxLayout()
         header.addWidget(QLabel(self.lang["guide_title"]))
@@ -2109,25 +2244,48 @@ class InitialSetupDialog(QDialog):
         self.step_progress.setTextVisible(False)
         self.step_progress.setFixedHeight(5)
         layout.addWidget(self.step_progress)
+        navigation = QHBoxLayout()
+        self.step_buttons = QButtonGroup(self)
+        self.visited_steps = set()
+        for index, title in enumerate(self.flow("nav")):
+            button = QPushButton(title)
+            button.setCheckable(True)
+            button.setAutoDefault(False)
+            button.setProperty("uiSegment", True)
+            self.step_buttons.addButton(button, index)
+            navigation.addWidget(button, 1)
+        self.step_buttons.idClicked.connect(self.set_step)
+        layout.addLayout(navigation)
         self.step_title = QLabel()
         self.step_title.setWordWrap(True)
         self.step_title.setStyleSheet("font-weight: bold; font-size: 15px;")
         layout.addWidget(self.step_title)
         self.pages = QStackedWidget()
         layout.addWidget(self.pages, 1)
+        self.actions = QStackedWidget()
 
         for step in range(4):
             page = QWidget()
             page.setObjectName("guidePage")
             content = QVBoxLayout(page)
+            content.setContentsMargins(4, 4, 4, 4)
+            action_page = QWidget()
+            actions = QHBoxLayout(action_page)
+            actions.setContentsMargins(0, 0, 0, 0)
+            self.actions.addWidget(action_page)
             if step == 0:
                 self.ps_status = GuidePhotoshopCard(content, self.lang, self.add_text, connection=True)
+                self.add_text(content, self.flow("switch")).setProperty("uiMuted", True)
                 self.ps_edit = QPushButton(self.lang["guide_ps_edit"])
                 self.ps_edit.clicked.connect(self.edit_photoshop)
-                content.addWidget(self.ps_edit)
+                actions.addWidget(self.ps_edit)
             elif step == 1:
                 self.add_text(content, self.lang["guide_warning_intro"])
                 self.warning_status = GuidePhotoshopCard(content, self.lang, self.add_text, warnings=True)
+                self.warning_live = self.add_text(content, "")
+                self.warning_live.setProperty("uiMuted", True)
+                self.warning_hint = self.add_text(content, "")
+                self.warning_hint.setProperty("uiMuted", True)
                 note = QWidget()
                 note.setObjectName("warningNote")
                 note.setAttribute(Qt.WA_StyledBackground)
@@ -2138,25 +2296,63 @@ class InitialSetupDialog(QDialog):
                 self.add_text(note_layout, self.lang["guide_warning_optional"])
                 content.addWidget(note)
                 self.warning_edit = QPushButton(self.lang["guide_warning_edit"])
-                self.warning_edit.clicked.connect(self.edit_warning)
-                content.addWidget(self.warning_edit)
+                self.warning_edit.clicked.connect(self.warning_action)
+                actions.addWidget(self.warning_edit)
             elif step == 2:
-                self.add_text(content, self.lang["guide_ase_intro"])
+                self.ase_path = self.add_text(content, "")
+                self.ase_path.setProperty("uiHeading", True)
+                self.ase_path_detail = self.add_text(content, "")
+                self.ase_path_detail.setProperty("uiMuted", True)
                 self.ase_status = self.add_aseprite_card(content)
-                self.ase_edit = QPushButton(self.lang["guide_ase_open"])
+                self.ase_hint = self.add_text(content, "")
+                self.ase_hint.setProperty("uiMuted", True)
+                self.probe_intro = self.add_text(content, "")
+                self.probe_folder = QPushButton(self.flow("probe_folder"))
+                self.probe_folder.clicked.connect(self.open_probe_folder)
+                self.probe_folder.hide()
+                self.probe_intro.hide()
+                self.key_results = self.add_text(content, "")
+                self.probe_cancel = QPushButton(self.flow("probe_cancel"))
+                self.probe_cancel.clicked.connect(self.cancel_probe)
+                content.addWidget(self.probe_cancel)
+                self.probe_cancel.hide()
+                self.ase_edit = QPushButton(self.flow("trust"))
                 self.ase_edit.clicked.connect(self.edit_aseprite)
-                content.addWidget(self.ase_edit)
-                self.hotkeys_confirmed = QCheckBox(self.lang["guide_hotkeys_check"])
-                self.hotkeys_confirmed.setChecked(self.app.settings.get("aseprite_hotkeys_confirmed") is True)
-                self.hotkeys_confirmed.toggled.connect(self.update_summary)
-                content.addWidget(self.hotkeys_confirmed)
+                actions.addWidget(self.ase_edit)
+                self.ase_test = QPushButton(self.flow("test"))
+                self.ase_test.clicked.connect(self.start_probe)
+                actions.addWidget(self.ase_test)
+                self.ase_refresh = QPushButton()
+                self.ase_refresh.setIcon(tool_icon("btn_rotate"))
+                self.ase_refresh.setFixedWidth(32)
+                self.ase_refresh.setToolTip(self.flow("refresh"))
+                self.ase_refresh.setAccessibleName(self.flow("refresh"))
+                self.ase_refresh.clicked.connect(self.refresh_status)
+                actions.addWidget(self.ase_refresh)
+                self.f4_record = QPushButton(self.flow("f4_record"))
+                self.f4_record.clicked.connect(self.record_f4)
+                self.f4_record.hide()
             else:
                 self.add_text(content, self.lang["guide_summary_intro"])
-                self.summary_ps = GuidePhotoshopCard(content, self.lang, self.add_text, warnings=True)
-                self.summary_ase = self.add_aseprite_card(content, include_runtime_test=True)
+                panel = workspace_section(content)
+                checklist = QGridLayout()
+                checklist.setColumnStretch(1, 1)
+                checklist.setVerticalSpacing(6)
+                self.review_lines = []
+                for row, title in enumerate(self.flow("review_titles")):
+                    name = QLabel(title)
+                    name.setProperty("uiHeading", True)
+                    name.setWordWrap(True)
+                    name.setMinimumWidth(min(122, name.fontMetrics().horizontalAdvance(title) + 4))
+                    name.setMaximumWidth(140)
+                    label = self.add_text(None, "")
+                    checklist.addWidget(name, row, 0, Qt.AlignTop)
+                    checklist.addWidget(label, row, 1)
+                    self.review_lines.append(label)
+                panel.addLayout(checklist)
                 self.btn_tutorial = QPushButton(self.lang["guide_tutorial"])
                 self.btn_tutorial.clicked.connect(self.finish_with_tutorial)
-                content.addWidget(self.btn_tutorial)
+                actions.addWidget(self.btn_tutorial)
             content.addStretch()
             scroll = QScrollArea()
             scroll.setWidgetResizable(True)
@@ -2164,6 +2360,11 @@ class InitialSetupDialog(QDialog):
             scroll.setWidget(page)
             self.pages.addWidget(scroll)
 
+        layout.addWidget(self.actions)
+        probe_actions = QHBoxLayout()
+        probe_actions.addWidget(self.probe_folder)
+        probe_actions.addWidget(self.f4_record)
+        layout.addLayout(probe_actions)
         self.cb_dont_show = QCheckBox(self.lang["guide_dont_show"])
         self.cb_dont_show.setChecked(self.app.settings.get("show_initial_setup") is False)
         layout.addWidget(self.cb_dont_show)
@@ -2189,6 +2390,9 @@ class InitialSetupDialog(QDialog):
         self.refresh_status()
         self.set_step(0)
 
+    def flow(self, name):
+        return self.lang[f"guide_flow_{name}"]
+
     @staticmethod
     def add_text(layout, text):
         label = QLabel(text)
@@ -2198,15 +2402,13 @@ class InitialSetupDialog(QDialog):
         policy.setHeightForWidth(True)
         label.setSizePolicy(policy)
         label.setTextInteractionFlags(Qt.TextSelectableByMouse)
-        layout.addWidget(label)
+        if layout is not None:
+            layout.addWidget(label)
         return label
 
-    def add_aseprite_card(self, layout, *, include_runtime_test=False):
-        heading = self.add_text(layout, self.lang["guide_ase_title"])
-        heading.setProperty("uiHeading", True)
+    def add_aseprite_card(self, layout):
         panel = workspace_section(layout)
-        labels = [self.add_text(panel, "") for _ in range(4 if include_runtime_test else 3)]
-        return labels
+        return [self.add_text(panel, "") for _ in range(3)]
 
     def photoshop_icon(self, path):
         if path != self._photoshop_icon_path:
@@ -2224,6 +2426,10 @@ class InitialSetupDialog(QDialog):
     def refresh_status(self):
         path = self.app.settings.get("photoshop_exe", "")
         warning = self.lang["guide_warning_unknown"]
+        config = None
+        warning_known = False
+        configured_off = False
+        warning_detail = ""
         runtime = "guide_ps_runtime_unknown"
         other_running = False
         info = None
@@ -2231,10 +2437,13 @@ class InitialSetupDialog(QDialog):
             info = photoshop_exe_info(path)
             config = photoshop_config_path(info)
             _, _, text, values = photoshop_warning_config(config)
+            warning_detail = "WarnRunningScripts: " + (", ".join(values) if values else self.lang["ps_default_warning"])
             count = len(re.findall(r"(?mi)^\s*WarnRunningScripts\b", text))
             if values == ["0"] and count == 1:
-                warning = self.lang["guide_warning_disabled"]
+                warning_known = configured_off = True
+                warning = self.flow("disabled")
             elif count == 0 or (values == ["1"] and count == 1):
+                warning_known = True
                 warning = self.lang["guide_warning_keep"]
         except Exception:
             pass
@@ -2249,26 +2458,63 @@ class InitialSetupDialog(QDialog):
                 pass
         self.ps_target_valid = info is not None
         icon = self.photoshop_icon(info["path"] if info else None)
-        for card in (self.ps_status, self.warning_status, self.summary_ps):
+        for card in (self.ps_status, self.warning_status):
             card.set_status(info, path, runtime, other_running, warning, icon)
-        self.warning_edit.setEnabled(self.ps_target_valid)
+        self.warning_status.warning.setToolTip(warning_detail)
+        self.warning_live.setText(self.flow("live"))
+        session_changed = configured_off and config in self.app.guide_warning_changes
+        hint = self.flow("restart") if session_changed and runtime != "guide_ps_running" else ""
+        if not hint and not configured_off and (other_running or runtime == "guide_ps_running"):
+            hint = self.flow("stop")
+        self.warning_hint.setText(hint)
+        self.warning_hint.setVisible(bool(hint))
+        self.can_change_warning = bool(info and warning_known and not configured_off
+                                      and runtime == "guide_ps_closed" and not other_running)
+        self.warning_edit.setText(self.lang["guide_warning_edit"] if self.can_change_warning else self.flow("refresh"))
+        self.review_photoshop = info["product"] + " · " + self.ps_status.version.text() if info else self.lang["guide_ps_missing"]
+        self.review_warning = warning
         if self.pages.currentIndex() == 0:
             self.update_next_text(0)
 
         self.ase_scripts_current, self.ase_keys_registered = aseprite_installation_status(
             self.app.ase_paste_lua_orig, self.app.ase_copy_lua_orig)
+        ase = self.app.settings.get("aseprite_exe", "")
+        self.ase_path_valid, self.ase_state = aseprite_runtime(ase)
+        self.ase_path.setText(f"Aseprite · {self.lang[self.ase_state]}" if self.ase_path_valid else self.flow("ase_missing"))
+        self.ase_path_detail.setText(ase)
+        self.ase_path_detail.setVisible(bool(ase))
+        ready = self.ase_scripts_current and self.ase_keys_registered
+        close_needed = self.ase_path_valid and not ready and self.ase_state != "guide_ps_closed"
+        self.ase_hint.setText(self.flow("ase_stop") if close_needed else "")
+        self.ase_hint.setVisible(close_needed)
+        action = "trust_ready" if ready else "refresh" if close_needed else "install"
+        self.ase_edit.setText(self.flow(action if self.ase_path_valid else "choose_ase"))
+        self.ase_test.setEnabled(self.ase_path_valid and ready)
         self.update_summary()
 
     def update_summary(self):
         if not hasattr(self, "ase_scripts_current"):
             return
         trust_key = "guide_trust_yes" if self.app.settings.get("aseprite_trust_confirmed") is True else "guide_trust_no"
-        keys_key = "guide_keys_tested" if self.hotkeys_confirmed.isChecked() else "guide_keys_untested"
         flags = ("guide_files_ok" if self.ase_scripts_current else "guide_files_pending",
-                 "guide_keys_ok" if self.ase_keys_registered else "guide_keys_pending", trust_key, keys_key)
-        for labels in (self.ase_status, self.summary_ase):
-            for label, key in zip(labels, flags):
-                label.setText(self.lang[key])
+                 "guide_keys_ok" if self.ase_keys_registered else "guide_keys_pending", trust_key)
+        ase_lines = tuple(self.lang[key] for key in flags)
+        for label, text in zip(self.ase_status, ase_lines):
+            label.setText(text)
+        f4 = self.flow("f4_seen" if self.f4_seen else "f4_unknown")
+        f5_key = "f5_seen" if self.f5_seen else "f5_unknown"
+        if not self.f5_seen and self._probe_name:
+            f5_key = "f5_wait" if self.probe_timer.isActive() else "f5_timeout"
+        f5 = self.flow(f5_key)
+        self.key_results.setText(f4 + "\n" + f5)
+        connection, installed, registered, trust, unknown, confirmed, copied = self.flow("review_states")
+        lines = (self.review_photoshop, connection, self.review_warning,
+                 installed if self.ase_scripts_current else unknown,
+                 registered if self.ase_keys_registered else unknown,
+                 trust if trust_key == "guide_trust_yes" else unknown,
+                 confirmed if self.f4_seen else unknown, copied if self.f5_seen else unknown)
+        for label, text in zip(self.review_lines, lines):
+            label.setText(text)
 
     def edit_photoshop(self):
         dialog = SettingsDialog(self.app.settings, self.lang, self, photoshop_only=True)
@@ -2278,17 +2524,139 @@ class InitialSetupDialog(QDialog):
         self.refresh_status()
 
     def edit_warning(self):
-        configure_photoshop_warning(self, self.lang, self.app.settings,
-                                    lambda: self.app.settings.get("photoshop_exe", ""))
+        changed = configure_photoshop_warning(self, self.lang, self.app.settings,
+                                             lambda: self.app.settings.get("photoshop_exe", ""))
+        if changed:
+            self.app.guide_warning_changes.add(changed)
         self.refresh_status()
 
+    def warning_action(self):
+        if self.can_change_warning:
+            self.edit_warning()
+        else:
+            self.refresh_status()
+
     def edit_aseprite(self):
-        dialog = AsepriteSetupDialog(self.lang, self, app=self.app)
-        dialog.exec()
-        self.refresh_status()
+        if not self.ase_path_valid:
+            path, _ = QFileDialog.getOpenFileName(self, self.flow("choose_ase"), "", "aseprite.exe (aseprite.exe)")
+            if path and os.path.isfile(path) and os.path.basename(path).casefold() == "aseprite.exe":
+                self.app.settings["aseprite_exe"] = path
+                save_settings(self.app.settings)
+            self.refresh_status()
+            return
+        if not (self.ase_scripts_current and self.ase_keys_registered):
+            ase = self.app.settings.get("aseprite_exe", "")
+            if aseprite_runtime(ase) != (True, "guide_ps_closed"):
+                self.refresh_status()
+                return
+            if QMessageBox.question(self, self.flow("install"), self.flow("install_confirm"),
+                                    QMessageBox.Yes | QMessageBox.No, QMessageBox.No) != QMessageBox.Yes:
+                return
+            if aseprite_runtime(ase) != (True, "guide_ps_closed"):
+                self.refresh_status()
+                return
+            ok, message = setup_aseprite_environment(self.app.ase_paste_lua_orig, self.app.ase_copy_lua_orig)
+            if not ok:
+                QMessageBox.warning(self, self.flow("install"), message)
+            self.refresh_status()
+            return
+        if not self._probe_name:
+            self.start_probe()
+            if not self._probe_name:
+                return
+        if self._trust_dialog is not None:
+            self._trust_dialog.raise_()
+            self._trust_dialog.activateWindow()
+            return
+        dialog = AsepriteSetupDialog(self.lang, self, app=self.app,
+                                    probe_path=os.path.join(self._probe_dir.name, self._probe_name))
+        self._trust_dialog = dialog
+
+        def finished(_):
+            if self._trust_dialog is dialog:
+                self._trust_dialog = None
+                self.refresh_status()
+            dialog.deleteLater()
+
+        dialog.finished.connect(finished)
+        dialog.show()
+
+    def has_photoshop_copy(self):
+        try:
+            payload = json.loads(QApplication.clipboard().text())
+            return (payload["signature"] == "ase_ps_bridge_payload" and payload["source_app"] == "photoshop"
+                    and os.path.isfile(os.path.join(payload["job_path"], "metadata.json")))
+        except (TypeError, ValueError, KeyError, OSError):
+            return False
+
+    def start_probe(self):
+        if not self.ase_test.isEnabled() or self._trust_dialog is not None:
+            return
+        try:
+            if self._probe_dir is None:
+                self._probe_dir = tempfile.TemporaryDirectory(prefix="ps2ase-guide-", ignore_cleanup_errors=True)
+            name = f"ps2ase-setup-{uuid.uuid4().hex}.png"
+            path = os.path.join(self._probe_dir.name, name)
+            Image.new("RGBA", (32, 32), (197, 182, 255, 255)).save(path)
+        except OSError as error:
+            QMessageBox.warning(self, self.flow("test"), str(error))
+            return
+        self._probe_name = name
+        self.f4_seen = self.f5_seen = False
+        self.probe_timer.start()
+        self._probe_can_paste = self.has_photoshop_copy()
+        self.probe_intro.setText("\n\n".join(filter(None, (
+            self.flow("probe_intro"), path, "" if self._probe_can_paste else self.flow("f4_no_copy")))))
+        self.probe_intro.show()
+        self.probe_folder.show()
+        self.probe_cancel.show()
+        self.f4_record.setVisible(self._probe_can_paste)
+        self.update_summary()
+        self.pages.currentWidget().ensureWidgetVisible(self.probe_intro, 0, 4)
+
+    def open_probe_folder(self):
+        if self._probe_dir:
+            QDesktopServices.openUrl(QUrl.fromLocalFile(self._probe_dir.name))
+
+    def record_f4(self):
+        if not self._probe_name or not self.has_photoshop_copy():
+            return
+        if QMessageBox.question(self, self.flow("f4_record"), self.flow("f4_question"),
+                                QMessageBox.Yes | QMessageBox.No, QMessageBox.No) == QMessageBox.Yes:
+            self.f4_seen = True
+            self.update_summary()
+
+    def record_copy_probe(self, name):
+        if self._probe_name == name:
+            self.f5_seen = True
+            self.probe_timer.stop()
+            self.update_summary()
+
+    def cancel_probe(self):
+        if self._trust_dialog:
+            dialog, self._trust_dialog = self._trust_dialog, None
+            dialog.reject()
+        self.probe_timer.stop()
+        if self._probe_dir:
+            self._probe_dir.cleanup()
+        self._probe_dir = self._probe_name = None
+        self._probe_can_paste = self.f4_seen = self.f5_seen = False
+        for widget in (self.probe_intro, self.probe_folder, self.probe_cancel, self.f4_record):
+            widget.hide()
+        self.update_summary()
 
     def set_step(self, index):
         self.pages.setCurrentIndex(index)
+        self.actions.setCurrentIndex(index)
+        button = self.step_buttons.button(index)
+        button.setChecked(True)
+        if index not in self.visited_steps:
+            self.visited_steps.add(index)
+            button.setProperty("guideVisited", True)
+            button.style().unpolish(button)
+            button.style().polish(button)
+        self.probe_folder.setVisible(index == 2 and bool(self._probe_name))
+        self.f4_record.setVisible(index == 2 and self._probe_can_paste)
         self.step_count.setText(f"{index + 1} / {self.pages.count()}")
         self.step_progress.setValue(index + 1)
         self.step_title.setText(self.lang["guide_steps"][index])
@@ -2317,8 +2685,8 @@ class InitialSetupDialog(QDialog):
         try:
             self.app.settings["initial_setup_seen"] = True
             self.app.settings["show_initial_setup"] = not self.cb_dont_show.isChecked()
-            self.app.settings["aseprite_hotkeys_confirmed"] = self.hotkeys_confirmed.isChecked()
             save_settings(self.app.settings)
+            self.cancel_probe()
             super().done(result)
         finally:
             self.input_trace.mark("ACCEPT_END" if result == QDialog.Accepted else "REJECT_END")
@@ -2327,7 +2695,7 @@ class InitialSetupDialog(QDialog):
 class TutorialDialog(QDialog):
     def __init__(self, lang_dict, parent=None, app=None):
         super().__init__(parent)
-        self.setWindowTitle(f'{PRODUCT_NAME} | {lang_dict["tut_title"]}')
+        self.setWindowTitle(lang_dict["tut_title"].removeprefix("📖 "))
         self.setMinimumSize(440, 400)
         self.resize(560, 580)
         self.parent_app = app or parent
@@ -2368,6 +2736,8 @@ class BridgeApp(QMainWindow):
         super().__init__()
         self._startup_ui_ready = False
         self._startup_dialogs_running = False
+        self.setup_guide = None
+        self.guide_warning_changes = set()
         self._startup_dialogs_complete = False
         self._startup_closing = False
         self._startup_interaction_ready = startup_progress is None
@@ -2793,13 +3163,33 @@ class BridgeApp(QMainWindow):
             QTimer.singleShot(0, self.trace_startup_modal)
         dlg.exec()
 
-    def show_initial_setup(self):
+    def show_initial_setup(self, after_close=None):
+        if self.setup_guide is not None:
+            self.setup_guide.raise_()
+            self.setup_guide.activateWindow()
+            if after_close:
+                self.setup_guide.finished.connect(lambda _: QTimer.singleShot(0, after_close))
+            return
         dlg = InitialSetupDialog(self.t, self)
-        if self._startup_dialogs_running:
-            QTimer.singleShot(0, self.trace_startup_modal)
-        dlg.exec()
-        if dlg.open_tutorial_requested:
-            self.show_tutorial()
+        self.setup_guide = dlg
+
+        def finished(_):
+            self.setup_guide = None
+            tutorial = dlg.open_tutorial_requested
+            dlg.deleteLater()
+            def followup():
+                if not self._startup_closing:
+                    if tutorial:
+                        self.show_tutorial()
+                    if after_close and not self._startup_closing:
+                        after_close()
+
+            if tutorial or after_close:
+                QTimer.singleShot(0, followup)
+
+        dlg.finished.connect(finished)
+        dlg.setModal(False)
+        dlg.show()
 
     def show_aseprite_setup(self):
         dlg = AsepriteSetupDialog(self.t, self)
@@ -2860,9 +3250,26 @@ class BridgeApp(QMainWindow):
                 msg = self.t["clip_ready"].format(src="Ase", dst="PS", count=getattr(self, "clipboard_count", 0))
                 self.update_status(msg, "#fef3c7", "#b45309")
 
-    def open_settings(self):
-        dlg = SettingsDialog(self.settings, self.t, self)
-        if dlg.exec():
+    def open_settings(self, existing=None):
+        dlg = existing or SettingsDialog(self.settings, self.t, self)
+        dlg.open_guide_requested = False
+        result = dlg.exec()
+        if dlg.open_guide_requested:
+            previous = {key: self.settings.get(key) for key in ("photoshop_exe", "aseprite_exe")}
+
+            def resume():
+                if self._startup_closing:
+                    return
+                for key, field in (("photoshop_exe", dlg.ps_path_input), ("aseprite_exe", dlg.ase_path_input)):
+                    if self.settings.get(key) != previous[key]:
+                        field.setText(self.settings.get(key, ""))
+                dlg.current_settings = self.settings
+                dlg.refresh_aseprite_status()
+                self.open_settings(dlg)
+
+            self.show_initial_setup(resume)
+            return
+        if result:
             self.settings = dlg.get_settings()
             save_settings(self.settings)
             
@@ -2880,6 +3287,7 @@ class BridgeApp(QMainWindow):
                 self.refresh_ui_language()
                 
             self.log_message(self.t["msg_settings_saved"])
+        dlg.deleteLater()
             
     def clean_temp_folder(self):
         if self.is_transferring() or self.is_transforming() or self.is_previewing():
@@ -3119,6 +3527,18 @@ class BridgeApp(QMainWindow):
                     try:
                         with open(trigger_path, "r", encoding="utf-8") as f:
                             payload = json.load(f)
+
+                        probe_name = setup_probe_name(payload)
+                        if probe_name:
+                            with open(os.path.join(job_path, "status_done.json"), encoding="utf-8") as stream:
+                                done = json.load(stream)
+                            if (done.get("job_id") == job_id and done.get("status") == "done"
+                                    and type(done.get("layer_count")) is int and done["layer_count"] > 0
+                                    and os.path.isfile(os.path.join(job_path, "metadata.json"))):
+                                self.processed_jobs.add(job_id)
+                                if self.setup_guide:
+                                    self.setup_guide.record_copy_probe(probe_name)
+                            continue
 
                         # A late timed-out Photoshop launch must not replace the current clipboard.
                         if (payload.get("source_app") == "photoshop"
@@ -3620,6 +4040,8 @@ class BridgeApp(QMainWindow):
             event.ignore()
             return
         self._startup_closing = True
+        if self.setup_guide:
+            self.setup_guide.reject()
         if hasattr(self, "_startup_handoff_timer"):
             self._startup_handoff_timer.stop()
         if hasattr(self, "_startup_dialog_timer"):

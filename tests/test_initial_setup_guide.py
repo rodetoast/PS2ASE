@@ -77,7 +77,7 @@ class InitialSetupGuideTests(unittest.TestCase):
         self.assertTrue(saved["initial_setup_seen"])
         self.assertFalse(saved["show_initial_setup"])
         self.assertFalse(saved["aseprite_trust_confirmed"])
-        self.assertFalse(saved["aseprite_hotkeys_confirmed"])
+        self.assertFalse(saved.get("aseprite_hotkeys_confirmed", False))
         dialog.accept()
         self.assertFalse(self.window.settings["aseprite_trust_confirmed"])
         reopened = self.guide()
@@ -104,7 +104,7 @@ class InitialSetupGuideTests(unittest.TestCase):
         with patch.object(self.b, "installed_photoshops", return_value=[self.fixture.target]):
             dialog = self.b.SettingsDialog(self.window.settings, self.window.t, self.window, photoshop_only=True)
         try:
-            self.assertEqual(dialog.windowTitle(), f'{self.b.PRODUCT_NAME} | {self.window.t["guide_steps"][0]}')
+            self.assertEqual(dialog.windowTitle(), self.window.t["guide_steps"][0].removeprefix("1. "))
             self.assertNotIn(self.window.t["ps_warning"],
                              [b.text() for b in dialog.findChildren(self.b.QPushButton)])
             self.assertEqual(dialog.ps_versions.currentData(), self.fixture.target["path"])
@@ -125,7 +125,8 @@ class InitialSetupGuideTests(unittest.TestCase):
                 self.assertEqual(dialog.lang["guide_ps_running"], dialog.ps_status.runtime.text())
                 self.assertEqual(dialog.btn_next.text(), dialog.lang["guide_ps_continue"])
                 with patch.object(self.b, "SettingsDialog") as settings, \
-                        patch.object(self.b, "configure_photoshop_warning") as warning:
+                        patch.object(self.b, "configure_photoshop_warning") as warning, \
+                        patch.object(self.b, "photoshop_config_path", return_value=str(self.fixture.root / "PSUserConfig.txt")):
                     settings.return_value.exec.return_value = False
                     dialog.ps_edit.click()
                     settings.assert_called_once_with(self.window.settings, dialog.lang, dialog, photoshop_only=True)
@@ -136,6 +137,12 @@ class InitialSetupGuideTests(unittest.TestCase):
                     self.app.processEvents()
                     self.assertLessEqual(dialog.btn_next.geometry().right(), dialog.rect().right())
                     dialog.warning_edit.click()
+                    warning.assert_not_called()
+                    self.assertEqual(dialog.warning_hint.text(), dialog.flow("stop"))
+                    with patch.object(self.b, "running_photoshops", return_value=[]):
+                        dialog.warning_edit.click()
+                        self.assertTrue(dialog.can_change_warning)
+                        dialog.warning_edit.click()
                     self.assertEqual(warning.call_args.args[-1](), self.fixture.target["path"])
                     settings.assert_called_once()
                     dialog.btn_next.click()
@@ -149,7 +156,8 @@ class InitialSetupGuideTests(unittest.TestCase):
             self.window.current_lang = language
             self.window.refresh_ui_language()
             self.assertEqual(self.window.windowTitle(), name)
-            self.assertTrue(self.guide(language).windowTitle().startswith(name))
+            guide = self.guide(language)
+            self.assertEqual(guide.windowTitle(), guide.flow("name"))
             self.assertEqual(self.b.SETTINGS_FILE, original_path)
         self.assertEqual(self.b.BRIDGE_DATA_DIR, original_data_dir)
 
@@ -158,12 +166,17 @@ class InitialSetupGuideTests(unittest.TestCase):
             dialog = self.b.SettingsDialog(self.window.settings, self.window.t, self.window)
         try:
             dialog.ps_path_input.setText("pending/Photoshop.exe")
-            with patch.object(self.b, "InitialSetupDialog") as factory:
-                factory.return_value.open_tutorial_requested = False
-                dialog.show_initial_setup()
+            opener = self.window.open_settings
+            with patch.object(dialog, "exec", side_effect=dialog.show_initial_setup), \
+                    patch.object(self.window, "open_settings") as reopen, \
+                    patch.object(self.window, "show_initial_setup") as guide:
+                opener(dialog)
+                guide.call_args.args[0]()
                 self.assertEqual(dialog.ps_path_input.text(), "pending/Photoshop.exe")
-                factory.return_value.exec.side_effect = lambda: self.window.settings.update(photoshop_exe="chosen/Photoshop.exe")
-                dialog.show_initial_setup()
+                reopen.assert_called_once_with(dialog)
+                opener(dialog)
+                self.window.settings.update(photoshop_exe="chosen/Photoshop.exe")
+                guide.call_args.args[0]()
                 self.assertEqual(dialog.ps_path_input.text(), "chosen/Photoshop.exe")
         finally:
             self.fixture.shiboken.delete(dialog)
@@ -174,10 +187,8 @@ class InitialSetupGuideTests(unittest.TestCase):
         dialog = self.guide()
         self.assertEqual(dialog.ase_status[0].text(), dialog.lang["guide_files_ok"])
         self.assertEqual(dialog.ase_status[1].text(), dialog.lang["guide_keys_ok"])
-        self.assertEqual(dialog.summary_ase[2].text(), dialog.lang["guide_trust_no"])
-        self.assertEqual(dialog.summary_ase[3].text(), dialog.lang["guide_keys_untested"])
-        dialog.hotkeys_confirmed.setChecked(True)
-        self.assertEqual(dialog.summary_ase[3].text(), dialog.lang["guide_keys_tested"])
+        for index in (5, 6, 7):
+            self.assertEqual(dialog.review_lines[index].text(), dialog.flow("review_states")[4])
         self.assertFalse(self.window.settings["aseprite_trust_confirmed"])
 
     def test_settings_separate_installation_trust_and_runtime_without_overwriting_settings(self):
@@ -221,7 +232,9 @@ class InitialSetupGuideTests(unittest.TestCase):
         from PySide6.QtTest import QTest
         dialog = self.guide()
         states = []
-        def click():
+        with patch.object(self.b, "InitialSetupDialog", return_value=dialog), \
+                patch.object(dialog, "deleteLater"):
+            self.window.show_initial_setup()
             states.append((self.app.activeModalWidget() is dialog, dialog.parentWidget() is self.window))
             with patch.object(self.b, "photoshop_exe_info", side_effect=AssertionError("query during navigation")), \
                     patch.object(self.window, "check_clipboard") as clipboard, \
@@ -229,25 +242,22 @@ class InitialSetupGuideTests(unittest.TestCase):
                 self.window.poll_clipboard()
                 QTest.mouseClick(dialog.btn_next, self.b.Qt.LeftButton)
                 self.assertEqual(dialog.pages.currentIndex(), 1)
-                clipboard.assert_not_called()
-                jobs.assert_not_called()
+                clipboard.assert_called_once()
+                jobs.assert_called_once()
                 QTest.mouseClick(dialog.btn_later, self.b.Qt.LeftButton)
-        self.b.QTimer.singleShot(0, click)
-        self.assertEqual(dialog.exec(), self.b.QDialog.Rejected)
-        self.assertEqual(states, [(True, True)])
+        self.assertIsNone(self.window.setup_guide)
+        self.assertEqual(states, [(False, True)])
 
     def test_tutorial_is_requested_only_after_setup_dialog_is_hidden(self):
         dialog = self.guide()
         dialog.set_step(3)
-        original = dialog.exec
-        def run():
-            self.b.QTimer.singleShot(0, dialog.btn_tutorial.click)
-            return original()
         seen = []
         with patch.object(self.b, "InitialSetupDialog", return_value=dialog), \
-                patch.object(dialog, "exec", side_effect=run), \
+                patch.object(dialog, "deleteLater"), \
                 patch.object(self.window, "show_tutorial", side_effect=lambda: seen.append(dialog.isVisible())):
             self.window.show_initial_setup()
+            dialog.btn_tutorial.click()
+            self.app.processEvents()
         self.assertEqual(seen, [False])
 
     def test_three_languages_cover_all_guide_keys_and_usage_only(self):
@@ -342,7 +352,8 @@ class InitialSetupGuideTests(unittest.TestCase):
         self.assertEqual(card.product.text(), dialog.lang["guide_ps_missing"])
         self.assertTrue(card.version.isHidden())
         self.assertFalse(card.icon.pixmap().isNull())
-        self.assertFalse(dialog.warning_edit.isEnabled())
+        self.assertFalse(dialog.can_change_warning)
+        self.assertEqual(dialog.warning_edit.text(), dialog.flow("refresh"))
 
     def test_guide_cards_fit_compact_layout_in_all_languages(self):
         b = self.b
@@ -359,11 +370,112 @@ class InitialSetupGuideTests(unittest.TestCase):
                     self.assertEqual(dialog.pages.currentWidget().horizontalScrollBar().maximum(), 0)
                     self.assertTrue(dialog.btn_next.isVisible())
                     self.assertLess(dialog.btn_next.geometry().bottom(), dialog.height())
-                    card = {0: dialog.ps_status, 1: dialog.warning_status, 3: dialog.summary_ps}.get(step)
+                    action = (dialog.ps_edit, dialog.warning_edit, dialog.ase_edit, dialog.btn_tutorial)[step]
+                    self.assertTrue(dialog.isAncestorOf(action))
+                    self.assertFalse(dialog.pages.isAncestorOf(action))
+                    self.assertTrue(action.isVisible())
+                    card = {0: dialog.ps_status, 1: dialog.warning_status}.get(step)
                     if card:
                         for label in (card.product, card.path):
-                            self.assertGreaterEqual(label.height(), label.heightForWidth(label.width()))
+                            if label.isVisible():
+                                self.assertGreaterEqual(label.height(), label.heightForWidth(label.width()))
+            dialog.resize(580, 685)
+            for step in (1, 3):
+                dialog.set_step(step)
+                self.app.processEvents()
+                self.assertEqual(dialog.pages.currentWidget().verticalScrollBar().maximum(), 0, (language, step))
             dialog.hide()
+
+    def test_fresh_probe_is_observed_without_clipboard_write(self):
+        import sys
+        from unittest.mock import Mock
+        b = self.b
+        dialog = self.guide()
+        self.window.setup_guide = dialog
+        self.addCleanup(setattr, self.window, "setup_guide", None)
+        dialog.set_step(2)
+        with patch.object(dialog, "has_photoshop_copy", return_value=False):
+            dialog.ase_test.setEnabled(True)
+            dialog.start_probe()
+        name = dialog._probe_name
+        self.assertTrue((Path(dialog._probe_dir.name) / name).is_file())
+        self.addCleanup(dialog._probe_dir.cleanup)
+        clipboard = Mock()
+        previous = self.window.last_job_id
+        with patch.dict(sys.modules, win32clipboard=clipboard):
+            for suffix, probe, done in (("old", "ps2ase-setup-" + "0" * 32 + ".png", True),
+                                        ("partial", name, False), ("fresh", name, True)):
+                job = Path(self.window.temp_dir) / ("job_" + suffix)
+                job.mkdir()
+                (job / "trigger_copy.json").write_text(json.dumps({
+                    "signature": "ase_ps_bridge_payload", "source_app": "aseprite",
+                    "summary": {"document_name": probe}}))
+                (job / "metadata.json").write_text("{}")
+                if done:
+                    (job / "status_done.json").write_text(json.dumps({
+                        "status": "done", "job_id": job.name, "layer_count": 1}))
+                self.window.check_temp_folder()
+                self.assertEqual(dialog.f5_seen, suffix == "fresh")
+        clipboard.OpenClipboard.assert_not_called()
+        self.assertEqual(self.window.last_job_id, previous)
+        self.assertFalse(dialog.f4_seen)
+
+    def test_existing_warning_value_is_not_reported_as_session_change(self):
+        cfg = self.fixture.root / "PSUserConfig.txt"
+        cfg.write_text("WarnRunningScripts 0\n")
+        with patch.object(self.b, "photoshop_config_path", return_value=str(cfg)), \
+                patch.object(self.b, "running_photoshops", return_value=[]):
+            dialog = self.guide()
+            self.assertEqual(dialog.warning_status.warning.text(), dialog.flow("disabled"))
+            self.assertEqual(dialog.warning_live.text(), dialog.flow("live"))
+            self.assertNotIn(dialog.flow("restart"), dialog.warning_hint.text())
+            self.window.guide_warning_changes.add(str(cfg))
+            dialog.refresh_status()
+            self.assertEqual(dialog.warning_hint.text(), dialog.flow("restart"))
+
+    def test_f4_requires_existing_photoshop_copy_and_explicit_observation(self):
+        b = self.b
+        dialog = self.guide()
+        dialog.set_step(2)
+        dialog.ase_test.setEnabled(True)
+        with patch.object(dialog, "has_photoshop_copy", return_value=True):
+            dialog.start_probe()
+        self.addCleanup(dialog._probe_dir.cleanup)
+        with patch.object(b.QMessageBox, "question", return_value=b.QMessageBox.No) as question:
+            with patch.object(dialog, "has_photoshop_copy", return_value=False):
+                dialog.record_f4()
+                question.assert_not_called()
+            with patch.object(dialog, "has_photoshop_copy", return_value=True):
+                dialog.record_f4()
+                self.assertFalse(dialog.f4_seen)
+                question.return_value = b.QMessageBox.Yes
+                dialog.record_f4()
+        self.assertTrue(dialog.f4_seen)
+        self.assertFalse(dialog.f5_seen)
+        self.assertEqual(dialog.review_lines[6].text(), dialog.flow("review_states")[5])
+        name = dialog._probe_name
+        dialog.cancel_probe()
+        dialog.record_copy_probe(name)
+        self.assertFalse(dialog.f4_seen)
+        self.assertFalse(dialog.f5_seen)
+        self.assertEqual(dialog.review_lines[6].text(), dialog.flow("review_states")[4])
+
+    def test_ready_aseprite_does_not_reinstall_and_unknown_running_state_biases_to_read_only(self):
+        b = self.b
+        self.window.settings["aseprite_exe"] = r"C:\Example\aseprite.exe"
+        with patch.object(b, "aseprite_runtime", return_value=(True, "guide_ps_runtime_unknown")), \
+                patch.object(b, "aseprite_installation_status", return_value=(False, False)) as inspect, \
+                patch.object(b, "setup_aseprite_environment") as install:
+            dialog = self.guide()
+            dialog.set_step(2)
+            self.assertFalse(dialog.ase_test.isEnabled())
+            dialog.ase_edit.click()
+            self.assertEqual(dialog.ase_edit.text(), dialog.flow("refresh"))
+            inspect.return_value = (True, True)
+            dialog.refresh_status()
+            self.assertTrue(dialog.ase_test.isEnabled())
+            self.assertEqual(dialog.ase_edit.text(), dialog.flow("trust_ready"))
+            install.assert_not_called()
 
 
 if __name__ == "__main__":
