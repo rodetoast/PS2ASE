@@ -123,7 +123,7 @@ class InitialSetupGuideTests(unittest.TestCase):
                 dialog = self.guide(language)
                 dialog.show()
                 self.assertEqual(dialog.lang["guide_ps_running"], dialog.ps_status.runtime.text())
-                self.assertEqual(dialog.btn_next.text(), dialog.lang["guide_ps_continue"])
+                self.assertEqual(dialog.btn_next.text(), dialog.lang["guide_next"])
                 with patch.object(self.b, "SettingsDialog") as settings, \
                         patch.object(self.b, "configure_photoshop_warning") as warning, \
                         patch.object(self.b, "photoshop_config_path", return_value=str(self.fixture.root / "PSUserConfig.txt")):
@@ -133,7 +133,7 @@ class InitialSetupGuideTests(unittest.TestCase):
                     warning.assert_not_called()
                     dialog.btn_next.click()
                     self.assertEqual(dialog.pages.currentIndex(), 1)
-                    self.assertEqual(dialog.btn_next.text(), dialog.lang["guide_warning_continue"])
+                    self.assertEqual(dialog.btn_next.text(), dialog.lang["guide_next"])
                     self.app.processEvents()
                     self.assertLessEqual(dialog.btn_next.geometry().right(), dialog.rect().right())
                     dialog.warning_edit.click()
@@ -276,8 +276,7 @@ class InitialSetupGuideTests(unittest.TestCase):
             for step in range(4):
                 dialog.set_step(step)
                 self.assertEqual(dialog.step_title.text(), labels["guide_steps"][step])
-                self.assertEqual(dialog.step_count.text(), f"{step + 1} / 4")
-                self.assertEqual(dialog.step_progress.value(), step + 1)
+                self.assertEqual(dialog.btn_back.isEnabled(), step > 0)
 
     def test_warning_defaults_to_no_then_explicit_consent_preserves_and_backs_up(self):
         path = self.fixture.root / "PSUserConfig.txt"
@@ -372,8 +371,13 @@ class InitialSetupGuideTests(unittest.TestCase):
                     self.assertLess(dialog.btn_next.geometry().bottom(), dialog.height())
                     action = (dialog.ps_edit, dialog.warning_edit, dialog.ase_edit, dialog.btn_tutorial)[step]
                     self.assertTrue(dialog.isAncestorOf(action))
-                    self.assertFalse(dialog.pages.isAncestorOf(action))
+                    self.assertTrue(dialog.pages.isAncestorOf(action))
                     self.assertTrue(action.isVisible())
+                    if step == 3:
+                        grid = dialog.review_lines[0].parentWidget().layout().itemAt(0).layout()
+                        for row, label in enumerate(dialog.review_lines):
+                            name = grid.itemAtPosition(row, 0).widget()
+                            self.assertGreaterEqual(label.x(), name.geometry().right() + 1)
                     card = {0: dialog.ps_status, 1: dialog.warning_status}.get(step)
                     if card:
                         for label in (card.product, card.path):
@@ -397,6 +401,8 @@ class InitialSetupGuideTests(unittest.TestCase):
         with patch.object(dialog, "has_photoshop_copy", return_value=False):
             dialog.ase_test.setEnabled(True)
             dialog.start_probe()
+        self.assertIn(dialog.flow("f5_preparing"), dialog.key_results.text())
+        self.assertIsNone(dialog._probe_existing_jobs)
         name = dialog._probe_name
         self.assertTrue((Path(dialog._probe_dir.name) / name).is_file())
         self.addCleanup(dialog._probe_dir.cleanup)
@@ -404,7 +410,7 @@ class InitialSetupGuideTests(unittest.TestCase):
         previous = self.window.last_job_id
         with patch.dict(sys.modules, win32clipboard=clipboard):
             for suffix, probe, done in (("old", "ps2ase-setup-" + "0" * 32 + ".png", True),
-                                        ("partial", name, False), ("fresh", name, True)):
+                                        ("early", name, True), ("partial", name, False), ("fresh", name, True)):
                 job = Path(self.window.temp_dir) / ("job_" + suffix)
                 job.mkdir()
                 (job / "trigger_copy.json").write_text(json.dumps({
@@ -414,6 +420,9 @@ class InitialSetupGuideTests(unittest.TestCase):
                 if done:
                     (job / "status_done.json").write_text(json.dumps({
                         "status": "done", "job_id": job.name, "layer_count": 1}))
+                if suffix == "early":
+                    dialog.wait_for_probe()
+                    self.assertIn(dialog.flow("f5_wait"), dialog.key_results.text())
                 self.window.check_temp_folder()
                 self.assertEqual(dialog.f5_seen, suffix == "fresh")
         clipboard.OpenClipboard.assert_not_called()
@@ -441,6 +450,12 @@ class InitialSetupGuideTests(unittest.TestCase):
         with patch.object(dialog, "has_photoshop_copy", return_value=True):
             dialog.start_probe()
         self.addCleanup(dialog._probe_dir.cleanup)
+        with patch.object(dialog, "has_photoshop_copy", return_value=False):
+            self.app.clipboard().dataChanged.emit()
+            self.assertTrue(dialog.f4_record.isHidden())
+        with patch.object(dialog, "has_photoshop_copy", return_value=True):
+            self.app.clipboard().dataChanged.emit()
+            self.assertFalse(dialog.f4_record.isHidden())
         with patch.object(b.QMessageBox, "question", return_value=b.QMessageBox.No) as question:
             with patch.object(dialog, "has_photoshop_copy", return_value=False):
                 dialog.record_f4()
@@ -455,7 +470,7 @@ class InitialSetupGuideTests(unittest.TestCase):
         self.assertEqual(dialog.review_lines[6].text(), dialog.flow("review_states")[5])
         name = dialog._probe_name
         dialog.cancel_probe()
-        dialog.record_copy_probe(name)
+        dialog.record_copy_probe(name, "job_after_cancel")
         self.assertFalse(dialog.f4_seen)
         self.assertFalse(dialog.f5_seen)
         self.assertEqual(dialog.review_lines[6].text(), dialog.flow("review_states")[4])
@@ -469,13 +484,38 @@ class InitialSetupGuideTests(unittest.TestCase):
             dialog = self.guide()
             dialog.set_step(2)
             self.assertFalse(dialog.ase_test.isEnabled())
-            dialog.ase_edit.click()
-            self.assertEqual(dialog.ase_edit.text(), dialog.flow("refresh"))
+            self.assertFalse(dialog.ase_install.isEnabled())
+            self.assertFalse(dialog.ase_edit.isEnabled())
             inspect.return_value = (True, True)
             dialog.refresh_status()
             self.assertTrue(dialog.ase_test.isEnabled())
+            self.assertTrue(dialog.ase_install.isHidden())
             self.assertEqual(dialog.ase_edit.text(), dialog.flow("trust_ready"))
+            dialog.ase_edit.click()
+            self.assertIsNotNone(dialog._trust_dialog)
+            self.assertTrue(Path(dialog._trust_probe_path).is_file())
+            self.addCleanup(dialog._probe_dir.cleanup)
+            self.assertIsNone(dialog._probe_name)
+            self.assertIsNone(dialog._probe_existing_jobs)
+            dialog._trust_dialog.reject()
+            dialog.ase_test.click()
+            self.assertNotEqual(Path(dialog._trust_probe_path).name, dialog._probe_name)
             install.assert_not_called()
+
+
+    def test_summary_actions_reopen_the_relevant_step_and_keep_warning_optional(self):
+        cfg = self.fixture.root / "PSUserConfig.txt"
+        with patch.object(self.b, "photoshop_config_path", return_value=str(cfg)):
+            dialog = self.guide()
+        dialog.show()
+        self.assertFalse(dialog.cb_dont_show.isVisible())
+        dialog.set_step(3)
+        self.assertTrue(dialog.cb_dont_show.isVisible())
+        self.assertEqual(dialog.review_lines[2].text(), dialog.lang["guide_warning_keep"])
+        self.assertTrue(dialog.review_actions[2].isHidden())
+        dialog.review_actions[7].click()
+        self.assertEqual(dialog.pages.currentIndex(), 2)
+        self.assertFalse(dialog.cb_dont_show.isVisible())
 
 
 if __name__ == "__main__":
