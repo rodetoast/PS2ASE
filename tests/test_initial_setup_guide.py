@@ -475,7 +475,13 @@ class InitialSetupGuideTests(unittest.TestCase):
         dialog.record_copy_probe(old, "fresh")
         self.assertTrue(dialog.probe_folder.isHidden())
         self.assertTrue(dialog.probe_cancel.isHidden())
-        self.assertFalse(dialog.probe_finish.isHidden())
+        self.assertTrue(dialog.probe_finish.isHidden())
+        self.assertEqual(dialog.probe_intro.text(), dialog.flow("test_close_note"))
+        self.assertEqual(dialog.btn_next.text(), dialog.flow("finish_next"))
+        dialog.show()
+        self.app.processEvents()
+        card = dialog.probe_intro.parentWidget()
+        self.assertLessEqual(card.height(), card.heightForWidth(card.width()) + 4)
         dialog.finish_probe()
         self.assertIsNone(dialog._probe_name)
         self.assertTrue(dialog.f4_seen)
@@ -492,31 +498,82 @@ class InitialSetupGuideTests(unittest.TestCase):
         self.assertFalse(dialog.f5_seen)
 
     def test_direct_open_uses_only_the_generated_file_and_never_relaunches_existing_host(self):
+        exe = r"C:\Example\Aseprite\aseprite.exe"
+        self.window.settings["aseprite_exe"] = exe
         dialog = self.guide()
         dialog.set_step(2)
         dialog.ase_test.setEnabled(True)
         dialog.start_probe()
         self.addCleanup(dialog._probe_dir.cleanup)
         path = str(Path(dialog._probe_dir.name) / dialog._probe_name)
-        exe = r"C:\Example\Aseprite\aseprite.exe"
-        dialog.app.settings["aseprite_exe"] = exe
-        with patch.object(self.b.QProcess, "startDetached", return_value=(False, 0)) as launch:
+        with patch.object(self.b.QProcess, "startDetached", return_value=(False, 0)) as launch, \
+                patch.object(dialog, "open_probe_folder") as show_folder:
             for state in ("guide_ps_running", "guide_ps_runtime_unknown"):
                 with patch.object(self.b, "aseprite_runtime", return_value=(True, state)):
                     dialog.open_probe_document()
                     self.assertEqual(dialog.probe_open_note.text(), dialog.flow("use_running"))
+                    self.assertTrue(dialog.probe_open.isHidden())
+                    self.assertFalse(dialog.probe_folder.isHidden())
             launch.assert_not_called()
             with patch.object(self.b, "aseprite_runtime", return_value=(True, "guide_ps_closed")):
                 dialog.open_probe_document()
                 launch.assert_called_once_with(exe, [path], os.path.dirname(exe))
                 self.assertEqual(dialog.probe_open_note.text(), dialog.flow("open_failed"))
                 self.assertFalse(dialog.probe_folder.isHidden())
+                self.assertTrue(dialog.probe_open.isHidden())
+                show_folder.assert_called_once()
+                dialog.finish_probe()
+                dialog.ase_test.setEnabled(True)
+                dialog.start_probe()
                 launch.return_value = (True, 1)
                 dialog.open_probe_document()
                 self.assertEqual(dialog.probe_open_note.text(), dialog.flow("open_requested"))
                 dialog.open_probe_document()
                 self.assertEqual(launch.call_count, 2)
         self.assertIsNone(dialog._probe_existing_jobs)
+
+    def test_probe_runtime_refresh_only_updates_current_test(self):
+        exe = r"C:\Example\Aseprite\aseprite.exe"
+        self.window.settings["aseprite_exe"] = exe
+        dialog = self.guide()
+        dialog.set_step(2)
+        dialog.ase_test.setEnabled(True)
+        with patch.object(dialog, "request_probe_runtime"):
+            dialog.start_probe()
+        self.addCleanup(dialog._probe_dir.cleanup)
+        request = (dialog._probe_name, exe)
+        dialog._probe_runtime_request = request
+        dialog.apply_probe_runtime(("stale", exe), (True, "guide_ps_closed"))
+        self.assertTrue(dialog.probe_open.isHidden())
+        dialog.apply_probe_runtime(request, (True, "guide_ps_closed"))
+        self.assertFalse(dialog.probe_open.isHidden())
+        self.assertTrue(dialog.probe_folder.isHidden())
+        dialog._probe_runtime_request = request
+        dialog.apply_probe_runtime(request, (True, "guide_ps_running"))
+        self.assertTrue(dialog.probe_open.isHidden())
+        self.assertFalse(dialog.probe_folder.isHidden())
+
+    def test_probe_navigation_cleans_only_probe_and_preserves_session_results(self):
+        dialog = self.guide()
+        dialog.set_step(2)
+        dialog.ase_test.setEnabled(True)
+        dialog.start_probe()
+        work = Path(dialog._probe_dir.name)
+        jpeg = work / "unrelated.txt"
+        jpeg.touch()
+        generated = work / dialog._probe_name
+        self.assertEqual(dialog.btn_next.text(), dialog.flow("skip_test_next"))
+        dialog.f5_seen = True
+        dialog.update_summary()
+        dialog.next_step()
+        self.assertEqual(dialog.pages.currentIndex(), 3)
+        self.assertFalse(generated.exists())
+        self.assertTrue(jpeg.exists())
+        self.assertTrue(dialog.f5_seen)
+        dialog.reject()
+        self.assertTrue(self.guide().f5_seen)
+        self.window.settings["aseprite_exe"] = r"C:\Other\aseprite.exe"
+        self.assertFalse(self.guide().f5_seen)
 
     def test_ready_aseprite_does_not_reinstall_and_unknown_running_state_biases_to_read_only(self):
         b = self.b

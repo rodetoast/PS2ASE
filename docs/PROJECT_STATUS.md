@@ -26,6 +26,8 @@
 
 ### 제품 표시명 및 UI 후속 변경
 
+- 초기 설정 마무리: 경고 유지/끄기 설명을 실제 Photoshop 호출 방향에 맞췄습니다. 테스트 PNG 열기는 Aseprite 상태에 맞춰 제공하고, 완료 카드의 여백과 단계 이동 시 임시 파일 정리를 개선했습니다. 같은 세션의 확인 결과는 보존합니다. [변경 화면 및 실사용 체크리스트](ui-reviews/setup-practical-check/README.md). 물리 키와 Trust 실조작은 다음 수동 검증 범위입니다.
+
 - 초기 설정 가이드를 비모달로 구성하고, 스크롤 밖의 단계별 조작과 마무리 점검표를 추가했습니다. 경고 파일 설정과 적용 확인을 분리하며, Aseprite는 테스트 PNG의 새 복사 결과(F5 경로)와 F4 사용자 확인을 구분합니다. Windows Qt·Aseprite CLI 검증 내용 및 [네 단계 실제 화면](ui-reviews/setup-workflow/README.md). 물리 키 입력은 미검증이며, 운영 버전과 기존 후보 패키지는 그대로입니다.
 
 - 초기 설정 가이드가 Photoshop 제품명·내부 버전·빌드·경로·실행 상태와 경고 설정을 분리해 보여줍니다. Windows EXE 아이콘을 사용하고 설치, Trust 및 단축키 확인은 별개로 표시합니다. [Windows Qt 실제 구현 화면](ui-reviews/setup-cards/README.md). 기존 안전 조건과 운영·후보 패키지는 변경하지 않았습니다.
