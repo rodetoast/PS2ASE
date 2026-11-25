@@ -808,9 +808,12 @@ for _language, _guide in {
         "guide_ps_no_path": "지정되지 않음",
         "guide_ase_title": "Aseprite",
         "guide_warning_status": "스크립트 실행 경고",
-        "guide_warning_intro": "경고를 끄면 반복적인 JSX 실행 승인 조작을 줄일 수 있습니다.",
-        "guide_warning_caution": "변경 전 확인",
-        "guide_warning_optional": "선택한 버전의 모든 외부 JSX에 적용됩니다. 경고 유지를 권장합니다. 변경하려면 Photoshop을 모두 종료하고 대상을 확인한 뒤 동의하세요. 기존 파일은 백업되며, 변경 후 Photoshop을 다시 시작해야 합니다.",
+        "guide_warning_keep_title": "경고 유지 · 권장",
+        "guide_warning_keep_tradeoff": "외부 JSX 실행을 직접 확인합니다. Photoshop 쪽 복사·붙여넣기의 승인창이 반복 전송을 끊을 수 있습니다.",
+        "guide_warning_off_title": "경고 끄기",
+        "guide_warning_off_tradeoff": "반복 승인 없이 전송할 수 있습니다. 선택한 Photoshop 버전의 모든 외부 JSX에 적용됩니다.",
+        "guide_warning_caution": "변경 조건",
+        "guide_warning_optional": "Photoshop을 모두 종료하고 대상을 확인한 뒤 동의하세요. 기존 설정 백업 후 Photoshop을 다시 시작하세요.",
         "guide_warning_edit": "실행 경고 변경 검토…",
         "guide_warning_keep": "기본값 또는 경고 유지",
         "guide_warning_disabled": "설정 파일에서 경고 끔 확인 · 적용하려면 재시작 필요",
@@ -858,9 +861,12 @@ for _language, _guide in {
         "guide_ps_no_path": "Not set",
         "guide_ase_title": "Aseprite",
         "guide_warning_status": "Script warnings",
-        "guide_warning_intro": "Turning off warnings reduces repeated JSX approval prompts.",
-        "guide_warning_caution": "Before changing warnings",
-        "guide_warning_optional": "This affects all external JSX in the selected version. Keeping warnings is recommended. To change the setting, close Photoshop, review the target and confirm. Existing files are backed up. Restart Photoshop afterward.",
+        "guide_warning_keep_title": "Keep warnings · Recommended",
+        "guide_warning_keep_tradeoff": "Review external JSX before it runs. Copying or pasting in Photoshop can prompt for approval and interrupt repeated transfers.",
+        "guide_warning_off_title": "Turn warnings off",
+        "guide_warning_off_tradeoff": "Transfer without repeated script approval prompts. This applies to all external JSX in the selected Photoshop version.",
+        "guide_warning_caution": "Before changing",
+        "guide_warning_optional": "Close all Photoshop instances, review the target and impact, then confirm. The existing preferences file is backed up. Restart Photoshop to apply.",
         "guide_warning_edit": "Review script warning change…",
         "guide_warning_keep": "Default or warnings kept",
         "guide_warning_disabled": "Disabled in preferences · restart to apply",
@@ -908,9 +914,12 @@ for _language, _guide in {
         "guide_ps_no_path": "未指定",
         "guide_ase_title": "Aseprite",
         "guide_warning_status": "スクリプト実行警告",
-        "guide_warning_intro": "警告をオフにすると JSX 実行時の繰り返し承認を減らせます。",
-        "guide_warning_caution": "変更前の確認",
-        "guide_warning_optional": "選択したバージョンの全外部 JSX に適用されます。警告の維持を推奨します。変更する場合は Photoshop をすべて終了し、対象を確認して同意してください。既存ファイルはバックアップされます。変更後に Photoshop を再起動してください。",
+        "guide_warning_keep_title": "警告を維持 · 推奨",
+        "guide_warning_keep_tradeoff": "外部 JSX の実行を自分で確認できます。Photoshop 側でコピーや貼り付けをする際に承認が表示されると、連続転送が中断されることがあります。",
+        "guide_warning_off_title": "警告をオフ",
+        "guide_warning_off_tradeoff": "繰り返し承認せずに転送できます。選択した Photoshop バージョンのすべての外部 JSX に適用されます。",
+        "guide_warning_caution": "変更条件",
+        "guide_warning_optional": "Photoshop をすべて終了し、対象と影響を確認して同意してください。既存の設定ファイルはバックアップされます。適用には Photoshop の再起動が必要です。",
         "guide_warning_edit": "実行警告の変更を確認…",
         "guide_warning_keep": "既定値または警告を維持",
         "guide_warning_disabled": "設定ファイルで警告オフを確認 · 適用には再起動が必要",
@@ -953,7 +962,7 @@ GUIDE_FLOW = {
         "name": '초기 설정',
         "switch": '다른 버전으로 전환하려면 먼저 Photoshop을 종료하는 것을 권장합니다.',
         "refresh": '상태 다시 확인',
-        "stop": '작업을 저장하고 Photoshop을 모두 종료한 뒤 다시 확인하세요.',
+        "stop": '작업을 저장하고 Photoshop 종료 후 다시 확인하세요.',
         "disabled": '설정 파일에서 경고 끔 확인',
         "live": '실제 적용 여부 미확인',
         "restart": '이 세션에서 변경했습니다. 적용하려면 Photoshop을 다시 시작하세요.',
@@ -2241,8 +2250,9 @@ class AsepriteSetupDialog(QDialog):
 class GuidePhotoshopCard:
     def __init__(self, layout, lang, add_text, *, connection=False, warnings=False):
         self.lang = lang
-        heading = add_text(layout, lang["guide_ps_title"])
-        heading.setProperty("uiHeading", True)
+        if connection:
+            heading = add_text(layout, lang["guide_ps_title"])
+            heading.setProperty("uiHeading", True)
         panel = workspace_section(layout)
         header = QGridLayout()
         header.setHorizontalSpacing(8)
@@ -2286,10 +2296,10 @@ class GuidePhotoshopCard:
             note.setProperty("uiMuted", True)
         self.warning = None
         if warnings:
-            heading = add_text(panel, lang["guide_warning_status"])
-            heading.setProperty("uiHeading", True)
             self.warning = add_text(panel, "")
-            self.warning.setProperty("uiMuted", True)
+            self.warning.setProperty("uiHeading", True)
+            self.warning_live = add_text(panel, "")
+            self.warning_live.setProperty("uiMuted", True)
 
     def set_status(self, info, path, runtime, other_running, warning, icon):
         self.icon.setPixmap(icon)
@@ -2352,14 +2362,20 @@ class InitialSetupDialog(QDialog):
                 self.add_text(content, self.flow("switch")).setProperty("uiMuted", True)
             elif step == 1:
                 self.warning_status = GuidePhotoshopCard(content, self.lang, self.add_text, warnings=True)
-                self.warning_live = self.add_text(content, "")
-                self.warning_live.setProperty("uiMuted", True)
-                self.add_text(content, self.lang["guide_warning_intro"])
+                self.warning_live = self.warning_status.warning_live
+                choices = QVBoxLayout()
+                choices.setSpacing(2)
+                for choice in ("keep", "off"):
+                    heading = self.add_text(choices, self.lang[f"guide_warning_{choice}_title"])
+                    heading.setProperty("uiHeading", True)
+                    self.add_text(choices, self.lang[f"guide_warning_{choice}_tradeoff"])
+                content.addLayout(choices)
                 note = QWidget()
                 note.setObjectName("warningNote")
                 note.setAttribute(Qt.WA_StyledBackground)
                 note_layout = QVBoxLayout(note)
-                note_layout.setContentsMargins(8, 7, 8, 7)
+                note_layout.setContentsMargins(8, 5, 8, 5)
+                note_layout.setSpacing(2)
                 self.add_text(note_layout, self.lang["guide_warning_caution"]).setObjectName("warningHeading")
                 self.add_text(note_layout, self.lang["guide_warning_optional"])
                 content.addWidget(note)

@@ -10,7 +10,7 @@
 | F5만 관찰됐을 때 F4 안내와 종료 선택 | [일부 확인 · 100%](shortcut-partial.png) |
 | 두 결과 표시 및 테스트 마치기 | [완료 · 100%](shortcut-complete.png) |
 | 임시 자원 정리 후에도 유지된 결과 | [최종 점검표 · 100%](review-after-finish.png) |
-| 반복 승인 감소의 이점과 경고 유지 권장 | [실행 경고 · 200%](warning-compact-200.png) |
+| 경고 유지·끄기의 작업상 차이, 외부 JSX 범위 및 변경 조건 | [실행 경고 · 200%](warning-compact-200.png) |
 
 - 100% 논리 창 520×590, 200% 논리 창 335×440에서 대표 상태를 확인했습니다. 각 캡처의 가로·세로 스크롤 범위는 0이었습니다.
 - 직접 열기는 선택된 Aseprite가 종료된 것으로 확인된 경우에만 실행 파일에 생성한 PNG 하나를 인수로 전달합니다. 실행 중이거나 상태가 불명확하면 기존 창에서 파일을 열도록 안내합니다. 실행 요청이 실패해도 폴더 버튼을 사용할 수 있습니다. [Aseprite CLI 파일 인수](https://aseprite.org/docs/cli/) · [Qt 프로세스 실행 계약](https://doc.qt.io/qtforpython-6/PySide6/QtCore/QProcess.html#PySide6.QtCore.QProcess.startDetached)
