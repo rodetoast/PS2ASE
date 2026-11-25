@@ -49,17 +49,19 @@ class InitialSetupGuideTests(unittest.TestCase):
         settings = {"photoshop_exe": self.window.settings["photoshop_exe"], "aseprite_exe": "unused.exe"}
         order = []
         with patch.object(self.b, "SETTINGS_FILE", str(self.fixture.root / "missing.json")), \
-                patch.object(self.b, "load_settings", return_value=settings), \
-                patch.object(QInputDialog, "getItem", side_effect=lambda *a: (order.append("language") or ("English", True))), \
-                patch.object(self.b.BridgeApp, "show_initial_setup", lambda w: order.append("guide")), \
-                patch.object(self.b.BridgeApp, "show_tutorial") as tutorial:
+                patch.object(self.b, "load_settings", return_value=settings):
             window = self.b.BridgeApp(startup_progress=lambda *a: None)
             try:
                 self.assertFalse(window.clip_timer.isActive())
                 window._startup_ui_ready = True
-                window.show_startup_dialogs()
-                self.assertEqual(order, ["language", "guide"])
-                tutorial.assert_not_called()
+                # Construction connects bound Qt signals. Install spies afterward
+                # so the test exercises startup without changing those bindings.
+                with patch.object(QInputDialog, "getItem", side_effect=lambda *a: (order.append("language") or ("English", True))), \
+                        patch.object(window, "show_initial_setup", side_effect=lambda: order.append("guide")), \
+                        patch.object(window, "show_tutorial") as tutorial:
+                    window.show_startup_dialogs()
+                    self.assertEqual(order, ["language", "guide"])
+                    tutorial.assert_not_called()
                 self.assertTrue(window._startup_interaction_ready)
                 self.assertTrue(window.clip_timer.isActive())
             finally:
@@ -185,8 +187,8 @@ class InitialSetupGuideTests(unittest.TestCase):
         self.real_setup(self.window.ase_paste_lua_orig, self.window.ase_copy_lua_orig)
         self.window.settings["aseprite_trust_confirmed"] = False
         dialog = self.guide()
-        self.assertEqual(dialog.ase_status[0].text(), dialog.lang["guide_files_ok"])
-        self.assertEqual(dialog.ase_status[1].text(), dialog.lang["guide_keys_ok"])
+        self.assertEqual(dialog.ase_status[0].text(), dialog.flow("verified"))
+        self.assertEqual(dialog.ase_status[1].text(), dialog.flow("verified"))
         for index in (5, 6, 7):
             self.assertEqual(dialog.review_lines[index].text(), dialog.flow("review_states")[4])
         self.assertFalse(self.window.settings["aseprite_trust_confirmed"])
@@ -376,7 +378,7 @@ class InitialSetupGuideTests(unittest.TestCase):
                     if step == 3:
                         grid = dialog.review_lines[0].parentWidget().layout().itemAt(0).layout()
                         for row, label in enumerate(dialog.review_lines):
-                            name = grid.itemAtPosition(row, 0).widget()
+                            name = grid.itemAtPosition(row, 0).layout()
                             self.assertGreaterEqual(label.x(), name.geometry().right() + 1)
                     card = {0: dialog.ps_status, 1: dialog.warning_status}.get(step)
                     if card:
@@ -401,7 +403,7 @@ class InitialSetupGuideTests(unittest.TestCase):
         with patch.object(dialog, "has_photoshop_copy", return_value=False):
             dialog.ase_test.setEnabled(True)
             dialog.start_probe()
-        self.assertIn(dialog.flow("f5_preparing"), dialog.key_results.text())
+        self.assertEqual(dialog.key_status[0].text(), dialog.flow("preparing"))
         self.assertIsNone(dialog._probe_existing_jobs)
         name = dialog._probe_name
         self.assertTrue((Path(dialog._probe_dir.name) / name).is_file())
@@ -422,7 +424,7 @@ class InitialSetupGuideTests(unittest.TestCase):
                         "status": "done", "job_id": job.name, "layer_count": 1}))
                 if suffix == "early":
                     dialog.wait_for_probe()
-                    self.assertIn(dialog.flow("f5_wait"), dialog.key_results.text())
+                    self.assertEqual(dialog.key_status[0].text(), dialog.flow("waiting"))
                 self.window.check_temp_folder()
                 self.assertEqual(dialog.f5_seen, suffix == "fresh")
         clipboard.OpenClipboard.assert_not_called()
@@ -468,12 +470,53 @@ class InitialSetupGuideTests(unittest.TestCase):
         self.assertTrue(dialog.f4_seen)
         self.assertFalse(dialog.f5_seen)
         self.assertEqual(dialog.review_lines[6].text(), dialog.flow("review_states")[5])
-        name = dialog._probe_name
-        dialog.cancel_probe()
-        dialog.record_copy_probe(name, "job_after_cancel")
+        old = dialog._probe_name
+        dialog.wait_for_probe()
+        dialog.record_copy_probe(old, "fresh")
+        self.assertTrue(dialog.probe_folder.isHidden())
+        self.assertTrue(dialog.probe_cancel.isHidden())
+        self.assertFalse(dialog.probe_finish.isHidden())
+        dialog.finish_probe()
+        self.assertIsNone(dialog._probe_name)
+        self.assertTrue(dialog.f4_seen)
+        self.assertTrue(dialog.f5_seen)
+        self.assertEqual(dialog.review_lines[6].text(), dialog.flow("review_states")[5])
+        self.assertEqual(dialog.ase_test.text(), dialog.flow("retry_test"))
+        dialog.ase_test.setEnabled(True)
+        dialog.start_probe()
+        self.assertNotEqual(dialog._probe_name, old)
         self.assertFalse(dialog.f4_seen)
         self.assertFalse(dialog.f5_seen)
-        self.assertEqual(dialog.review_lines[6].text(), dialog.flow("review_states")[4])
+        dialog.wait_for_probe()
+        dialog.record_copy_probe(old, "late")
+        self.assertFalse(dialog.f5_seen)
+
+    def test_direct_open_uses_only_the_generated_file_and_never_relaunches_existing_host(self):
+        dialog = self.guide()
+        dialog.set_step(2)
+        dialog.ase_test.setEnabled(True)
+        dialog.start_probe()
+        self.addCleanup(dialog._probe_dir.cleanup)
+        path = str(Path(dialog._probe_dir.name) / dialog._probe_name)
+        exe = r"C:\Example\Aseprite\aseprite.exe"
+        dialog.app.settings["aseprite_exe"] = exe
+        with patch.object(self.b.QProcess, "startDetached", return_value=(False, 0)) as launch:
+            for state in ("guide_ps_running", "guide_ps_runtime_unknown"):
+                with patch.object(self.b, "aseprite_runtime", return_value=(True, state)):
+                    dialog.open_probe_document()
+                    self.assertEqual(dialog.probe_open_note.text(), dialog.flow("use_running"))
+            launch.assert_not_called()
+            with patch.object(self.b, "aseprite_runtime", return_value=(True, "guide_ps_closed")):
+                dialog.open_probe_document()
+                launch.assert_called_once_with(exe, [path], os.path.dirname(exe))
+                self.assertEqual(dialog.probe_open_note.text(), dialog.flow("open_failed"))
+                self.assertFalse(dialog.probe_folder.isHidden())
+                launch.return_value = (True, 1)
+                dialog.open_probe_document()
+                self.assertEqual(dialog.probe_open_note.text(), dialog.flow("open_requested"))
+                dialog.open_probe_document()
+                self.assertEqual(launch.call_count, 2)
+        self.assertIsNone(dialog._probe_existing_jobs)
 
     def test_ready_aseprite_does_not_reinstall_and_unknown_running_state_biases_to_read_only(self):
         b = self.b
@@ -511,7 +554,8 @@ class InitialSetupGuideTests(unittest.TestCase):
         self.assertFalse(dialog.cb_dont_show.isVisible())
         dialog.set_step(3)
         self.assertTrue(dialog.cb_dont_show.isVisible())
-        self.assertEqual(dialog.review_lines[2].text(), dialog.lang["guide_warning_keep"])
+        self.assertIn(dialog.flow("optional"), dialog.review_lines[2].text())
+        self.assertIn(dialog.lang["guide_warning_keep"], dialog.review_lines[2].text())
         self.assertTrue(dialog.review_actions[2].isHidden())
         dialog.review_actions[7].click()
         self.assertEqual(dialog.pages.currentIndex(), 2)

@@ -53,6 +53,7 @@ _PATHS = {
     'diag_copy': 'M8 8h12v13H8z M16 5V3H4v14h1',
     'diag_folder': 'M3 19V5h7l3 3h8v11z',
     'diag_clear': 'M5 6h14M9 6V3h6v3m2 0-1 15H8L7 6m3 4v7m4-7v7',
+    'check': 'M12 22a10 10 0 1 0 0-20 10 10 0 1 0 0 20 M7.5 12l3 3 6-6',
     'help': 'M12 22a10 10 0 1 0 0-20 10 10 0 1 0 0 20 M9 9a3 3 0 1 1 4 3c-1 .6-1 1-1 2m0 3v.2',
     'settings': 'M9 3h6l1 4 4 1v8l-4 1-1 4H9l-1-4-4-1V8l4-1z M12 15a3 3 0 1 0 0-6 3 3 0 1 0 0 6',
     'diagnostics': 'M8 5l7 7-7 7',
@@ -60,9 +61,9 @@ _PATHS = {
 }
 
 
-def tool_icon(name):
+def tool_icon(name, *, ink="#f5f3ff"):
     icon = QIcon()
-    for mode, color in ((QIcon.Normal, '#f5f3ff'), (QIcon.Disabled, '#9296ac')):
+    for mode, color in ((QIcon.Normal, ink), (QIcon.Disabled, '#9296ac')):
         svg = ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">'
                f'<path d="{_PATHS[name]}" fill="none" stroke="{color}" stroke-width="1.7" '
                'stroke-linecap="round" stroke-linejoin="round"/></svg>')
