@@ -1,7 +1,7 @@
 """Widget-scale Southpaw launcher graphics and option help (display only)."""
 
 from PySide6.QtCore import QEvent, QObject, QPoint, QRect, QSize, Qt, QTimer
-from PySide6.QtGui import QColor, QIcon, QPainter, QPen, QPixmap, QTransform
+from PySide6.QtGui import QColor, QFont, QIcon, QPainter, QPen, QPixmap, QTransform
 from PySide6.QtSvg import QSvgRenderer
 from PySide6.QtWidgets import (QApplication, QLabel, QPushButton, QSizePolicy, QStyle,
                                QStyleOptionButton, QStylePainter, QToolTip, QVBoxLayout, QWidget,
@@ -346,6 +346,64 @@ class PracticeDiagram(QWidget):
                         p.setPen(Qt.NoPen)
                         p.setBrush(accent if active else muted)
                         p.drawEllipse(QPoint(x + 13, y + 6), 2, 2)
+        elif self.mode in ("introduction", "psd_selection"):
+            if self.mode == "introduction":
+                edges = (4, 105, 190)
+                titles = ("Photoshop", *self.names)
+            else:
+                edges = (93,)
+                titles = (self.names[0],)
+            swatches = ["#b6a3ef", "#91bcff", "#89c9b6", "#e1ad81"]
+            for index, x in enumerate(edges):
+                w = 94 if self.mode == "psd_selection" else (88 if index == 0 else 83)
+                box(x, 4, w, 96, panel)
+                font = QFont(p.font())
+                font.setPixelSize(9)
+                p.setFont(font)
+                label(x + 2, 5, w - 4, 20, titles[index])
+                for row, color in enumerate(swatches):
+                    if index == 2:
+                        cell = QRect(x + 6 + row * 18, 49, 15, 22)
+                        label(cell.x(), 31, 15, 15, str(row + 1), muted)
+                    elif index == 1:
+                        cell = QRect(x + 31, 27 + row * 17, 21, 15)
+                        label(x + 7, cell.y(), 19, 14, str(row + 1), muted)
+                    else:
+                        cell = QRect(x + 7, 27 + row * 17, w - 14, 15)
+                        box(cell.x(), cell.y(), cell.width(), cell.height(), QColor("#382d57"), accent)
+                        p.drawPixmap(QRect(cell.x() + 4, cell.y() + 1, 13, 13),
+                                     self.character, QRect(row * 40, 0, 40, 40))
+                        label(cell.x() + 20, cell.y(), cell.width() - 23, 15, "0" + str(row + 1))
+                        continue
+                    box(cell.x(), cell.y(), cell.width(), cell.height(), QColor(color))
+                    p.drawPixmap(cell.adjusted(1, 1, -1, -1), self.character, QRect(row * 40, 0, 40, 40))
+            if self.mode == "psd_selection":
+                label(8, 30, 72, 17, "1.  01", muted)
+                label(198, 76, 75, 17, "2.  Shift + 04", accent)
+        elif self.mode == "paste_layers":
+            box(20, 8, 90, 90, panel)
+            label(22, 74, 86, 18, self.names[0])
+            canvas(41, 17, 48)
+            label(115, 30, 48, 32, "→", accent)
+            box(169, 8, 91, 90, panel)
+            for row, color in enumerate(("#b6a3ef", "#91bcff", "#89c9b6", "#e1ad81")):
+                y = 14 + row * 14
+                label(176, y, 28, 14, "0" + str(row + 1))
+                box(211, y, 30, 13, QColor(color))
+            label(172, 74, 86, 18, self.names[1])
+        elif self.mode == "introduce_reverse":
+            box(12, 4, 90, 96, panel)
+            box(173, 4, 95, 96, panel)
+            label(13, 8, 88, 15, self.names[0])
+            label(175, 8, 91, 15, self.names[1])
+            canvas(39, 26, 36, self.character)
+            for col in range(3):
+                box(24 + col * 22, 73, 18, 14, QColor("#7146bd") if col == 0 else panel)
+                label(24 + col * 22, 73, 18, 14, str(col + 1))
+            label(110, 31, 54, 18, "F5", accent)
+            label(110, 53, 54, 18, "→", accent)
+            canvas(196, 27, 48, self.character)
+            box(181, 81, 78, 10, QColor("#382d57"), accent)
         elif self.mode == "layers":
             canvas(20, 18, 66, self.character)
             box(108, 11, 152, 86, panel)

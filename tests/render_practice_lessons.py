@@ -29,7 +29,15 @@ def render(output, *, recovery=False):
             guide = case.guide("ko")
             guide.resize(380, 520)
             guide.show()
-            for step, name in ((guide.WELCOME, "welcome"), (guide.WARNING, "warning")):
+            case.window.current_lang = "ko"
+            case.window.refresh_ui_language()
+            intro = b.FirstRunIntroduction(case.window)
+            intro.resize(465, 655)
+            intro.show()
+            app.processEvents()
+            assert intro.grab().save(str(output / "introduction.png"))
+            intro.close()
+            for step, name in ((guide.CONNECTION, "connection"), (guide.WARNING, "warning")):
                 guide.set_step(step)
                 app.processEvents()
                 assert guide.grab().save(str(output / f"{name}.png"))
@@ -49,7 +57,16 @@ def render(output, *, recovery=False):
             guide.start_paste_practice()
             app.processEvents()
             assert guide._practice_source
+            assert guide.grab().save(str(output / "f4-open.png"))
+            guide._practice_opened = True
+            guide.refresh_probe()
+            app.processEvents()
             assert guide.grab().save(str(output / "f4-practice.png"))
+            help_dialog = b.AsepriteSetupDialog(b.LANG["ko"], guide)
+            help_dialog.show()
+            app.processEvents()
+            assert help_dialog.grab().save(str(output / "script-menu-help.png"))
+            help_dialog.close()
             guide.reject()
             tutorial = b.TutorialDialog(b.LANG["ko"])
             tutorial.resize(380, 520)
@@ -72,10 +89,12 @@ def render(output, *, recovery=False):
                 window.update_clipboard_mode_label()
                 window.update_status(window.t["clip_ready"].format(src="PS", dst="Ase", count=1), "#dbeafe", "#1e40af")
                 window.show()
-                for size, name in (((460, 690), "preview-default"), ((680, 840), "preview-expanded")):
+                for size, name in (((460, 690), "preview-previous"), ((460, 754), "preview-default"),
+                                   ((680, 840), "preview-expanded")):
                     window.resize(*size)
                     app.processEvents()
-                    print(name, window.preview_label.source.size(), window.preview_label.pixmap().deviceIndependentSize())
+                    print(name, window.preview_label.height(), window.preview_label.devicePixelRatioF(),
+                          window.preview_label.pixmap().deviceIndependentSize())
                     assert window.grab().save(str(output / f"{name}.png"))
     finally:
         case.doCleanups()

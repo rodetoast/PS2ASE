@@ -14,23 +14,40 @@ var DIAGNOSTICS_PATH = "REPLACE_ME_DIAGNOSTICS_PATH";
 var ATTEMPT_TOKEN = "REPLACE_ME_ATTEMPT_TOKEN";
 var DEBUG_ENABLED = "REPLACE_ME_DEBUG_ENABLED" === true;
 var PRACTICE_SOURCE = "REPLACE_ME_PRACTICE_SOURCE";
+var PRACTICE_OPEN = "REPLACE_ME_PRACTICE_OPEN" === true;
 
 #target photoshop
 
 function main() {
     traceCopy("PHOTOSHOP_COPY_STARTED", {version: app.version, frame_mode: FRAME_MODE,
-        active_document: diagnosticDocument()});
+        document_count: app.documents.length, active_document: diagnosticDocument()});
+    var practiceMode = PRACTICE_SOURCE && PRACTICE_SOURCE.indexOf("REPLACE_ME_") !== 0;
+    if (PRACTICE_OPEN && practiceMode) {
+        try {
+            var fixture = new File(PRACTICE_SOURCE);
+            if (!fixture.exists) throw new Error("Missing practice file.");
+            var doc = null;
+            for (var i = 0; i < app.documents.length && !doc; i++) {
+                if (isPracticeDocument(app.documents[i], fixture)) doc = app.documents[i];
+            }
+            if (!doc) doc = app.open(fixture);
+            if (!isPracticeDocument(doc, fixture)) throw new Error("Unexpected practice document.");
+            app.activeDocument = doc;
+            saveJSON(JOB_PATH + "/status_done.json", {status: "success", practice_open: true});
+        } catch (openError) {
+            writeStatusError("PS2ASE_PRACTICE_OPEN_FAILED", openError);
+        }
+        return;
+    }
     if (app.documents.length === 0) {
-        writeStatusError("복사할 활성 문서가 없습니다. 문서를 열고 실행해주세요.");
+        writeStatusError("PS2ASE_NO_ACTIVE_DOCUMENT");
         return;
     }
     var originalDoc = app.activeDocument;
-    var practiceMode = PRACTICE_SOURCE && PRACTICE_SOURCE.indexOf("REPLACE_ME_") !== 0;
     if (practiceMode) {
         try {
             var practice = new File(PRACTICE_SOURCE);
-            var actual = originalDoc.fullName;
-            if (!practice.exists || practice.fsName.toLowerCase() !== actual.fsName.toLowerCase()) {
+            if (!practice.exists || !isPracticeDocument(originalDoc, practice)) {
                 throw new Error("Not the practice document.");
             }
         } catch (ignoredPractice) {
@@ -64,6 +81,14 @@ function main() {
             catch (restoreUnitsError) { traceCopy("PRACTICE_UNITS_RESTORE_FAILED", {error: diagnosticError(restoreUnitsError)}); }
         }
     }
+}
+
+function isPracticeDocument(doc, file) {
+    function pathKey(path) {
+        return path.split(String.fromCharCode(92)).join("/").toLowerCase();
+    }
+    try { return pathKey(doc.fullName.fsName) === pathKey(file.fsName); }
+    catch (unsaved) { return false; }
 }
 
 function runNormalCopy(originalDoc, jobFolder, layersFolder) {

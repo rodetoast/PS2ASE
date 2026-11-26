@@ -4,6 +4,7 @@ import importlib.util
 import json
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -112,6 +113,43 @@ class CompatibilityTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 self.ns["resolve_photoshop_target"]("missing.exe", [], [self.target])
 
+    def test_open_and_copy_document_boundary_in_actual_jsx(self):
+        node = os.environ.get("NODE_BINARY") or shutil.which("node")
+        if not node:
+            self.skipTest("Node.js unavailable")
+        jsx = (ROOT / "scripts/photoshop_copy.jsx").read_text(encoding="utf-8")
+        body = jsx[jsx.index("function main()"):jsx.index("function runNormalCopy(")]
+        harness = """
+const assert = require('node:assert/strict');
+let app = {version:'28.0.0', documents:[]};
+let PRACTICE_SOURCE = '', PRACTICE_OPEN = false, JOB_PATH = 'scratch', FRAME_MODE = 'normal';
+let marker, error;
+function traceCopy() {}
+function diagnosticDocument() {}
+function writeStatusError(message) { error = message; }
+function saveJSON(path, value) { marker = value; }
+function File(path) { this.fsName = path; this.exists = true; }
+app.open = function(file) {
+  const doc = {fullName: file};
+  this.documents.push(doc);
+  return doc;
+};
+main();
+assert.equal(error, 'PS2ASE_NO_ACTIVE_DOCUMENT');
+PRACTICE_SOURCE = 'C:/scratch/practice.psd';
+PRACTICE_OPEN = true;
+main();
+assert.equal(marker.practice_open, true);
+assert.equal(app.activeDocument.fullName.fsName, PRACTICE_SOURCE);
+main();
+assert.equal(app.documents.length, 1);
+PRACTICE_OPEN = false;
+app.activeDocument = {fullName:new File('C:/work/practice.psd')};
+main();
+assert.equal(error, 'PS2ASE_PRACTICE_SOURCE_MISMATCH');
+"""
+        subprocess.run([node, "-"], input=body + harness, text=True, encoding="utf-8", check=True)
+
     def test_version_is_read_from_executable_not_folder_name(self):
         Path(self.target["path"]).touch()
         response = {"ProductName": "Adobe Photoshop", "FileVersion": "27.11", "FileMajorPart": 27}
@@ -214,6 +252,7 @@ class CompatibilityTests(unittest.TestCase):
                         expected = expected.replace('"REPLACE_ME_FRAME_MODE"', json.dumps(mode))
                         expected = expected.replace('"REPLACE_ME_DEBUG_ENABLED"', "false")
                         expected = expected.replace('"REPLACE_ME_PRACTICE_SOURCE"', '""')
+                        expected = expected.replace('"REPLACE_ME_PRACTICE_OPEN"', "false")
                         token = generated.stem[len("ps_body_"):]
                         expected = expected.replace('"REPLACE_ME_DIAGNOSTICS_PATH"', json.dumps(str(job / ("ps_events_" + token + ".jsonl"))))
                         expected = expected.replace('"REPLACE_ME_ATTEMPT_TOKEN"', json.dumps(token))

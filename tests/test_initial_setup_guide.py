@@ -44,7 +44,7 @@ class InitialSetupGuideTests(unittest.TestCase):
             window.close()
             self.fixture.shiboken.delete(window)
 
-    def test_new_user_order_is_language_then_guide_without_automatic_tutorial(self):
+    def test_new_user_order_is_language_then_intro_without_automatic_guide_or_tutorial(self):
         from PySide6.QtWidgets import QInputDialog
         settings = {"photoshop_exe": self.window.settings["photoshop_exe"], "aseprite_exe": "unused.exe"}
         order = []
@@ -57,10 +57,12 @@ class InitialSetupGuideTests(unittest.TestCase):
                 # Construction connects bound Qt signals. Install spies afterward
                 # so the test exercises startup without changing those bindings.
                 with patch.object(QInputDialog, "getItem", side_effect=lambda *a: (order.append("language") or ("English", True))), \
-                        patch.object(window, "show_initial_setup", side_effect=lambda: order.append("guide")), \
+                        patch.object(window, "show_first_run_introduction", side_effect=lambda: order.append("intro")), \
+                        patch.object(window, "show_initial_setup") as guide, \
                         patch.object(window, "show_tutorial") as tutorial:
                     window.show_startup_dialogs()
-                    self.assertEqual(order, ["language", "guide"])
+                    self.assertEqual(order, ["language", "intro"])
+                    guide.assert_not_called()
                     tutorial.assert_not_called()
                 self.assertTrue(window._startup_interaction_ready)
                 self.assertTrue(window.clip_timer.isActive())
@@ -87,6 +89,30 @@ class InitialSetupGuideTests(unittest.TestCase):
         reopened.cb_dont_show.setChecked(False)
         reopened.reject()
         self.assertTrue(self.window.settings["show_initial_setup"])
+
+    def test_first_run_intro_skip_preserves_setup_flags_and_does_not_restart_guide(self):
+        self.window.settings["show_initial_setup"] = True
+        with patch.object(self.window, "show_initial_setup") as open_guide:
+            self.window.show_first_run_introduction()
+            dialog = self.window.findChild(self.b.FirstRunIntroduction)
+            self.assertIsNotNone(dialog)
+            dialog.reject()
+            open_guide.assert_not_called()
+        self.assertTrue(self.window.settings["first_run_intro_seen"])
+        self.assertTrue(self.window.settings["show_initial_setup"])
+        self.assertNotIn("initial_setup_seen", self.window.settings)
+
+    def test_f5_recovery_is_user_requested_without_elapsed_timer(self):
+        dialog = self.guide()
+        dialog.set_step(dialog.ASEPRITE)
+        dialog.ase_test.setEnabled(True)
+        dialog.start_probe()
+        self.addCleanup(dialog._probe_dir.cleanup)
+        with patch.object(self.b.time, "monotonic", return_value=1e10):
+            dialog.poll_practice()
+        self.assertTrue(dialog.probe_retry_file.isHidden())
+        dialog.toggle_practice_help()
+        self.assertFalse(dialog.probe_retry_file.isHidden())
 
     def test_settings_save_preserves_setup_flags_migrations_and_unknown_keys(self):
         expected = dict(self.window.settings, initial_setup_seen=True, show_initial_setup=False,
@@ -126,7 +152,7 @@ class InitialSetupGuideTests(unittest.TestCase):
                 dialog.set_step(dialog.CONNECTION)
                 dialog.show()
                 self.assertEqual(dialog.lang["guide_ps_running"], dialog.ps_status.runtime.text())
-                self.assertEqual(dialog.btn_next.text(), dialog.lang["guide_next"])
+                self.assertEqual(dialog.btn_next.text(), dialog.lang["connection_continue"])
                 with patch.object(self.b, "SettingsDialog") as settings, \
                         patch.object(self.b, "configure_photoshop_warning") as warning, \
                         patch.object(self.b, "photoshop_config_path", return_value=str(self.fixture.root / "PSUserConfig.txt")):
@@ -276,9 +302,9 @@ class InitialSetupGuideTests(unittest.TestCase):
             self.assertNotIn("Give full trust", text)
             self.assertNotIn("WarnRunningScripts", text)
             dialog = self.guide(language)
-            for step in range(5):
+            for step in range(4):
                 dialog.set_step(step)
-                self.assertTrue(dialog.step_title.text().endswith(f"{step + 1}/5"))
+                self.assertTrue(dialog.step_title.text().endswith(f"{step + 1}/4"))
                 self.assertEqual(dialog.btn_back.isEnabled(), step > 0)
 
     def test_warning_defaults_to_no_then_explicit_consent_preserves_and_backs_up(self):
@@ -373,17 +399,16 @@ class InitialSetupGuideTests(unittest.TestCase):
             dialog = self.guide(language)
             dialog.resize(330, 330)
             dialog.show()
-            for step in range(5):
+            for step in range(4):
                 with self.subTest(language=language, step=step):
                     dialog.set_step(step)
                     self.app.processEvents()
                     self.assertEqual(dialog.pages.currentWidget().horizontalScrollBar().maximum(), 0)
                     self.assertTrue(dialog.btn_next.isVisible())
                     self.assertLess(dialog.btn_next.geometry().bottom(), dialog.height())
-                    action = (dialog.step_title, dialog.ps_edit, dialog.warning_buttons[1], dialog.ase_test, dialog.btn_tutorial)[step]
+                    action = (dialog.ps_edit, dialog.warning_buttons[1], dialog.ase_test, dialog.btn_tutorial)[step]
                     self.assertTrue(dialog.isAncestorOf(action))
-                    if step != dialog.WELCOME:
-                        self.assertTrue(dialog.pages.isAncestorOf(action))
+                    self.assertTrue(dialog.pages.isAncestorOf(action))
                     self.assertTrue(action.isVisible())
                     if step == dialog.REVIEW:
                         grid = dialog.review_lines[0].parentWidget().layout().itemAt(0).layout()
@@ -497,9 +522,24 @@ class InitialSetupGuideTests(unittest.TestCase):
         self.assertNotEqual(dialog._practice_source, dialog._practice_target)
         with self.b.Image.open(dialog._practice_target) as sprite:
             self.assertIsNone(sprite.getbbox())
+            self.assertEqual(sprite.size, (300, 300))
         self.assertTrue(dialog.f4_record.isHidden())
         dialog.copy_practice()
+        self.assertFalse(self.fixture.launches)
+        dialog.open_photoshop_practice()
         self.fixture.spin(lambda: not hasattr(self.window, "ps_worker"))
+        open_job, _ = self.fixture.launches[-1]
+        self.assertFalse((open_job / "ps_copy_accepted.txt").exists())
+        self.assertTrue(dialog._practice_opened)
+        original = self.fixture.launch
+        def copy_launch(*args, **kwargs):
+            result = original(*args, **kwargs)
+            job, _ = self.fixture.launches[-1]
+            (job / "status_done.json").write_text('{"layer_count":4}', encoding="utf-8")
+            return result
+        with patch.object(self.b.subprocess, "Popen", side_effect=copy_launch):
+            dialog.copy_practice()
+            self.fixture.spin(lambda: not hasattr(self.window, "ps_worker"))
         path, token, ready = dialog._practice_job
         self.assertTrue(ready)
         self.assertFalse(Path(path).is_relative_to(self.window.temp_dir))
@@ -507,6 +547,9 @@ class InitialSetupGuideTests(unittest.TestCase):
         payload = json.loads(marker.read_text(encoding="utf-8"))
         self.assertEqual(payload["guide_target"], dialog._practice_target)
         self.assertEqual(payload["guide_nonce"], token)
+        self.assertEqual(payload["guide_layer_count"], 4)
+        dialog.toggle_practice_help()
+        self.assertFalse(dialog.f4_record.isHidden())
         response = Path(path) / "aseprite_paste_done.txt"
         response.write_text("stale")
         dialog.check_practice_paste()

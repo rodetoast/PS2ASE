@@ -131,7 +131,7 @@ class StartupTests(unittest.TestCase):
                 patch.object(self.b, "load_settings", return_value={k: v for k, v in self.fixture.window.settings.items()
                                                                     if k != "show_initial_setup"}), \
                 patch.object(QInputDialog, "getItem", side_effect=picker), \
-                patch.object(self.b.BridgeApp, "show_initial_setup") as guide:
+                patch.object(self.b.BridgeApp, "show_first_run_introduction") as guide:
             window = self.b.BridgeApp(startup_progress=lambda stage, language=None: phases.append(stage))
             self.assertTrue(window._needs_language_selection)
             window._startup_ui_ready = True
@@ -271,7 +271,7 @@ class StartupTests(unittest.TestCase):
         w.settings["aseprite_trust_confirmed"] = False
         w.settings["show_initial_setup"] = True
         with patch.object(QInputDialog, "getItem", return_value=("日本語", False)), \
-                patch.object(w, "show_initial_setup") as setup, \
+                patch.object(w, "show_first_run_introduction") as setup, \
                 patch.object(w, "show_tutorial") as tutorial:
             w.show_startup_dialogs()
             w.show_startup_dialogs()

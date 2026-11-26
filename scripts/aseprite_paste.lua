@@ -63,13 +63,16 @@ local basename = filename:match("[^/]+$") or ""
 local exercise = filename:match("/ps2ase%-paste%-(%x+)/paste practice%.png$")
 local guideTarget = (exercise and #exercise == 32) or basename:match("^ps2ase%-paste%-%x+%.png$") ~= nil
 local payload
+local guideCount
 if guideTarget then
     payload = decodeJson(readText(spr.filename .. ".ps2ase.json"))
+    guideCount = payload and (payload.guide_layer_count or 1)
+    local guideSize = guideCount == 1 and 32 or guideCount == 4 and 300
     if not payload or type(payload.guide_target) ~= "string" or normalizePath(payload.guide_target) ~= filename
         or payload.source_app ~= "photoshop" or type(payload.guide_nonce) ~= "string"
         or not payload.guide_nonce:match("^%x+$") or #payload.guide_nonce ~= 32
         or type(payload.guide_expires) ~= "number" or payload.guide_expires < os.time()
-        or spr.width ~= 32 or spr.height ~= 32 then
+        or not guideSize or spr.width ~= guideSize or spr.height ~= guideSize then
         return showMessage(4)
     end
 else
@@ -116,7 +119,7 @@ local valid = pcall(function()
     end
 end)
 if not valid or count == 0 then return showMessage(3) end
-if guideTarget and (count ~= 1 or (metadata.frame_mode or "normal") ~= "normal") then return showMessage(4) end
+if guideTarget and (count ~= guideCount or (metadata.frame_mode or "normal") ~= "normal") then return showMessage(4) end
 
 local function recordGuidePaste()
     if not guideTarget then return end
@@ -636,7 +639,7 @@ end) then return end
 
 app.refresh()
 
-if importedCount > 0 then
+if importedCount > 0 and (not guideTarget or importedCount == guideCount) then
     recordGuidePaste()
 else
     showMessage(3)

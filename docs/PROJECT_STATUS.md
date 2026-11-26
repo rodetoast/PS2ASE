@@ -110,3 +110,10 @@
 - **허브 동기화 완료**: 보호된 로컬 인계 패치와 최신 허브 main을 대조하고 [중앙 요약·프로젝트 목록 반영](https://github.com/rodetoast/southpaw-development-hub/commit/7b5c7fc8b51954c22ce4f6c10ad94826fcb3f224)을 원격에서 확인했습니다. 운영 후보 게시 여부는 이 동기화와 별개입니다.
 
 [README.md](https://github.com/rodetoast/PS2ASE/blob/fee0a4e07e2131f256a1d0dda08473c85f59015d/README.md) · [bridge_ui.spec](https://github.com/rodetoast/PS2ASE/blob/fee0a4e07e2131f256a1d0dda08473c85f59015d/bridge_ui.spec) · [RELEASE_v0.3.7.md](https://github.com/rodetoast/PS2ASE/blob/fee0a4e07e2131f256a1d0dda08473c85f59015d/RELEASE_v0.3.7.md) · [개발 허브 요약](https://github.com/rodetoast/southpaw-development-hub/blob/main/projects/ps2ase.md)
+
+## 2026-11-26 첫 실행 소개와 Photoshop 다중 레이어 실습
+
+- 최초 소개를 연결 가이드와 분리하고, 읽기 전용 설치·스크립트·등록 상태와 작업/설정 선택을 추가했습니다. 기존 설정 숨기기, Trust 및 업데이트 안내를 유지합니다.
+- 기본 미리보기는 동일한 Windows Qt 175% 조건에서 122 → 186 논리 픽셀로 확대했습니다. F5/F4의 시간 경과 기반 복구 노출을 제거하고 도움말 요청과 실제 오류를 구분했습니다. 격리 Aseprite의 실제 스크립트 메뉴를 보여 줍니다.
+- 번들 PSD를 세션별로 복사하며 사용자의 다운로드 폴더에 의존하지 않습니다. 검증된 Photoshop CLI 열기 완료 후에만 연습 복사를 시작하고 정확한 탭을 다시 검사합니다. Photoshop 2027의 PNG/PSD 일반·연습 Normal 복사, 다른 탭 거부, Aseprite 1.3.18.6 배치의 네 cel과 가시 픽셀·알파·좌표를 확인했습니다.
+- [검토 캡처·실제 호스트 검증 및 한계](ui-reviews/onboarding-guidance-followup/README.md). 자동 테스트 147개 통과. 최초 Trust, 실호스트 콜드 스타트와 물리 키 재시험은 미검증입니다. 운영 0.3.6 및 기존 0.3.7-rc1을 유지하고 새 빌드·ZIP·배포는 하지 않았습니다.

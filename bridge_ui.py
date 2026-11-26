@@ -1229,7 +1229,33 @@ for _key, _ko, _en, _ja in (
      "1. Open the practice PNG in Aseprite.\n2. Select its painted cel in the timeline.\n3. When ready, press F5 in Aseprite. A first-run script prompt may appear.",
      "1. Aseprite で練習用 PNG を開きます。\n2. タイムラインの絵があるセルを選びます。\n3. 準備ができたら F5 を押します。初回は許可画面が表示されることがあります。"),
     ("f4_next", "F4 붙여넣기 연습으로", "Continue to F4 practice", "F4 の練習へ"),
-    ("f4_open_ps", "Photoshop 연습 PNG 폴더 열기", "Open Photoshop practice folder", "Photoshop 練習用フォルダーを開く"),
+    ("f4_open_ps", "Photoshop에서 연습 문서 열기", "Open the practice document in Photoshop", "Photoshop で練習ドキュメントを開く"),
+    ("practice_open_failed", "연습 문서를 열지 못했습니다. Photoshop에 실행 확인창이 있는지 확인하고 다시 열어 주세요.", "Could not open the practice document. Check for a Photoshop approval prompt, then try opening it again.", "練習ドキュメントを開けませんでした。Photoshop の実行確認を確認して開き直してください。"),
+    ("practice_source_changed", "이 실습에서 연 Photoshop 탭을 선택하거나 연습 문서를 다시 열어 주세요. 현재 문서는 복사하지 않았습니다.", "Select the Photoshop tab opened for this exercise, or reopen the practice document. The current document was not copied.", "この練習で開いた Photoshop のタブを選ぶか、練習ドキュメントを開き直してください。現在の文書はコピーしていません。"),
+    ("ps_open_document", "Photoshop에서 복사할 문서를 열고 레이어를 선택한 뒤 다시 복사해 주세요.", "Open a document in Photoshop, select your layers, then copy again.", "Photoshop で文書を開いてレイヤーを選び、コピーし直してください。"),
+    ("practice_opening", "Photoshop에서 연습 문서를 여는 중…", "Opening the practice document in Photoshop…", "Photoshop で練習ドキュメントを開いています…"),
+    ("practice_open_first", "Photoshop에서 이 실습 전용 문서를 먼저 열어 주세요.", "Open this exercise’s document in Photoshop first.", "最初に Photoshop でこの練習用のドキュメントを開いてください。"),
+    ("practice_select_psd", "Photoshop 레이어 패널에서 01을 클릭한 뒤 Shift를 누른 채 04를 클릭하세요. 01~04가 모두 선택되면 여기서 복사하세요.", "In Photoshop’s Layers panel, click 01, then Shift-click 04. Once all four layers are selected, copy from here.", "Photoshop のレイヤーパネルで 01 をクリックし、Shift を押しながら 04 をクリックします。4 枚すべてを選んだらここでコピーします。"),
+    ("practice_count_required", "연습 레이어 {count}개를 모두 선택한 뒤 다시 복사해 주세요.", "Select all {count} practice layers and copy again.", "練習レイヤー {count} 枚をすべて選んでコピーし直してください。"),
+    ("practice_copied_count", "레이어 {count}개 복사됨", "Layers copied: {count}", "コピーしたレイヤー: {count} 枚"),
+    ("practice_pasted_count", "레이어 {count}개 붙여넣기 확인됨", "Layers pasted: {count}", "貼り付けを確認: {count} 枚"),
+    ("practice_help", "결과가 오지 않나요?", "No result yet?", "結果が届かない場合"),
+    ("practice_f5_failure", "복사가 완료되지 않았습니다. Aseprite의 오류 안내를 확인하고, 1번 또는 3번 프레임의 그림이 있는 셀에서 다시 시도해 주세요.", "Copy did not complete. Check the Aseprite message and try a painted cel in frame 1 or 3.", "コピーが完了しませんでした。Aseprite の案内を確認し、フレーム 1 または 3 の絵があるセルで再試行してください。"),
+    ("connection_welcome", "먼저 사용할 Photoshop을 확인해 볼게요. 아래 버전과 경로가 맞는지 확인해 주세요.", "First, check the Photoshop version and path you want to use.", "最初に、使用する Photoshop のバージョンとパスを確認してください。"),
+    ("connection_continue", "이 버전으로 계속", "Use this version", "このバージョンで続ける"),
+    ("intro_setup", "초기 설정 시작", "Start setup", "初期設定を始める"),
+    ("intro_work", "바로 작업하기", "Go to workspace", "作業画面へ"),
+    ("intro_photoshop_ready", "Photoshop 설치 확인: {name}", "Photoshop installation found: {name}", "Photoshop のインストールを確認: {name}"),
+    ("intro_scripts_ready", "Aseprite 스크립트 최신 상태 · 실제 실행은 아직 확인하지 않음", "Aseprite scripts are current; execution is not yet verified", "Aseprite スクリプトは最新版です。実行は未確認です"),
+    ("intro_keys_registered", "F4/F5 등록 확인 · 실제 키 동작은 아직 확인하지 않음", "F4/F5 are registered; key operation is not yet verified", "F4/F5 の登録を確認しました。実際のキー動作は未確認です"),
+    ("intro_keys_missing", "F4/F5 등록을 가이드에서 확인할 수 있습니다.", "Check F4/F5 registration in the setup guide.", "初期設定ガイドで F4/F5 の登録を確認できます"),
+    ("intro_normal", "기본 · 레이어 유지", "Normal · Keep layers", "基本 · レイヤーを保持"),
+    ("intro_frames", "레이어 → 프레임", "Layer → Frames", "レイヤー → フレーム"),
+    ("intro_edit_alignment", "복사 레이어를 반전·회전하거나, 붙여넣을 위치를 정렬 기준으로 정합니다.", "Flip or rotate copied layers, and choose how to align them when pasting.", "コピーしたレイヤーを反転・回転し、貼り付け時の整列基準を選べます。"),
+    ("intro_original", "원본", "Original", "元の画像"),
+    ("intro_forward", "Photoshop → Aseprite", "Photoshop → Aseprite", "Photoshop → Aseprite"),
+    ("intro_reverse", "Aseprite → Photoshop", "Aseprite → Photoshop", "Aseprite → Photoshop"),
+    ("practice_menu_capture", "Aseprite 1.3.18.6 실제 메뉴 · 보라색 테두리: File, Scripts, 복사·붙여넣기 스크립트", "Aseprite 1.3.18.6 menu · outlines show File, Scripts, and the copy/paste scripts", "Aseprite 1.3.18.6 の実際のメニュー · 紫枠は File、Scripts、コピー・貼り付けスクリプト"),
     ("f4_open_ase", "빈 Aseprite 연습 PNG 폴더 열기", "Open blank Aseprite practice folder", "Aseprite の空の練習用フォルダーを開く"),
     ("f4_copy_practice", "Photoshop에서 연습 그림 복사", "Copy the Photoshop practice image", "Photoshop の練習画像をコピー"),
     ("f4_lesson", "Photoshop에서 연습 PNG를 열어 픽셀 레이어를 선택한 다음 이 화면에서 복사하세요. 업무 문서는 복사하지 않습니다.",
@@ -1749,7 +1775,7 @@ class PhotoshopCLIWorker(QThread):
     diagnostic = Signal(object)
 
     def __init__(self, jsx_template_path, ps_exe_path, job_id, temp_dir, align_mode, frame_mode="normal",
-                 language="ko", debug=False, practice_source=None):
+                 language="ko", debug=False, practice_source=None, practice_open=False):
         super().__init__()
         self.jsx_template_path = jsx_template_path
         self.ps_exe_path = ps_exe_path
@@ -1759,6 +1785,7 @@ class PhotoshopCLIWorker(QThread):
         self.frame_mode = frame_mode
         self.debug = bool(debug)
         self.practice_source = practice_source
+        self.practice_open = practice_open
         self.messages = LANG.get(language, LANG["ko"])
         self.job_path = os.path.join(self.temp_dir, self.job_id)
         self.outcome = None
@@ -1827,7 +1854,9 @@ class PhotoshopCLIWorker(QThread):
             target = resolve_photoshop_target(
                 self.ps_exe_path, running, installed_photoshops() if not self.ps_exe_path else [])
             self.ps_exe_path = target["path"]
-            self.trace("TARGET_VALIDATED", version=target["version"], executable=target["path"])
+            self.trace("TARGET_VALIDATED", version=target["version"], executable=target["path"],
+                       was_running=any(os.path.normcase(p["Path"]) == os.path.normcase(self.ps_exe_path)
+                                       for p in running))
             self.log.emit(f"[Photoshop] {target['version']} | {self.ps_exe_path}")
             if not os.path.exists(self.job_path):
                 os.makedirs(self.job_path)
@@ -1846,6 +1875,9 @@ class PhotoshopCLIWorker(QThread):
             script_content = script_content.replace('"REPLACE_ME_FRAME_MODE"', f'"{self.frame_mode}"')
             script_content = script_content.replace('"REPLACE_ME_DEBUG_ENABLED"', "true" if self.debug else "false")
             script_content = script_content.replace('"REPLACE_ME_PRACTICE_SOURCE"', json.dumps(self.practice_source or ""))
+            is_open = getattr(self, "practice_open", False)
+            script_content = script_content.replace('"REPLACE_ME_PRACTICE_OPEN"', "true" if is_open else "false")
+            exports_layers = not is_open and os.path.basename(self.jsx_template_path) == "photoshop_copy.jsx"
 
             token = uuid.uuid4().hex
             self.attempt_token = token
@@ -1888,18 +1920,22 @@ class PhotoshopCLIWorker(QThread):
                         response = f.read()
                     if response == "done":
                         self.trace("RESPONSE_RECEIVED", response="done")
-                        if os.path.basename(self.jsx_template_path) == "photoshop_copy.jsx":
+                        if exports_layers:
                             self.trace_render_outputs()
-                        if os.path.basename(self.jsx_template_path) == "photoshop_copy.jsx":
                             with open(os.path.join(self.job_path, "ps_copy_accepted.txt"), "w", encoding="utf-8") as f:
                                 f.write(token)
                         self.complete(True, "Success", "COMPLETED")
                         return
                     if response.startswith("error\n"):
                         self.trace("RESPONSE_RECEIVED", response="error", script_error=response[6:])
-                        if os.path.basename(self.jsx_template_path) == "photoshop_copy.jsx":
+                        if exports_layers:
                             self.trace_render_outputs()
-                        self.complete(False, self.messages["ps_script_error"] + response[6:], "FAILED")
+                        reason = response[6:]
+                        key = {"PS2ASE_NO_ACTIVE_DOCUMENT": "ps_open_document",
+                               "PS2ASE_PRACTICE_OPEN_FAILED": "practice_open_failed",
+                               "PS2ASE_PRACTICE_SOURCE_MISMATCH": "practice_source_changed"}.get(reason)
+                        self.complete(False, self.messages[key] if key else self.messages["ps_script_error"] + reason,
+                                      "FAILED")
                         return
                     
                 time.sleep(self.POLL_INTERVAL)
@@ -2492,6 +2528,12 @@ class AsepriteSetupDialog(QDialog):
             line = QLabel(message)
             line.setWordWrap(True)
             rows.addWidget(line)
+            if title == lang_dict["ase_manual_run"]:
+                menu = QLabel()
+                menu.setAlignment(Qt.AlignHCenter)
+                menu.setPixmap(QPixmap(get_resource_path("assets/practice/aseprite-scripts-menu.png")))
+                menu.setAccessibleName(lang_dict["practice_menu_capture"])
+                rows.addWidget(menu)
         rows.addStretch()
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
@@ -2500,6 +2542,7 @@ class AsepriteSetupDialog(QDialog):
         self.btn_later = QPushButton(lang_dict["guide_close"])
         self.btn_later.clicked.connect(self.reject)
         layout.addWidget(self.btn_later)
+        self.resize(435, min(535, self.screen().availableGeometry().height() - 40))
 
 
 class GuidePhotoshopCard:
@@ -2577,8 +2620,55 @@ class GuidePhotoshopCard:
             self.warning.setText(warning)
 
 
+class FirstRunIntroduction(QDialog):
+    def __init__(self, app):
+        super().__init__(app)
+        lang = app.t
+        self.setWindowTitle(PRODUCT_NAME)
+        self.setWindowModality(Qt.WindowModal)
+        self.setStyleSheet(WORKSPACE_STYLE)
+        outer = QVBoxLayout(self)
+        content = QWidget()
+        rows = QVBoxLayout(content)
+        add_text = InitialSetupDialog.add_text
+        add_text(rows, PRODUCT_NAME).setObjectName("guideProduct")
+        add_text(rows, lang["welcome_intro"])
+        sprite = QPixmap(get_resource_path("assets/practice/character.png"))
+        parts = QPixmap(get_resource_path("assets/practice/photoshop-parts.png"))
+        add_text(rows, lang["intro_forward"]).setProperty("uiHeading", True)
+        rows.addWidget(PracticeDiagram("introduction", parts, (lang["intro_normal"], lang["intro_frames"])))
+        add_text(rows, lang["intro_reverse"]).setProperty("uiHeading", True)
+        rows.addWidget(PracticeDiagram("introduce_reverse", sprite, ("Aseprite", "Photoshop")))
+        add_text(rows, lang["intro_edit_alignment"])
+        rows.addWidget(PracticeDiagram("edit", sprite, (lang["intro_original"], lang["btn_flip_h"], "90°")))
+        info = None
+        try:
+            info = photoshop_exe_info(app.settings.get("photoshop_exe", ""))
+        except Exception:
+            pass
+        add_text(rows, lang["intro_photoshop_ready"].format(name=info["product"]) if info and info.get("product")
+                 else lang["guide_ps_missing"])
+        ase_exe = app.settings.get("aseprite_exe", "")
+        if os.path.isfile(ase_exe) and os.path.basename(ase_exe).casefold() == "aseprite.exe":
+            current, keys = aseprite_installation_status(app.ase_paste_lua_orig, app.ase_copy_lua_orig)
+            add_text(rows, lang["intro_scripts_ready"] if current else lang["update_scripts"])
+            add_text(rows, lang["intro_keys_registered" if keys else "intro_keys_missing"])
+        else:
+            add_text(rows, lang["guide_flow_ase_missing"])
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setWidget(content)
+        outer.addWidget(scroll)
+        buttons = QHBoxLayout()
+        InitialSetupDialog.add_action(buttons, lang["intro_work"], self.reject)
+        InitialSetupDialog.add_action(buttons, lang["intro_setup"], self.accept).setProperty("uiRole", "primary")
+        outer.addLayout(buttons)
+        area = self.screen().availableGeometry()
+        self.resize(min(500, area.width() - 16), min(662, area.height() - 40))
+
+
 class InitialSetupDialog(QDialog):
-    WELCOME, CONNECTION, WARNING, ASEPRITE, REVIEW = range(5)
+    CONNECTION, WARNING, ASEPRITE, REVIEW = range(4)
     """Guide completion, auto-display, and external security confirmations stay independent."""
 
     probe_runtime_checked = Signal(object, object)
@@ -2596,12 +2686,15 @@ class InitialSetupDialog(QDialog):
         self._probe_dir = None
         self._probe_name = None
         self._probe_path = None
-        self._probe_started = 0
-        self._paste_opened = 0
+        self._practice_f5_issue = False
         self._probe_open_requested = False
         self._probe_open_failed = False
         self._probe_runtime_request = None
         self._practice_source = self._practice_target = self._practice_job = None
+        self._practice_open_job = None
+        self._practice_opened = False
+        self._practice_count = 1
+        self._practice_help = False
         self._practice_status = ""
         self.f4_received = False
         self._trust_dialog = None
@@ -2631,19 +2724,14 @@ class InitialSetupDialog(QDialog):
         layout.addWidget(self.pages, 1)
 
         character = QPixmap(get_resource_path("assets/practice/character.png"))
-        for step in range(5):
+        for step in range(self.REVIEW + 1):
             page = QWidget()
             page.setObjectName("guidePage")
             content = QVBoxLayout(page)
             content.setContentsMargins(4, 2, 4, 4)
             content.setSpacing(6)
-            if step == self.WELCOME:
-                self.add_text(content, self.lang["title"]).setObjectName("guideProduct")
-                self.add_text(content, self.lang["welcome_intro"])
-                content.addWidget(PracticeDiagram("welcome", character, ("Photoshop", "Aseprite")))
-                for index, item in enumerate(self.lang["welcome_items"], 1):
-                    self.add_text(content, f"{index}.  {item}")
-            elif step == self.CONNECTION:
+            if step == self.CONNECTION:
+                self.add_text(content, self.lang["connection_welcome"])
                 self.ps_status = GuidePhotoshopCard(content, self.lang, self.add_text, connection=True)
                 self.ps_edit = self.add_action(content, self.lang["guide_ps_edit"], self.edit_photoshop)
                 self.add_text(content, self.flow("switch")).setProperty("uiMuted", True)
@@ -2759,11 +2847,15 @@ class InitialSetupDialog(QDialog):
                 probe.addLayout(results)
                 self.probe_next = self.add_action(probe, self.lang["f4_next"], self.start_paste_practice)
                 self.practice_open_ps = self.add_action(probe, self.lang["f4_open_ps"],
-                                                        lambda: self.open_practice_folder(self._practice_source))
+                                                        self.open_photoshop_practice)
+                parts = QPixmap(get_resource_path("assets/practice/photoshop-parts.png"))
+                self.practice_layers_diagram = PracticeDiagram("psd_selection", parts, ("01–04",))
+                probe.addWidget(self.practice_layers_diagram)
                 self.practice_copy = self.add_action(probe, self.lang["f4_copy_practice"], self.copy_practice)
                 self.practice_open_ase = self.add_action(probe, self.lang["f4_open_ase"],
                                                          self.open_paste_target)
                 self.practice_status = self.add_text(probe, "")
+                self.practice_help = self.add_action(probe, self.lang["practice_help"], self.toggle_practice_help)
                 self.f4_record = self.add_action(probe, self.lang["f4_eye"], self.record_f4)
                 self.probe_cancel = self.add_action(probe, self.flow("probe_cancel"), self.finish_probe)
                 self.probe_finish = self.add_action(probe, self.flow("finish_test"), self.finish_probe)
@@ -3138,7 +3230,7 @@ class InitialSetupDialog(QDialog):
             QMessageBox.warning(self, self.flow("test"), str(error))
             return
         self._probe_path, self._probe_name = path, os.path.basename(path)
-        self._probe_started = time.monotonic()
+        self._practice_f5_issue = False
         self.f4_seen = self.f5_seen = self.f4_received = False
         self.practice_timer.start()
         self.update_summary()
@@ -3153,11 +3245,10 @@ class InitialSetupDialog(QDialog):
         if self._probe_path and not self.f5_seen:
             self.check_practice_copy()
         self.check_practice_paste()
-        late = (bool(self._probe_started and time.monotonic() - self._probe_started >= 12),
-                bool(self._paste_opened and time.monotonic() - self._paste_opened >= 12))
-        if late != getattr(self, "_late_result_state", None):
-            self._late_result_state = late
-            self.refresh_probe()
+
+    def toggle_practice_help(self):
+        self._practice_help = not self._practice_help
+        self.refresh_probe()
 
     def check_practice_copy(self):
         root = os.path.dirname(self._probe_path)
@@ -3207,7 +3298,8 @@ class InitialSetupDialog(QDialog):
         f5 = "observed" if self.f5_seen else "waiting" if waiting else "preparing" if active else "not_verified"
         self.key_status[0].setText(self.flow(f5))
         self.key_status[0].setToolTip(self.flow("f5_seen") if self.f5_seen else "")
-        self.key_status[1].setText(self.lang["f4_observed"] if self.f4_received else
+        self.key_status[1].setText(self.lang["practice_pasted_count"].format(count=self._practice_count)
+                                   if self.f4_received and paste_lesson else self.lang["f4_observed"] if self.f4_received else
                                    self.flow(f4) if paste_lesson or self.f4_seen else self.flow("not_verified"))
         preparing = waiting
         direct = (preparing and self.ase_state == "guide_ps_closed" and self.ase_path_valid
@@ -3222,15 +3314,20 @@ class InitialSetupDialog(QDialog):
         self.probe_next.setEnabled(self.ps_target_valid)
         self.practice_open_ps.setVisible(paste_lesson and not can_paste and not complete)
         self.practice_copy.setVisible(paste_lesson and not can_paste and not complete)
-        self.practice_copy.setEnabled(paste_lesson and self._practice_job is None)
+        self.practice_open_ps.setEnabled(self._practice_open_job is None and self._practice_job is None)
+        self.practice_copy.setEnabled(self._practice_opened and self._practice_open_job is None
+                                      and self._practice_job is None)
+        self.practice_layers_diagram.setVisible(self._practice_opened and self._practice_count == 4 and not can_paste)
         self.practice_open_ase.setVisible(bool(can_paste and not complete))
         self.practice_status.setText(self._practice_status)
-        self.practice_status.setVisible(paste_lesson and bool(self._practice_status) and not complete)
-        fallback = bool(self._paste_opened and time.monotonic() - self._paste_opened >= 12)
+        self.practice_status.setVisible(paste_lesson and bool(self._practice_status))
+        self.practice_help.setVisible(waiting or bool(can_paste and not complete))
+        fallback = self._practice_help
         self.f4_record.setVisible(bool(can_paste and not complete and fallback))
         detail = self.lang["f5_pick"] if waiting else ""
         if paste_lesson and not complete:
-            detail = self.lang["f4_wait_practice" if can_paste else "f4_lesson"]
+            detail = self.lang["f4_wait_practice" if can_paste else "practice_open_first" if not self._practice_opened else
+                               "practice_select_psd" if self._practice_count == 4 else "f4_lesson"]
             if can_paste:
                 detail += "\n" + self.lang["practice_f4_safety"]
             if fallback:
@@ -3241,26 +3338,31 @@ class InitialSetupDialog(QDialog):
         self.probe_intro.setVisible(bool(detail))
         self.probe_f5_diagram.setVisible(active and not self.f5_seen)
         self.probe_press.setVisible(waiting)
-        self.probe_f4_diagram.setVisible(paste_lesson)
+        self.probe_f4_diagram.setVisible(bool(can_paste and not complete))
+        self.probe_f4_diagram.mode = "paste_layers" if self._practice_count == 4 else "paste"
+        self.probe_f4_diagram.update()
         self.probe_trust_note.setVisible(waiting or bool(can_paste and not complete))
         message = ("open_failed" if self._probe_open_failed else "open_requested" if self._probe_open_requested
                    else "use_running" if preparing and not direct else "")
-        late = preparing and time.monotonic() - self._probe_started >= 12
-        self.probe_retry_file.setVisible(late)
-        self.probe_open_note.setText(self.lang["practice_f5_delayed"] if late else self.flow(message) if message else "")
-        self.probe_open_note.setVisible(preparing and bool(late or message))
+        help_open = preparing and self._practice_help
+        self.probe_retry_file.setVisible(help_open)
+        self.probe_open_note.setText(self.lang["practice_f5_failure"] if self._practice_f5_issue else
+                                     self.lang["practice_f5_delayed"] if help_open else self.flow(message) if message else "")
+        self.probe_open_note.setVisible(preparing and bool(help_open or message or self._practice_f5_issue))
         self.key_status[0].setStyleSheet("color: #8ed4b4; font-weight: 700;" if self.f5_seen else "")
         self.key_status[1].setStyleSheet("color: #c5b6ff; font-weight: 700;" if self.f4_seen else "")
         if self.pages.currentIndex() == self.ASEPRITE:
             self.btn_next.setText(self.flow("finish_next" if complete else "skip_test_next")
                                   if active else self.lang["guide_next"])
+        elif self.pages.currentIndex() == self.CONNECTION:
+            self.btn_next.setText(self.lang["connection_continue" if self.ps_target_valid else "guide_next"])
         role = "quiet" if self.pages.currentIndex() == self.ASEPRITE and active and not complete else "primary"
         if self.btn_next.property("uiRole") != role:
             self.btn_next.setProperty("uiRole", role)
             self.btn_next.style().unpolish(self.btn_next)
             self.btn_next.style().polish(self.btn_next)
         layout_state = (active, waiting, direct, self.f4_seen, self.f5_seen, can_paste, paste_lesson,
-                        message, self.probe_trust.isHidden())
+                        message, self.probe_trust.isHidden(), self._practice_help, self._practice_f5_issue)
         if layout_state != getattr(self, "_probe_layout_state", None):
             self._probe_layout_state = layout_state
             # QScrollArea can retain the previous page height-for-width after controls hide.
@@ -3337,7 +3439,6 @@ class InitialSetupDialog(QDialog):
             QDesktopServices.openUrl(QUrl.fromLocalFile(os.path.dirname(path)))
 
     def open_paste_target(self):
-        self._paste_opened = time.monotonic()
         self.open_practice_folder(self._practice_target)
 
     def start_paste_practice(self):
@@ -3350,23 +3451,38 @@ class InitialSetupDialog(QDialog):
             target_dir = os.path.join(root, "ps2ase-paste-" + session)
             os.makedirs(source_dir, exist_ok=True)
             os.makedirs(target_dir, exist_ok=True)
-            source = os.path.join(source_dir, "Photoshop practice.png")
             target = os.path.join(target_dir, "Paste practice.png")
-            image = Image.new("RGBA", (32, 32))
-            image.save(target)
-            with Image.open(get_resource_path("assets/practice/character.png")) as sprite:
-                sprite.thumbnail((24, 24), Image.Resampling.NEAREST)
-                image.alpha_composite(sprite, ((32 - sprite.width) // 2, (32 - sprite.height) // 2))
-            image.save(source)
+            psd = get_resource_path("assets/practice/photoshop-practice.psd")
+            if os.path.isfile(psd):
+                source = os.path.join(source_dir, "Photoshop practice.psd")
+                shutil.copyfile(psd, source)
+                Image.new("RGBA", (300, 300)).save(target)
+                self._practice_count = 4
+            else:
+                source = os.path.join(source_dir, "Photoshop practice.png")
+                image = Image.new("RGBA", (32, 32))
+                image.save(target)
+                with Image.open(get_resource_path("assets/practice/character.png")) as sprite:
+                    sprite.thumbnail((24, 24), Image.Resampling.NEAREST)
+                    image.alpha_composite(sprite, ((32 - sprite.width) // 2, (32 - sprite.height) // 2))
+                image.save(source)
         except OSError as error:
             QMessageBox.warning(self, self.lang["f4_next"], str(error))
             return
         self._practice_source, self._practice_target = source, target
+        self._practice_help = False
         self.update_summary()
 
     def copy_practice(self):
+        self.start_photoshop_practice(False)
+
+    def open_photoshop_practice(self):
+        self.start_photoshop_practice(True)
+
+    def start_photoshop_practice(self, opening):
         self.sync_shortcut_targets()
-        if not self._practice_source or self._practice_job is not None:
+        if (not self._practice_source or self._practice_job is not None or self._practice_open_job is not None
+                or (not opening and not self._practice_opened)):
             return
         if self.app.is_transferring() or self.app.is_transforming():
             self._practice_status = self.lang["diag_wait"]
@@ -3376,14 +3492,19 @@ class InitialSetupDialog(QDialog):
         job_id = "guide_" + token
         worker = PhotoshopCLIWorker(self.app.ps_copy_jsx, self.app.settings.get("photoshop_exe"),
                                     job_id, self._probe_dir.name, "center", language=self.app.current_lang,
-                                    practice_source=self._practice_source)
-        self._practice_job = (worker.job_path, token, False)
-        self._practice_status = self.lang["practice_copy_busy"]
+                                    practice_source=self._practice_source, practice_open=opening)
+        if opening:
+            self._practice_opened = False
+            self._practice_open_job = worker.job_path
+        else:
+            self._practice_job = (worker.job_path, token, False)
+        self._practice_status = self.lang["practice_opening" if opening else "practice_copy_busy"]
         self.app.ps_worker = worker
         self.app._active_ps_job_id = job_id
-        self.app._ps_operation = "guide_copy"
+        self.app._ps_operation = "guide_copy" if not opening else "guide_open"
         self.app.ui_busy_transfer = True
-        worker.result_ready.connect(self.practice_copy_finished, Qt.QueuedConnection)
+        callback = self.practice_open_finished if opening else self.practice_copy_finished
+        worker.result_ready.connect(callback, Qt.QueuedConnection)
         worker.finished.connect(self.app.on_ps_thread_finished, Qt.QueuedConnection)
         worker.diagnostic.connect(self.app.record_diagnostic, Qt.QueuedConnection)
         self.refresh_probe()
@@ -3392,7 +3513,17 @@ class InitialSetupDialog(QDialog):
             worker.start()
         except Exception as error:
             self.app.ps_start_failed(error)
-            self.practice_copy_finished(False, str(error))
+            callback(False, str(error))
+
+    @Slot(bool, str)
+    def practice_open_finished(self, success, message):
+        sender = self.sender()
+        if not self._practice_open_job or (sender is not None and sender.job_path != self._practice_open_job):
+            return
+        self._practice_open_job = None
+        self._practice_opened = success
+        self._practice_status = "" if success else message
+        self.refresh_probe()
 
     @Slot(bool, str)
     def practice_copy_finished(self, success, message):
@@ -3404,24 +3535,28 @@ class InitialSetupDialog(QDialog):
             return
         if success:
             try:
+                with open(os.path.join(job_path, "status_done.json"), encoding="utf-8-sig") as stream:
+                    if json.load(stream).get("layer_count") != self._practice_count:
+                        raise ValueError(self.lang["practice_count_required"].format(count=self._practice_count))
                 marker = self._practice_target + ".ps2ase.json"
                 self._practice_expires = int(time.time()) + 900
                 with open(marker + ".tmp", "w", encoding="utf-8") as stream:
                     json.dump({"signature": "ase_ps_bridge_payload", "source_app": "photoshop",
                                "job_path": job_path, "guide_target": self._practice_target,
                                "guide_nonce": token, "guide_expires": self._practice_expires,
+                               "guide_layer_count": self._practice_count,
                                "settings": {"align_mode": "center"}}, stream, ensure_ascii=False)
                 os.replace(marker + ".tmp", marker)
                 self._practice_job = (job_path, token, True)
-                self._paste_opened = 0
-                self._practice_status = ""
+                self._practice_status = self.lang["practice_copied_count"].format(count=self._practice_count)
                 self.practice_timer.start()
-            except OSError as error:
+            except (OSError, ValueError) as error:
                 success, message = False, str(error)
         if not success:
             self._practice_job = None
-            self._practice_status = (self.lang["practice_wrong_source"] if "PS2ASE_PRACTICE_SOURCE_MISMATCH" in message
-                                     else message)
+            if message == self.lang["ps_open_document"]:
+                self._practice_opened = False
+            self._practice_status = message
         self.refresh_probe()
 
     def check_practice_paste(self):
@@ -3461,6 +3596,9 @@ class InitialSetupDialog(QDialog):
             except OSError:
                 pass
         self._practice_source = self._practice_target = self._practice_job = None
+        self._practice_open_job = None
+        self._practice_opened = self._practice_help = False
+        self._practice_count = 1
         self._practice_status = ""
         if self._probe_path:
             for path in (os.path.join(os.path.dirname(self._probe_path), "practice_copy.json"), self._probe_path):
@@ -3469,7 +3607,7 @@ class InitialSetupDialog(QDialog):
                 except OSError:
                     pass
         self._probe_name = self._probe_path = None
-        self._probe_started = self._paste_opened = 0
+        self._practice_f5_issue = False
         self._probe_open_requested = False
         self._probe_open_failed = False
         self._probe_runtime_request = None
@@ -3483,7 +3621,7 @@ class InitialSetupDialog(QDialog):
             self.finish_probe(refresh=False)
         self.pages.setCurrentIndex(index)
         steps = tuple(re.sub(r"^\d+\. ", "", label) for label in self.lang["guide_steps"])
-        self.step_title.setText(f"{(self.lang['welcome_step'], *steps)[index]} · {index + 1}/{self.pages.count()}")
+        self.step_title.setText(f"{steps[index]} · {index + 1}/{self.pages.count()}")
         self.btn_back.setEnabled(index > 0)
         self.btn_later.setVisible(index < self.REVIEW)
         self.btn_next.setText(self.lang["guide_finish" if index == self.REVIEW else "guide_next"])
@@ -3560,8 +3698,12 @@ class TutorialDialog(QDialog):
                 visual = {"layers": lang_dict["visual_layers"], "timeline": ()}
                 first, last = ("layers", "timeline") if index == 0 else ("timeline", "layers")
                 content.addWidget(PracticeDiagram(first, character, visual[first]))
-                content.addWidget(PracticeDiagram("bridge_forward" if index == 0 else "bridge_reverse",
-                                                  character, lang_dict["visual_transfer"]))
+                if index == 0:
+                    parts = QPixmap(get_resource_path("assets/practice/photoshop-parts.png"))
+                    content.addWidget(PracticeDiagram("introduction", parts,
+                                                      (lang_dict["intro_normal"], lang_dict["intro_frames"])))
+                else:
+                    content.addWidget(PracticeDiagram("introduce_reverse", character, ("Aseprite", "Photoshop")))
                 content.addWidget(PracticeDiagram(last, character, visual[last]))
             elif index == 4:
                 content.addWidget(PracticeDiagram("edit", character, lang_dict["visual_edit"]))
@@ -3621,7 +3763,7 @@ class BridgeApp(QMainWindow):
         self.diagnostic_received.connect(self.record_diagnostic, Qt.QueuedConnection)
 
         self.setMinimumSize(390, 380)
-        self.resize(460, min(690, max(380, self.screen().availableGeometry().height() - 48)))
+        self.resize(460, min(754, max(380, self.screen().availableGeometry().height() - 48)))
         self.setWindowFlags(Qt.WindowStaysOnTopHint | Qt.Window)
 
         # 경로 캐싱
@@ -3695,7 +3837,10 @@ class BridgeApp(QMainWindow):
                 self._needs_language_selection = False
                 save_settings(self.settings)
                 self.refresh_ui_language()
-            if self.settings.get("show_initial_setup") is True:
+            if self.settings.get("show_initial_setup") is True and not self.settings.get("initial_setup_seen") \
+                    and not self.settings.get("first_run_intro_seen"):
+                self.show_first_run_introduction()
+            elif self.settings.get("show_initial_setup") is True and self.settings.get("initial_setup_seen"):
                 self.show_initial_setup()
             self._startup_dialogs_complete = True
         except Exception:
@@ -3710,6 +3855,17 @@ class BridgeApp(QMainWindow):
         if not self.clip_timer.isActive():
             self.clip_timer.start(1000)
         self.trace_job("-", "STARTUP_INTERACTIVE")
+
+    def show_first_run_introduction(self):
+        dialog = FirstRunIntroduction(self)
+        def finished(result):
+            self.settings["first_run_intro_seen"] = True
+            save_settings(self.settings)
+            dialog.deleteLater()
+            if result == QDialog.Accepted and not self._startup_closing:
+                self.show_initial_setup()
+        dialog.finished.connect(finished)
+        dialog.show()
 
     def trace_startup_modal(self):
         modal = QApplication.activeModalWidget()
@@ -4281,6 +4437,14 @@ class BridgeApp(QMainWindow):
             self._copy_diagnostic_stamp = stamp
             fields = ("code", "settings_status", "host_is_file", "readable", "host_version")
             self.trace_job("-", "ASEPRITE_COPY_REJECTED", **{key: report.get(key) for key in fields})
+            guide = self.setup_guide
+            document = report.get("normalized_document")
+            if guide is not None and guide._probe_path and not guide.f5_seen and isinstance(document, str):
+                expected = os.path.dirname(guide._probe_path).split(os.sep)[-1].removeprefix("ps2ase-copy-")
+                if report.get("token") == expected and os.path.normcase(os.path.normpath(document)) == \
+                        os.path.normcase(os.path.normpath(guide._probe_path)):
+                    guide._practice_f5_issue = True
+                    guide.refresh_probe()
         except (OSError, ValueError):
             pass
 
