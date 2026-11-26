@@ -296,9 +296,3 @@ if doneFile then
     doneFile:write(encodeJson(doneData))
     doneFile:close()
 end
-
-if app.statusBar then
-    app.statusBar.text = #elementsList .. "개 항목(그룹 포함)이 복사되었습니다."
-else
-    print(#elementsList .. "개 항목 복사 완료")
-end

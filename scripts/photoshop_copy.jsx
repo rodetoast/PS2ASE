@@ -13,9 +13,9 @@ var FRAME_MODE = "REPLACE_ME_FRAME_MODE";
 var DIAGNOSTICS_PATH = "REPLACE_ME_DIAGNOSTICS_PATH";
 var ATTEMPT_TOKEN = "REPLACE_ME_ATTEMPT_TOKEN";
 var DEBUG_ENABLED = "REPLACE_ME_DEBUG_ENABLED" === true;
+var PRACTICE_SOURCE = "REPLACE_ME_PRACTICE_SOURCE";
 
 #target photoshop
-app.preferences.rulerUnits = Units.PIXELS;
 
 function main() {
     traceCopy("PHOTOSHOP_COPY_STARTED", {version: app.version, frame_mode: FRAME_MODE,
@@ -25,7 +25,19 @@ function main() {
         return;
     }
     var originalDoc = app.activeDocument;
-
+    var practiceMode = PRACTICE_SOURCE && PRACTICE_SOURCE.indexOf("REPLACE_ME_") !== 0;
+    if (practiceMode) {
+        try {
+            var practice = new File(PRACTICE_SOURCE);
+            var actual = originalDoc.fullName;
+            if (!practice.exists || practice.fsName.toLowerCase() !== actual.fsName.toLowerCase()) {
+                throw new Error("Not the practice document.");
+            }
+        } catch (ignoredPractice) {
+            writeStatusError("PS2ASE_PRACTICE_SOURCE_MISMATCH");
+            return;
+        }
+    }
     // Job 폴더 경로 (파이썬이 만들어둔 폴더를 그대로 사용)
     var jobFolder = new Folder(JOB_PATH);
     if (!jobFolder.exists) {
@@ -36,17 +48,22 @@ function main() {
     var layersFolder = new Folder(jobFolder + "/layers");
     if (!layersFolder.exists) layersFolder.create();
 
-    if (FRAME_MODE === "folder_frames") {
-        runFolderFramesCopy(originalDoc, jobFolder, layersFolder);
-        return;
+    var previousUnits = practiceMode ? app.preferences.rulerUnits : null;
+    app.preferences.rulerUnits = Units.PIXELS;
+    try {
+        if (FRAME_MODE === "folder_frames") {
+            runFolderFramesCopy(originalDoc, jobFolder, layersFolder);
+        } else if (FRAME_MODE === "layer_frames") {
+            runLayerFramesCopy(originalDoc, jobFolder, layersFolder);
+        } else {
+            runNormalCopy(originalDoc, jobFolder, layersFolder);
+        }
+    } finally {
+        if (practiceMode) {
+            try { app.preferences.rulerUnits = previousUnits; }
+            catch (restoreUnitsError) { traceCopy("PRACTICE_UNITS_RESTORE_FAILED", {error: diagnosticError(restoreUnitsError)}); }
+        }
     }
-
-    if (FRAME_MODE === "layer_frames") {
-        runLayerFramesCopy(originalDoc, jobFolder, layersFolder);
-        return;
-    }
-
-    runNormalCopy(originalDoc, jobFolder, layersFolder);
 }
 
 function runNormalCopy(originalDoc, jobFolder, layersFolder) {

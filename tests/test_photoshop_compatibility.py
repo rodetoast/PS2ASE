@@ -39,7 +39,7 @@ def helpers():
     tree = ast.parse((ROOT / "bridge_ui.py").read_text(encoding="utf-8"))
     names = {"_photoshop_query", "photoshop_exe_info", "running_photoshops",
              "installed_photoshops", "resolve_photoshop_target", "photoshop_config_path",
-             "photoshop_warning_config", "disable_photoshop_warning",
+             "photoshop_warning_config", "disable_photoshop_warning", "set_photoshop_warning",
              "make_photoshop_wrapper", "PhotoshopCLIWorker", "diagnostic_event", "setup_probe_name"}
     nodes = [node for node in tree.body
              if isinstance(node, (ast.FunctionDef, ast.ClassDef)) and node.name in names]
@@ -213,6 +213,7 @@ class CompatibilityTests(unittest.TestCase):
                         expected = expected.replace('"REPLACE_ME_ALIGN_MODE"', json.dumps(align))
                         expected = expected.replace('"REPLACE_ME_FRAME_MODE"', json.dumps(mode))
                         expected = expected.replace('"REPLACE_ME_DEBUG_ENABLED"', "false")
+                        expected = expected.replace('"REPLACE_ME_PRACTICE_SOURCE"', '""')
                         token = generated.stem[len("ps_body_"):]
                         expected = expected.replace('"REPLACE_ME_DIAGNOSTICS_PATH"', json.dumps(str(job / ("ps_events_" + token + ".jsonl"))))
                         expected = expected.replace('"REPLACE_ME_ATTEMPT_TOKEN"', json.dumps(token))

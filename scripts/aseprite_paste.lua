@@ -1,13 +1,36 @@
 -- scripts/aseprite_paste.lua
 -- Ase-PS Bridge Pro - Paste Action (Aseprite)
 
-local function decodeJson(str)
-    if type(json) == "table" and json.decode then return json.decode(str) end
-    local obj = {}
-    obj.signature = str:match('"signature"%s*:%s*"([^"]+)"')
-    obj.job_path = str:match('"job_path"%s*:%s*"([^"]+)"')
-    return obj
+local function isJsonContainer(value)
+    return type(value) == "table" or type(value) == "userdata"
 end
+
+local function decodeJson(str)
+    if type(str) ~= "string" or not str:match("^%s*{") or type(json) ~= "table" or not json.decode then return nil end
+    local ok, obj = pcall(json.decode, str)
+    if ok and isJsonContainer(obj) then return obj end
+end
+
+local function readText(path)
+    local file = io.open(path, "r")
+    if not file then return nil end
+    local value = file:read("*a")
+    file:close()
+    return value
+end
+
+local prefs = decodeJson(readText((os.getenv("APPDATA") or "") .. "/Ase-PS-Bridge/bridge_settings.json")) or {}
+local notices = {
+    ko = {"붙여넣을 문서를 열어 주세요.", "사용할 수 있는 복사본이 없습니다. Photoshop에서 다시 복사해 주세요.",
+          "복사본 파일이 없거나 손상되었습니다. Photoshop에서 다시 복사해 주세요.",
+          "가이드에서 연습 복사본을 먼저 준비해 주세요."},
+    en = {"Open a destination document first.", "No usable copy. Copy again from Photoshop.",
+          "The copy files are missing or damaged. Copy again from Photoshop.",
+          "Prepare the practice copy in the setup guide first."},
+    ja = {"貼り付け先のドキュメントを開いてください。", "使えるコピーがありません。Photoshop からコピーし直してください。",
+          "コピーのファイルが見つからないか破損しています。Photoshop からコピーし直してください。",
+          "初期設定ガイドで練習用のコピーを準備してください。"}
+}
 
 -- [표준 변환 정책 1] Bridge 백분율(0~100) -> Aseprite 스케일(0~255)
 local function opacityPercentToAse255(value)
@@ -21,39 +44,92 @@ local function opacityPercentToAse255(value)
     return math.floor(n * 255 / 100 + 0.5)
 end
 
-local function showMessage(msg)
-    app.alert({ title="Bridge Paste", text=msg, buttons={"OK"} })
+local function showMessage(index)
+    app.alert({ title="Photoshop ↔ Aseprite", text=(notices[prefs.language] or notices.en)[index] })
 end
 
 local spr = app.activeSprite
 if not spr then
-    showMessage("붙여넣기할 활성 문서가 없습니다. 새 문서를 열고 실행해주세요.")
+    showMessage(1)
     return
 end
 
-local clipboardText = ""
-if app.clipboard and app.clipboard.text then
-    clipboardText = app.clipboard.text
+local function normalizePath(path)
+    return path:gsub("\\", "/"):lower()
 end
 
-if not clipboardText or clipboardText == "" then
-    local handle = io.popen("powershell.exe -NoProfile -Command \"Get-Clipboard\"")
-    if handle then
-        clipboardText = handle:read("*a")
-        handle:close()
+local filename = normalizePath(spr.filename or "")
+local basename = filename:match("[^/]+$") or ""
+local guideTarget = basename:match("^ps2ase%-paste%-%x+%.png$") ~= nil
+local payload
+if guideTarget then
+    payload = decodeJson(readText(spr.filename .. ".ps2ase.json"))
+    if not payload or type(payload.guide_target) ~= "string" or normalizePath(payload.guide_target) ~= filename
+        or payload.source_app ~= "photoshop" or type(payload.guide_nonce) ~= "string"
+        or not payload.guide_nonce:match("^%x+$") or #payload.guide_nonce ~= 32
+        or type(payload.guide_expires) ~= "number" or payload.guide_expires < os.time()
+        or spr.width ~= 32 or spr.height ~= 32 then
+        return showMessage(4)
     end
+else
+    local clipboardText = app.clipboard and app.clipboard.text or ""
+    if type(clipboardText) ~= "string" or clipboardText == "" then
+        local handle = io.popen("powershell.exe -NoProfile -Command \"Get-Clipboard\"")
+        if handle then
+            clipboardText = handle:read("*a")
+            handle:close()
+        end
+    end
+    payload = decodeJson(clipboardText)
 end
-
-if not clipboardText or clipboardText:match("^%s*$") then
-    showMessage("클립보드가 비어있습니다. 포토샵에서 복사를 먼저 실행해주세요.")
-    return
+if not payload or payload.signature ~= "ase_ps_bridge_payload" or (not guideTarget and payload.guide_target) then
+    return showMessage(2)
 end
-
-local payload = decodeJson(clipboardText)
-if not payload or payload.signature ~= "ase_ps_bridge_payload" then return end
 
 local jobPath = payload.job_path
-if not jobPath then return end
+if type(jobPath) ~= "string" or jobPath == "" or jobPath:find("%z") then return showMessage(2) end
+
+local metadata = decodeJson(readText(jobPath .. "/metadata.json"))
+local elementsList, images, count = {}, {}, 0
+local valid = pcall(function()
+    local elements = metadata and (metadata.elements or metadata.layers)
+    assert(isJsonContainer(elements) and #elements > 0)
+    local frameMode = metadata.frame_mode or "normal"
+    assert(frameMode == "normal" or frameMode == "folder_frames" or frameMode == "layer_frames")
+    for i = 1, #elements do
+        local el = elements[i]
+        assert(isJsonContainer(el))
+        elementsList[i] = el
+        if frameMode ~= "normal" then
+            local index = tonumber(el.frame_index)
+            assert(index and index >= 0 and index < #elements and index == math.floor(index))
+        end
+        if el.type ~= "group" then
+            local file = el.file
+            assert(type(file) == "string" and file:match("^layers/[^/\\:%c]+%.png$"))
+            local img = Image{ fromFile = jobPath .. "/" .. file }
+            assert(img and img.width > 0 and img.height > 0)
+            images[el] = img
+            count = count + 1
+        end
+    end
+end)
+if not valid or count == 0 then return showMessage(3) end
+if guideTarget and (count ~= 1 or (metadata.frame_mode or "normal") ~= "normal") then return showMessage(4) end
+
+local function recordGuidePaste()
+    if not guideTarget then return end
+    local f = io.open(jobPath .. "/aseprite_paste_done.txt", "w")
+    if not f then return end
+    f:write(payload.guide_nonce)
+    f:close()
+end
+
+local function pasteTransaction(action)
+    local ok = pcall(app.transaction, action)
+    if not ok then showMessage(3) end
+    return ok
+end
 
 -- Debug Logger
 local function writeLog(msg)
@@ -66,32 +142,8 @@ end
 os.remove(jobPath .. "/debug_ase_paste.log")
 writeLog("=== Aseprite Paste Debug Log ===")
 
-local metaFile = io.open(jobPath .. "/metadata.json", "r")
-if not metaFile then
-    showMessage("임시 전송 데이터가 삭제되었거나 만료되었습니다.")
-    return
-end
-local metaContent = metaFile:read("*all")
-metaFile:close()
-
-local metadata = nil
-if type(json) == "table" and json.decode then
-    metadata = json.decode(metaContent)
-end
-
-if not metadata then
-    showMessage("메타데이터 파싱 실패.")
-    return
-end
-
-local elementsList = metadata.elements or metadata.layers
-if not elementsList or #elementsList == 0 then
-    showMessage("붙여넣을 데이터가 없습니다.")
-    return
-end
-
 local alignMode = "center"
-if payload.settings and payload.settings.align_mode then
+if isJsonContainer(payload.settings) and payload.settings.align_mode then
     alignMode = payload.settings.align_mode
 end
 
@@ -145,7 +197,7 @@ if frameMode == "layer_frames" then
     local importedCount = 0
     local startFrameNumber = (app.activeFrame and app.activeFrame.frameNumber) or 1
 
-    app.transaction(function()
+    if not pasteTransaction(function()
         local targetLayer = app.activeLayer
         if not targetLayer or targetLayer.isGroup then
             targetLayer = spr:newLayer()
@@ -163,11 +215,8 @@ if frameMode == "layer_frames" then
             for i = 1, #frameElements do
                 local el = frameElements[i]
                 if el.type ~= "group" then
-                    local fullImagePath = jobPath .. "/" .. el.file
-                    local imgFile = io.open(fullImagePath, "rb")
-                    if imgFile then
-                        imgFile:close()
-                        local importedImage = Image{ fromFile = fullImagePath }
+                    local importedImage = images[el]
+                    do
                         if importedImage then
                             local existingCel = targetLayer:cel(targetFrame.frameNumber)
                             if existingCel then spr:deleteCel(existingCel) end
@@ -188,19 +237,11 @@ if frameMode == "layer_frames" then
                 end
             end
         end
-    end)
+    end) then return end
 
     app.refresh()
 
-    if importedCount > 0 then
-        if app.statusBar then
-            app.statusBar.text = importedCount .. "개 프레임 붙여넣기 완료"
-        else
-            print(importedCount .. "개 프레임 붙여넣기 완료")
-        end
-    else
-        showMessage("레이어 프레임을 생성하지 못했습니다. 전송 데이터가 손상되었을 수 있습니다.")
-    end
+    if importedCount == 0 then showMessage(3) end
     return
 end
 
@@ -297,7 +338,7 @@ if frameMode == "folder_frames" then
         if #rows > maxRowCount then maxRowCount = #rows end
     end
 
-    app.transaction(function()
+    if not pasteTransaction(function()
         local flatLayers = {}
         local function collectFlat(layersCollection)
             for _, l in ipairs(layersCollection) do
@@ -366,11 +407,8 @@ if frameMode == "folder_frames" then
             for rowIndex = 1, #rows do
                 local el = rows[rowIndex]
                 local targetLayer = targetLayers[rowIndex]
-                local fullImagePath = jobPath .. "/" .. el.file
-                local imgFile = io.open(fullImagePath, "rb")
-                if imgFile then
-                    imgFile:close()
-                    local importedImage = Image{ fromFile = fullImagePath }
+                local importedImage = images[el]
+                do
                     if importedImage and targetLayer then
                         local existingCel = targetLayer:cel(targetFrame.frameNumber)
                         if existingCel then spr:deleteCel(existingCel) end
@@ -389,19 +427,11 @@ if frameMode == "folder_frames" then
                 end
             end
         end
-    end)
+    end) then return end
 
     app.refresh()
 
-    if importedCount > 0 then
-        if app.statusBar then
-            app.statusBar.text = importedCount .. "개 항목 붙여넣기 완료"
-        else
-            print(importedCount .. "개 항목 붙여넣기 완료")
-        end
-    else
-        showMessage("레이어를 생성하지 못했습니다. 전송 데이터가 손상되었을 수 있습니다.")
-    end
+    if importedCount == 0 then showMessage(3) end
     return
 end
 
@@ -464,7 +494,7 @@ end
 local importedCount = 0
 local frame = app.activeFrame or 1
 
-app.transaction(function()
+if not pasteTransaction(function()
 
     if not hasGroup then
         -- [분기 1] Flat Overwrite
@@ -504,11 +534,8 @@ app.transaction(function()
                 targetLayer = spr:newLayer()
             end
             
-            local fullImagePath = jobPath .. "/" .. el.file
-            local imgFile = io.open(fullImagePath, "rb")
-            if imgFile then
-                imgFile:close()
-                local img = Image{ fromFile = fullImagePath }
+            local img = images[el]
+            do
                 if img then
                     -- Opacity 적용 및 디버그 로깅
                     local originalOpacity = el.opacity
@@ -572,11 +599,8 @@ app.transaction(function()
                     if targetParentObj ~= spr then newObj.parent = targetParentObj end
                     buildHierarchy(el.id, newObj)
                 else
-                    local fullImagePath = jobPath .. "/" .. el.file
-                    local imgFile = io.open(fullImagePath, "rb")
-                    if imgFile then
-                        imgFile:close()
-                        local importedImage = Image{ fromFile = fullImagePath }
+                    local importedImage = images[el]
+                    do
                         if importedImage then
                             newObj = spr:newLayer()
                             newObj.name = el.name or "Layer"
@@ -607,16 +631,12 @@ app.transaction(function()
 
         buildHierarchy("root", spr)
     end
-end)
+end) then return end
 
 app.refresh()
 
 if importedCount > 0 then
-    if app.statusBar then
-        app.statusBar.text = importedCount .. "개 항목 붙여넣기 완료"
-    else
-        print(importedCount .. "개 항목 붙여넣기 완료")
-    end
+    recordGuidePaste()
 else
-    showMessage("레이어를 생성하지 못했습니다. 전송 데이터가 손상되었을 수 있습니다.")
+    showMessage(3)
 end

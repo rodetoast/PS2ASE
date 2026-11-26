@@ -139,12 +139,11 @@ class InitialSetupGuideTests(unittest.TestCase):
                     self.app.processEvents()
                     self.assertLessEqual(dialog.btn_next.geometry().right(), dialog.rect().right())
                     dialog.warning_edit.click()
-                    warning.assert_not_called()
+                    warning.assert_called_once()
                     self.assertEqual(dialog.warning_hint.text(), dialog.flow("stop"))
                     with patch.object(self.b, "running_photoshops", return_value=[]):
-                        dialog.warning_edit.click()
+                        dialog.refresh_status()
                         self.assertTrue(dialog.can_change_warning)
-                        dialog.warning_edit.click()
                     self.assertEqual(warning.call_args.args[-1](), self.fixture.target["path"])
                     settings.assert_called_once()
                     dialog.btn_next.click()
@@ -201,9 +200,9 @@ class InitialSetupGuideTests(unittest.TestCase):
             dialog = b.SettingsDialog(values, b.LANG["ko"], self.window)
         self.addCleanup(lambda: self.fixture.shiboken.delete(dialog))
         lang = b.LANG["ko"]
-        self.assertEqual(dialog.hotkey_status.text().splitlines(),
-                         [lang["guide_files_pending"], lang["guide_keys_ok"],
-                          lang["guide_trust_no"], lang["guide_keys_tested"]])
+        self.assertEqual(dialog.hotkey_status.text().splitlines()[-4:],
+                         [lang["ase_files_old"], lang["guide_keys_ok"],
+                          lang["guide_trust_no"], lang["guide_keys_untested"]])
         self.assertEqual(dialog.button_box.button(b.QDialogButtonBox.Ok).text(), lang["guide_close"])
         self.assertEqual(dialog.button_box.button(b.QDialogButtonBox.Cancel).text(), "취소")
         self.assertEqual(dialog.get_settings()["hotkey_status"], "legacy")
@@ -281,12 +280,15 @@ class InitialSetupGuideTests(unittest.TestCase):
                 self.assertEqual(dialog.btn_back.isEnabled(), step > 0)
 
     def test_warning_defaults_to_no_then_explicit_consent_preserves_and_backs_up(self):
+        from PySide6.QtWidgets import QInputDialog
+
         path = self.fixture.root / "PSUserConfig.txt"
         before = b"OtherOption 1\r\nWarnRunningScripts 1\r\n"
         path.write_bytes(before)
         with patch.object(self.b, "installed_photoshops", return_value=[self.fixture.target]), \
                 patch.object(self.b, "photoshop_config_path", return_value=str(path)), \
                 patch.object(self.b, "running_photoshops", return_value=[]), \
+                patch.object(QInputDialog, "getItem", return_value=(self.window.t["guide_warning_off_title"], True)) as choice, \
                 patch.object(self.b.QMessageBox, "information"), \
                 patch.object(self.b.QMessageBox, "question", return_value=self.b.QMessageBox.No) as question:
             dialog = self.b.SettingsDialog(self.window.settings, self.window.t, self.window, photoshop_only=True)
@@ -305,6 +307,11 @@ class InitialSetupGuideTests(unittest.TestCase):
                 self.assertEqual(self.window.settings["photoshop_warning_choice"]["exe"], self.fixture.target["path"])
                 dialog.configure_photoshop_warning()
                 self.assertEqual(len(list(self.fixture.root.glob("PSUserConfig.txt.*.bak"))), 1)
+                self.assertEqual(choice.call_args.args[4], 1)
+                choice.return_value = self.window.t["guide_warning_keep_title"], True
+                dialog.configure_photoshop_warning()
+                self.assertEqual(path.read_bytes(), before)
+                self.assertFalse(self.window.settings["photoshop_warning_choice"]["disabled"])
             finally:
                 self.fixture.shiboken.delete(dialog)
 
@@ -354,7 +361,8 @@ class InitialSetupGuideTests(unittest.TestCase):
         self.assertTrue(card.version.isHidden())
         self.assertFalse(card.icon.pixmap().isNull())
         self.assertFalse(dialog.can_change_warning)
-        self.assertEqual(dialog.warning_edit.text(), dialog.flow("refresh"))
+        self.assertEqual(dialog.warning_edit.text(), dialog.lang["warning_edit"])
+        self.assertFalse(dialog.warning_edit.isEnabled())
 
     def test_guide_cards_fit_compact_layout_in_all_languages(self):
         b = self.b
@@ -400,9 +408,8 @@ class InitialSetupGuideTests(unittest.TestCase):
         self.window.setup_guide = dialog
         self.addCleanup(setattr, self.window, "setup_guide", None)
         dialog.set_step(2)
-        with patch.object(dialog, "has_photoshop_copy", return_value=False):
-            dialog.ase_test.setEnabled(True)
-            dialog.start_probe()
+        dialog.ase_test.setEnabled(True)
+        dialog.start_probe()
         self.assertEqual(dialog.key_status[0].text(), dialog.flow("preparing"))
         self.assertIsNone(dialog._probe_existing_jobs)
         name = dialog._probe_name
@@ -444,58 +451,97 @@ class InitialSetupGuideTests(unittest.TestCase):
             dialog.refresh_status()
             self.assertEqual(dialog.warning_hint.text(), dialog.flow("restart"))
 
-    def test_f4_requires_existing_photoshop_copy_and_explicit_observation(self):
-        b = self.b
+    def test_f4_isolated_lesson_only_after_f5_and_rejects_stale_result(self):
         dialog = self.guide()
         dialog.set_step(2)
-        dialog.ase_test.setEnabled(True)
-        with patch.object(dialog, "has_photoshop_copy", return_value=True):
-            dialog.start_probe()
-        self.addCleanup(dialog._probe_dir.cleanup)
-        with patch.object(dialog, "has_photoshop_copy", return_value=False):
-            self.app.clipboard().dataChanged.emit()
-            self.assertTrue(dialog.f4_record.isHidden())
-        with patch.object(dialog, "has_photoshop_copy", return_value=True):
-            self.app.clipboard().dataChanged.emit()
-            self.assertFalse(dialog.f4_record.isHidden())
-        with patch.object(b.QMessageBox, "question", return_value=b.QMessageBox.No) as question:
-            with patch.object(dialog, "has_photoshop_copy", return_value=False):
-                dialog.record_f4()
-                question.assert_not_called()
-            with patch.object(dialog, "has_photoshop_copy", return_value=True):
-                dialog.record_f4()
-                self.assertFalse(dialog.f4_seen)
-                question.return_value = b.QMessageBox.Yes
-                dialog.record_f4()
-        self.assertTrue(dialog.f4_seen)
-        self.assertFalse(dialog.f5_seen)
-        self.assertEqual(dialog.review_lines[6].text(), dialog.flow("review_states")[5])
-        old = dialog._probe_name
-        dialog.wait_for_probe()
-        dialog.record_copy_probe(old, "fresh")
-        self.assertTrue(dialog.probe_folder.isHidden())
-        self.assertTrue(dialog.probe_cancel.isHidden())
-        self.assertTrue(dialog.probe_finish.isHidden())
-        self.assertEqual(dialog.probe_intro.text(), dialog.flow("test_close_note"))
-        self.assertEqual(dialog.btn_next.text(), dialog.flow("finish_next"))
-        dialog.show()
-        self.app.processEvents()
-        card = dialog.probe_intro.parentWidget()
-        self.assertLessEqual(card.height(), card.heightForWidth(card.width()) + 4)
-        dialog.finish_probe()
-        self.assertIsNone(dialog._probe_name)
-        self.assertTrue(dialog.f4_seen)
-        self.assertTrue(dialog.f5_seen)
-        self.assertEqual(dialog.review_lines[6].text(), dialog.flow("review_states")[5])
-        self.assertEqual(dialog.ase_test.text(), dialog.flow("retry_test"))
+        self.window.undo_stack = [(False, False, 0)]
+        self.window.redo_stack = [(True, False, 90)]
         dialog.ase_test.setEnabled(True)
         dialog.start_probe()
-        self.assertNotEqual(dialog._probe_name, old)
-        self.assertFalse(dialog.f4_seen)
-        self.assertFalse(dialog.f5_seen)
+        self.addCleanup(dialog._probe_dir.cleanup)
+        old = dialog._probe_name
+        self.assertTrue(dialog.f4_record.isHidden())
+        dialog.start_paste_practice()
+        self.assertIsNone(dialog._practice_source)
         dialog.wait_for_probe()
-        dialog.record_copy_probe(old, "late")
-        self.assertFalse(dialog.f5_seen)
+        dialog.record_copy_probe(old, "fresh")
+        dialog.start_paste_practice()
+        self.assertNotEqual(dialog._practice_source, dialog._practice_target)
+        with self.b.Image.open(dialog._practice_target) as sprite:
+            self.assertIsNone(sprite.getbbox())
+        self.assertTrue(dialog.f4_record.isHidden())
+        dialog.copy_practice()
+        self.fixture.spin(lambda: not hasattr(self.window, "ps_worker"))
+        path, token, ready = dialog._practice_job
+        self.assertTrue(ready)
+        self.assertFalse(Path(path).is_relative_to(self.window.temp_dir))
+        marker = Path(dialog._practice_target + ".ps2ase.json")
+        payload = json.loads(marker.read_text(encoding="utf-8"))
+        self.assertEqual(payload["guide_target"], dialog._practice_target)
+        self.assertEqual(payload["guide_nonce"], token)
+        response = Path(path) / "aseprite_paste_done.txt"
+        response.write_text("stale")
+        dialog.check_practice_paste()
+        self.assertFalse(dialog.f4_seen)
+        response.write_text(token)
+        dialog.check_practice_paste()
+        self.assertTrue(dialog.f4_received)
+        self.assertTrue(dialog.f4_seen and dialog.f5_seen)
+        self.assertEqual(dialog.review_lines[6].text(), dialog.lang["f4_observed"])
+        self.assertEqual(dialog.probe_intro.text(), dialog.flow("test_close_note"))
+        self.assertEqual(self.window.undo_stack, [(False, False, 0)])
+        self.assertEqual(self.window.redo_stack, [(True, False, 90)])
+        self.window.cur_h, self.window.cur_v, self.window.cur_angle = True, False, 0
+        self.window.handle_undo()
+        self.assertEqual((self.window.cur_h, self.window.cur_v, self.window.cur_angle), (False, False, 0))
+        self.window.handle_redo()
+        self.assertEqual((self.window.cur_h, self.window.cur_v, self.window.cur_angle), (True, False, 0))
+        dialog.finish_probe()
+        self.assertFalse(marker.exists())
+        self.assertTrue(dialog.f4_seen and dialog.f5_seen)
+
+    def test_startup_never_installs_and_conflicting_keys_need_explicit_consent(self):
+        b = self.b
+        ase = self.fixture.root / "Aseprite"
+        ase.mkdir()
+        keys = ase / "user.aseprite-keys"
+        old = b'<keyboard version="1"><commands><key command="Other" shortcut="F4"/></commands></keyboard>'
+        keys.write_bytes(old)
+        paste = self.fixture.root / "paste.lua"
+        copy = self.fixture.root / "copy.lua"
+        paste.touch()
+        copy.touch()
+        with patch.object(b, "setup_aseprite_environment") as install:
+            self.window.init_environment()
+            install.assert_not_called()
+        with patch.dict(self.b.os.environ, APPDATA=str(self.fixture.root)):
+            ok, message = self.real_setup(str(paste), str(copy))
+            self.assertFalse(ok)
+            self.assertIn("F4", message)
+            self.assertEqual(keys.read_bytes(), old)
+            self.assertFalse((ase / "scripts").exists())
+            ok, _ = self.real_setup(str(paste), str(copy), replace_conflicts=True)
+            self.assertTrue(ok)
+            self.assertEqual(next(ase.glob("user.aseprite-keys.*.bak")).read_bytes(), old)
+            self.assertEqual(b.aseprite_installation_status(str(paste), str(copy)), (True, True))
+            contents = keys.read_bytes()
+            self.assertTrue(self.real_setup(str(paste), str(copy))[0])
+            self.assertEqual(keys.read_bytes(), contents)
+            self.assertEqual(len(list(ase.glob("user.aseprite-keys.*.bak"))), 1)
+
+    def test_unremembered_alignment_is_not_reset_when_settings_close(self):
+        b = self.b
+        self.window.settings["default_alignment"] = "ground_line"
+        self.window.remember_alignment.setChecked(False)
+        self.window.radio_center.click()
+        dialog = b.SettingsDialog(self.window.settings, self.window.t, self.window)
+        with patch.object(dialog, "exec", return_value=True):
+            self.window.open_settings(dialog)
+        self.assertEqual(self.window.get_align_mode(), "center")
+        self.assertEqual(b.load_settings()["default_alignment"], "ground_line")
+        self.window.remember_alignment.setChecked(True)
+        self.assertEqual(b.load_settings()["default_alignment"], "center")
+
 
     def test_direct_open_uses_only_the_generated_file_and_never_relaunches_existing_host(self):
         exe = r"C:\Example\Aseprite\aseprite.exe"
@@ -590,7 +636,7 @@ class InitialSetupGuideTests(unittest.TestCase):
             dialog.refresh_status()
             self.assertTrue(dialog.ase_test.isEnabled())
             self.assertTrue(dialog.ase_install.isHidden())
-            self.assertEqual(dialog.ase_edit.text(), dialog.flow("trust_ready"))
+            self.assertEqual(dialog.ase_edit.text(), dialog.lang["ase_trust_action"])
             dialog.ase_edit.click()
             self.assertIsNotNone(dialog._trust_dialog)
             self.assertTrue(Path(dialog._trust_probe_path).is_file())
