@@ -123,6 +123,7 @@ class InitialSetupGuideTests(unittest.TestCase):
         for language in ("ko", "en", "ja"):
             with self.subTest(language=language):
                 dialog = self.guide(language)
+                dialog.set_step(dialog.CONNECTION)
                 dialog.show()
                 self.assertEqual(dialog.lang["guide_ps_running"], dialog.ps_status.runtime.text())
                 self.assertEqual(dialog.btn_next.text(), dialog.lang["guide_next"])
@@ -134,11 +135,11 @@ class InitialSetupGuideTests(unittest.TestCase):
                     settings.assert_called_once_with(self.window.settings, dialog.lang, dialog, photoshop_only=True)
                     warning.assert_not_called()
                     dialog.btn_next.click()
-                    self.assertEqual(dialog.pages.currentIndex(), 1)
+                    self.assertEqual(dialog.pages.currentIndex(), dialog.WARNING)
                     self.assertEqual(dialog.btn_next.text(), dialog.lang["guide_next"])
                     self.app.processEvents()
                     self.assertLessEqual(dialog.btn_next.geometry().right(), dialog.rect().right())
-                    dialog.warning_edit.click()
+                    dialog.warning_buttons[1].click()
                     warning.assert_called_once()
                     self.assertEqual(dialog.warning_hint.text(), dialog.flow("stop"))
                     with patch.object(self.b, "running_photoshops", return_value=[]):
@@ -147,7 +148,7 @@ class InitialSetupGuideTests(unittest.TestCase):
                     self.assertEqual(warning.call_args.args[-1](), self.fixture.target["path"])
                     settings.assert_called_once()
                     dialog.btn_next.click()
-                    self.assertEqual(dialog.pages.currentIndex(), 2)
+                    self.assertEqual(dialog.pages.currentIndex(), dialog.ASEPRITE)
 
     def test_display_name_preserves_settings_identity(self):
         name = "Photoshop \u2194 Aseprite"
@@ -251,7 +252,7 @@ class InitialSetupGuideTests(unittest.TestCase):
 
     def test_tutorial_is_requested_only_after_setup_dialog_is_hidden(self):
         dialog = self.guide()
-        dialog.set_step(3)
+        dialog.set_step(dialog.REVIEW)
         seen = []
         with patch.object(self.b, "InitialSetupDialog", return_value=dialog), \
                 patch.object(dialog, "deleteLater"), \
@@ -274,9 +275,9 @@ class InitialSetupGuideTests(unittest.TestCase):
             self.assertNotIn("Give full trust", text)
             self.assertNotIn("WarnRunningScripts", text)
             dialog = self.guide(language)
-            for step in range(4):
+            for step in range(5):
                 dialog.set_step(step)
-                self.assertEqual(dialog.step_title.text(), labels["guide_steps"][step])
+                self.assertTrue(dialog.step_title.text().endswith(f"{step + 1}/5"))
                 self.assertEqual(dialog.btn_back.isEnabled(), step > 0)
 
     def test_warning_defaults_to_no_then_explicit_consent_preserves_and_backs_up(self):
@@ -361,8 +362,7 @@ class InitialSetupGuideTests(unittest.TestCase):
         self.assertTrue(card.version.isHidden())
         self.assertFalse(card.icon.pixmap().isNull())
         self.assertFalse(dialog.can_change_warning)
-        self.assertEqual(dialog.warning_edit.text(), dialog.lang["warning_edit"])
-        self.assertFalse(dialog.warning_edit.isEnabled())
+        self.assertTrue(all(not button.isEnabled() for button in dialog.warning_buttons))
 
     def test_guide_cards_fit_compact_layout_in_all_languages(self):
         b = self.b
@@ -372,29 +372,30 @@ class InitialSetupGuideTests(unittest.TestCase):
             dialog = self.guide(language)
             dialog.resize(330, 330)
             dialog.show()
-            for step in range(4):
+            for step in range(5):
                 with self.subTest(language=language, step=step):
                     dialog.set_step(step)
                     self.app.processEvents()
                     self.assertEqual(dialog.pages.currentWidget().horizontalScrollBar().maximum(), 0)
                     self.assertTrue(dialog.btn_next.isVisible())
                     self.assertLess(dialog.btn_next.geometry().bottom(), dialog.height())
-                    action = (dialog.ps_edit, dialog.warning_edit, dialog.ase_edit, dialog.btn_tutorial)[step]
+                    action = (dialog.step_title, dialog.ps_edit, dialog.warning_buttons[1], dialog.ase_edit, dialog.btn_tutorial)[step]
                     self.assertTrue(dialog.isAncestorOf(action))
-                    self.assertTrue(dialog.pages.isAncestorOf(action))
+                    if step != dialog.WELCOME:
+                        self.assertTrue(dialog.pages.isAncestorOf(action))
                     self.assertTrue(action.isVisible())
-                    if step == 3:
+                    if step == dialog.REVIEW:
                         grid = dialog.review_lines[0].parentWidget().layout().itemAt(0).layout()
                         for row, label in enumerate(dialog.review_lines):
                             name = grid.itemAtPosition(row, 0).layout()
                             self.assertGreaterEqual(label.x(), name.geometry().right() + 1)
-                    card = {0: dialog.ps_status, 1: dialog.warning_status}.get(step)
+                    card = {dialog.CONNECTION: dialog.ps_status, dialog.WARNING: dialog.warning_status}.get(step)
                     if card:
                         for label in (card.product, card.path):
                             if label.isVisible():
                                 self.assertGreaterEqual(label.height(), label.heightForWidth(label.width()))
             dialog.resize(580, 685)
-            for step in (1, 3):
+            for step in (dialog.WARNING, dialog.REVIEW):
                 dialog.set_step(step)
                 self.app.processEvents()
                 self.assertEqual(dialog.pages.currentWidget().verticalScrollBar().maximum(), 0, (language, step))
@@ -403,40 +404,67 @@ class InitialSetupGuideTests(unittest.TestCase):
     def test_fresh_probe_is_observed_without_clipboard_write(self):
         import sys
         from unittest.mock import Mock
-        b = self.b
         dialog = self.guide()
         self.window.setup_guide = dialog
         self.addCleanup(setattr, self.window, "setup_guide", None)
-        dialog.set_step(2)
+        dialog.set_step(dialog.ASEPRITE)
         dialog.ase_test.setEnabled(True)
         dialog.start_probe()
-        self.assertEqual(dialog.key_status[0].text(), dialog.flow("preparing"))
-        self.assertIsNone(dialog._probe_existing_jobs)
-        name = dialog._probe_name
-        self.assertTrue((Path(dialog._probe_dir.name) / name).is_file())
         self.addCleanup(dialog._probe_dir.cleanup)
+        self.assertEqual(dialog.key_status[0].text(), dialog.flow("waiting"))
+        practice = Path(dialog._probe_path)
+        token = practice.parent.name.removeprefix("ps2ase-copy-")
+        self.assertEqual(practice.read_bytes(), (lifecycle.ROOT / "assets/practice/testfile.aseprite").read_bytes())
         clipboard = Mock()
-        previous = self.window.last_job_id
         with patch.dict(sys.modules, win32clipboard=clipboard):
-            for suffix, probe, done in (("old", "ps2ase-setup-" + "0" * 32 + ".png", True),
-                                        ("early", name, True), ("partial", name, False), ("fresh", name, True)):
-                job = Path(self.window.temp_dir) / ("job_" + suffix)
-                job.mkdir()
+            for name, path, frame, session, status, expected in (
+                ("other", practice.with_name("Other.aseprite"), 1, token, True, False),
+                ("empty", practice, 2, token, True, False),
+                ("stale", practice, 1, "f" * 32, True, False),
+                ("partial", practice, 3, token, False, False),
+                ("first", practice, 3, token, True, True),
+            ):
+                job = practice.parent / "copies" / name
+                (job / "layers").mkdir(parents=True)
+                (job / "layers/pixel.png").touch()
                 (job / "trigger_copy.json").write_text(json.dumps({
-                    "signature": "ase_ps_bridge_payload", "source_app": "aseprite",
-                    "summary": {"document_name": probe}}))
-                (job / "metadata.json").write_text("{}")
-                if done:
+                    "job_id": name, "signature": "ase_ps_bridge_payload", "source_app": "aseprite"}))
+                (job / "metadata.json").write_text(json.dumps({"job_id": name, "document_name": practice.name}))
+                if status:
                     (job / "status_done.json").write_text(json.dumps({
-                        "status": "done", "job_id": job.name, "layer_count": 1}))
-                if suffix == "early":
-                    dialog.wait_for_probe()
-                    self.assertEqual(dialog.key_status[0].text(), dialog.flow("waiting"))
-                self.window.check_temp_folder()
-                self.assertEqual(dialog.f5_seen, suffix == "fresh")
+                        "job_id": name, "status": "done", "layer_count": 1, "practice_frame": frame,
+                        "practice_token": session, "practice_path": str(path)}))
+                dialog.poll_practice()
+                self.assertEqual(dialog.f5_seen, expected)
         clipboard.OpenClipboard.assert_not_called()
-        self.assertEqual(self.window.last_job_id, previous)
         self.assertFalse(dialog.f4_seen)
+
+    def test_transient_clipboard_does_not_clear_practice_edit_history(self):
+        import sys
+        from unittest.mock import Mock
+        guide = self.guide()
+        guide.set_step(guide.ASEPRITE)
+        guide.ase_test.setEnabled(True)
+        guide.start_probe()
+        self.addCleanup(guide._probe_dir.cleanup)
+        self.window.setup_guide = guide
+        self.addCleanup(setattr, self.window, "setup_guide", None)
+        self.window.last_job_id = "previous"
+        self.window.current_job_path = str(self.fixture.root)
+        self.window.undo_stack = [(False, False, 0)]
+        self.window.redo_stack = [(True, False, 90)]
+        clipboard = Mock()
+        clipboard.GetClipboardData.side_effect = OSError("Clipboard temporarily busy")
+        with patch.dict(sys.modules, win32clipboard=clipboard):
+            self.window.check_clipboard()
+            clipboard.CloseClipboard.assert_called_once()
+            clipboard.GetClipboardData.side_effect = None
+            clipboard.GetClipboardData.return_value = "Copy practice.aseprite"
+            for _ in range(6):
+                self.window.check_clipboard()
+        self.assertEqual(self.window.last_job_id, "previous")
+        self.assertEqual(self.window.undo_stack, [(False, False, 0)])
+        self.assertEqual(self.window.redo_stack, [(True, False, 90)])
 
     def test_existing_warning_value_is_not_reported_as_session_change(self):
         cfg = self.fixture.root / "PSUserConfig.txt"
@@ -445,7 +473,7 @@ class InitialSetupGuideTests(unittest.TestCase):
                 patch.object(self.b, "running_photoshops", return_value=[]):
             dialog = self.guide()
             self.assertEqual(dialog.warning_status.warning.text(), dialog.flow("disabled"))
-            self.assertEqual(dialog.warning_live.text(), dialog.flow("live"))
+            self.assertEqual(dialog.warning_live.text(), dialog.lang["warning_observe"])
             self.assertNotIn(dialog.flow("restart"), dialog.warning_hint.text())
             self.window.guide_warning_changes.add(str(cfg))
             dialog.refresh_status()
@@ -453,18 +481,17 @@ class InitialSetupGuideTests(unittest.TestCase):
 
     def test_f4_isolated_lesson_only_after_f5_and_rejects_stale_result(self):
         dialog = self.guide()
-        dialog.set_step(2)
+        dialog.set_step(dialog.ASEPRITE)
         self.window.undo_stack = [(False, False, 0)]
         self.window.redo_stack = [(True, False, 90)]
         dialog.ase_test.setEnabled(True)
         dialog.start_probe()
         self.addCleanup(dialog._probe_dir.cleanup)
-        old = dialog._probe_name
         self.assertTrue(dialog.f4_record.isHidden())
         dialog.start_paste_practice()
         self.assertIsNone(dialog._practice_source)
-        dialog.wait_for_probe()
-        dialog.record_copy_probe(old, "fresh")
+        dialog.f5_seen = True
+        dialog.update_summary()
         dialog.start_paste_practice()
         self.assertNotEqual(dialog._practice_source, dialog._practice_target)
         with self.b.Image.open(dialog._practice_target) as sprite:
@@ -547,11 +574,11 @@ class InitialSetupGuideTests(unittest.TestCase):
         exe = r"C:\Example\Aseprite\aseprite.exe"
         self.window.settings["aseprite_exe"] = exe
         dialog = self.guide()
-        dialog.set_step(2)
+        dialog.set_step(dialog.ASEPRITE)
         dialog.ase_test.setEnabled(True)
         dialog.start_probe()
         self.addCleanup(dialog._probe_dir.cleanup)
-        path = str(Path(dialog._probe_dir.name) / dialog._probe_name)
+        path = dialog._probe_path
         with patch.object(self.b.QProcess, "startDetached", return_value=(False, 0)) as launch, \
                 patch.object(dialog, "open_probe_folder") as show_folder:
             for state in ("guide_ps_running", "guide_ps_runtime_unknown"):
@@ -576,18 +603,18 @@ class InitialSetupGuideTests(unittest.TestCase):
                 self.assertEqual(dialog.probe_open_note.text(), dialog.flow("open_requested"))
                 dialog.open_probe_document()
                 self.assertEqual(launch.call_count, 2)
-        self.assertIsNone(dialog._probe_existing_jobs)
+        self.assertFalse(dialog.f5_seen)
 
     def test_probe_runtime_refresh_only_updates_current_test(self):
         exe = r"C:\Example\Aseprite\aseprite.exe"
         self.window.settings["aseprite_exe"] = exe
         dialog = self.guide()
-        dialog.set_step(2)
+        dialog.set_step(dialog.ASEPRITE)
         dialog.ase_test.setEnabled(True)
         with patch.object(dialog, "request_probe_runtime"):
             dialog.start_probe()
         self.addCleanup(dialog._probe_dir.cleanup)
-        request = (dialog._probe_name, exe)
+        request = (dialog._probe_path, exe)
         dialog._probe_runtime_request = request
         dialog.apply_probe_runtime(("stale", exe), (True, "guide_ps_closed"))
         self.assertTrue(dialog.probe_open.isHidden())
@@ -601,18 +628,18 @@ class InitialSetupGuideTests(unittest.TestCase):
 
     def test_probe_navigation_cleans_only_probe_and_preserves_session_results(self):
         dialog = self.guide()
-        dialog.set_step(2)
+        dialog.set_step(dialog.ASEPRITE)
         dialog.ase_test.setEnabled(True)
         dialog.start_probe()
         work = Path(dialog._probe_dir.name)
         jpeg = work / "unrelated.txt"
         jpeg.touch()
-        generated = work / dialog._probe_name
+        generated = Path(dialog._probe_path)
         self.assertEqual(dialog.btn_next.text(), dialog.flow("skip_test_next"))
         dialog.f5_seen = True
         dialog.update_summary()
         dialog.next_step()
-        self.assertEqual(dialog.pages.currentIndex(), 3)
+        self.assertEqual(dialog.pages.currentIndex(), dialog.REVIEW)
         self.assertFalse(generated.exists())
         self.assertTrue(jpeg.exists())
         self.assertTrue(dialog.f5_seen)
@@ -628,7 +655,7 @@ class InitialSetupGuideTests(unittest.TestCase):
                 patch.object(b, "aseprite_installation_status", return_value=(False, False)) as inspect, \
                 patch.object(b, "setup_aseprite_environment") as install:
             dialog = self.guide()
-            dialog.set_step(2)
+            dialog.set_step(dialog.ASEPRITE)
             self.assertFalse(dialog.ase_test.isEnabled())
             self.assertFalse(dialog.ase_install.isEnabled())
             self.assertFalse(dialog.ase_edit.isEnabled())
@@ -639,13 +666,13 @@ class InitialSetupGuideTests(unittest.TestCase):
             self.assertEqual(dialog.ase_edit.text(), dialog.lang["ase_trust_action"])
             dialog.ase_edit.click()
             self.assertIsNotNone(dialog._trust_dialog)
-            self.assertTrue(Path(dialog._trust_probe_path).is_file())
-            self.addCleanup(dialog._probe_dir.cleanup)
+            self.assertIsNone(dialog._probe_dir)
             self.assertIsNone(dialog._probe_name)
-            self.assertIsNone(dialog._probe_existing_jobs)
+            self.assertFalse(dialog.f5_seen)
             dialog._trust_dialog.reject()
             dialog.ase_test.click()
-            self.assertNotEqual(Path(dialog._trust_probe_path).name, dialog._probe_name)
+            self.assertTrue(Path(dialog._probe_path).is_file())
+            self.addCleanup(dialog._probe_dir.cleanup)
             install.assert_not_called()
 
 
@@ -655,13 +682,13 @@ class InitialSetupGuideTests(unittest.TestCase):
             dialog = self.guide()
         dialog.show()
         self.assertFalse(dialog.cb_dont_show.isVisible())
-        dialog.set_step(3)
+        dialog.set_step(dialog.REVIEW)
         self.assertTrue(dialog.cb_dont_show.isVisible())
         self.assertIn(dialog.flow("optional"), dialog.review_lines[2].text())
         self.assertIn(dialog.lang["guide_warning_keep"], dialog.review_lines[2].text())
         self.assertTrue(dialog.review_actions[2].isHidden())
         dialog.review_actions[7].click()
-        self.assertEqual(dialog.pages.currentIndex(), 2)
+        self.assertEqual(dialog.pages.currentIndex(), dialog.ASEPRITE)
         self.assertFalse(dialog.cb_dont_show.isVisible())
 
 

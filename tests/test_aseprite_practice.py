@@ -2,6 +2,7 @@
 import json
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import tempfile
 import time
@@ -19,11 +20,21 @@ class AsepritePracticeTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="ps2ase-ase-test-") as scratch:
             root = Path(scratch)
             practice = scenario in ("practice", "expired", "other_target")
-            target = root / (f"ps2ase-paste-{'1' * 32}.png" if practice else "ordinary.png")
+            exercise = scenario.startswith("copy_frame_")
+            if practice:
+                target = root / ("ps2ase-paste-" + "1" * 32) / "Paste practice.png"
+            elif exercise:
+                target = root / ("ps2ase-copy-" + "1" * 32) / "Copy practice.aseprite"
+            else:
+                target = root / "ordinary.png"
+            target.parent.mkdir(exist_ok=True)
             image = Image.new("RGBA", (32, 32))
             if scenario == "copy":
                 image.paste((116, 216, 236, 255), (8, 6, 20, 18))
-            image.save(target)
+            if exercise:
+                shutil.copyfile(ROOT / "assets/practice/testfile.aseprite", target)
+            else:
+                image.save(target)
             job = root / "job"
             (job / "layers").mkdir(parents=True)
             (root / "jobs").mkdir()
@@ -55,7 +66,8 @@ class AsepritePracticeTests(unittest.TestCase):
             cmd += ["--script", str(ROOT / "tests/aseprite_practice_harness.lua")]
             result = subprocess.run(cmd, env={**os.environ, "APPDATA": str(root)}, capture_output=True,
                                     timeout=20, check=False)
-            self.assertEqual(result.returncode, 0, (result.stdout, result.stderr))
+            self.assertEqual(result.returncode, 0, (result.stdout, result.stderr,
+                                                    sorted(str(path.relative_to(root)) for path in root.rglob("*"))))
             self.assertTrue((root / "passed.txt").is_file(), (result.stdout, result.stderr))
 
     def test_ordinary_and_practice_complete_without_console(self):
@@ -68,3 +80,8 @@ class AsepritePracticeTests(unittest.TestCase):
                          "corrupt_png", "expired", "other_target"):
             with self.subTest(scenario=scenario):
                 self.run_case(scenario)
+
+    def test_user_asset_frames_and_isolation(self):
+        for number in (1, 2, 3):
+            with self.subTest(frame=number):
+                self.run_case(f"copy_frame_{number}")

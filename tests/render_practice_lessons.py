@@ -29,13 +29,17 @@ def render(output):
             guide = case.guide("ko")
             guide.resize(380, 520)
             guide.show()
-            guide.set_step(2)
+            for step, name in ((guide.WELCOME, "welcome"), (guide.WARNING, "warning")):
+                guide.set_step(step)
+                app.processEvents()
+                assert guide.grab().save(str(output / f"{name}.png"))
+            guide.set_step(guide.ASEPRITE)
             guide.start_probe()
             app.processEvents()
             assert guide._probe_name
             assert guide.grab().save(str(output / "f5-practice.png"))
-            guide.wait_for_probe()
-            guide.record_copy_probe(guide._probe_name, "illustrative-result")
+            guide.f5_seen = True
+            guide.update_summary()
             guide.start_paste_practice()
             app.processEvents()
             assert guide._practice_source
@@ -43,10 +47,11 @@ def render(output):
             guide.reject()
             tutorial = b.TutorialDialog(b.LANG["ko"])
             tutorial.resize(380, 520)
-            tutorial.topics.setCurrentIndex(2)
             tutorial.show()
-            app.processEvents()
-            assert tutorial.grab().save(str(output / "tutorial-frame-modes.png"))
+            for topic, name in ((0, "tutorial-transfer"), (2, "tutorial-frame-modes"), (4, "tutorial-edit")):
+                tutorial.topics.setCurrentIndex(topic)
+                app.processEvents()
+                assert tutorial.grab().save(str(output / f"{name}.png"))
             tutorial.close()
             case.fixture.shiboken.delete(tutorial)
     finally:

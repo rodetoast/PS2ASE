@@ -1,7 +1,7 @@
 """Widget-scale Southpaw launcher graphics and option help (display only)."""
 
 from PySide6.QtCore import QEvent, QObject, QPoint, QRect, QSize, Qt, QTimer
-from PySide6.QtGui import QColor, QIcon, QPainter, QPen, QPixmap
+from PySide6.QtGui import QColor, QIcon, QPainter, QPen, QPixmap, QTransform
 from PySide6.QtSvg import QSvgRenderer
 from PySide6.QtWidgets import (QApplication, QLabel, QPushButton, QSizePolicy, QStyle,
                                QStyleOptionButton, QStylePainter, QToolTip, QVBoxLayout, QWidget,
@@ -291,6 +291,92 @@ class OptionDiagram(QWidget):
                         'en': 'Cols: Frames / Rows: Layers',
                         'ja': '列: フレーム / 行: レイヤー'}[self.lang])
         p.end()
+
+
+class PracticeDiagram(QWidget):
+    """A DPI-aware diagram of the supplied sprite and its real frame structure."""
+
+    def __init__(self, mode, character, names=(), parent=None):
+        super().__init__(parent)
+        self.mode, self.character, self.names = mode, character, names
+        self.setMinimumHeight(155 if mode == "timeline" else 111)
+
+    def paintEvent(self, event):
+        p = QPainter(self)
+        p.fillRect(self.rect(), QColor("#151822"))
+        scale = min(self.width() / 280, self.height() / 150) if self.mode == "timeline" else min(self.width() / 280, self.height() / 106)
+        p.translate((self.width() - 280 * scale) / 2, (self.height() - (150 if self.mode == "timeline" else 106) * scale) / 2)
+        p.scale(scale, scale)
+        border, panel = QColor("#454b60"), QColor("#242938")
+        ink, muted, accent = QColor("#f5f3ff"), QColor("#b7b9cb"), QColor("#c5b6ff")
+
+        def box(x, y, w, h, color, stroke=border):
+            p.setPen(stroke)
+            p.setBrush(color)
+            p.drawRoundedRect(QRect(x, y, w, h), 4, 4)
+
+        def label(x, y, w, h, text, color=ink):
+            p.setPen(color)
+            p.drawText(QRect(x, y, w, h), Qt.AlignCenter, text)
+
+        def canvas(x, y, side, sprite=None):
+            for row in range(6):
+                for col in range(6):
+                    p.fillRect(QRect(x + col * (side // 6), y + row * (side // 6), side // 6, side // 6),
+                               QColor("#323745" if (row + col) % 2 else "#474c5b"))
+            if sprite is not None and not sprite.isNull():
+                sprite = sprite.scaled(side - 10, side - 10, Qt.KeepAspectRatio, Qt.FastTransformation)
+                p.drawPixmap(x + (side - sprite.width()) // 2, y + (side - sprite.height()) // 2, sprite)
+
+        if self.mode == "timeline":
+            canvas(108, 7, 54, self.character)
+            box(20, 69, 240, 75, panel)
+            for col in range(3):
+                label(124 + col * 30, 68, 26, 15, str(col + 1), muted)
+            for row in range(4):
+                y = 84 + row * 14
+                label(28, y, 78, 14, f"Layer {4 - row}", accent if row == 3 else ink)
+                for col in range(3):
+                    x = 124 + col * 30
+                    active = row == 3 and col == 0
+                    box(x, y, 26, 12, QColor("#7146bd") if active else QColor("#303647"), accent if active else border)
+                    if col != 1:
+                        p.setPen(Qt.NoPen)
+                        p.setBrush(accent if active else muted)
+                        p.drawEllipse(QPoint(x + 13, y + 6), 2, 2)
+        elif self.mode == "layers":
+            canvas(20, 18, 66, self.character)
+            box(108, 11, 152, 86, panel)
+            label(120, 12, 128, 22, self.names[0])
+            for row, name in enumerate(self.names[1:]):
+                y = 34 + row * 24
+                box(117, y, 133, 20, QColor("#382d57") if row == 0 else panel, accent if row == 0 else border)
+                p.fillRect(123, y + 5, 11, 10, accent if row == 0 else muted)
+                label(139, y, 107, 20, name)
+        elif self.mode == "edit":
+            versions = (self.character, self.character.transformed(QTransform().scale(-1, 1)),
+                        self.character.transformed(QTransform().rotate(90)))
+            for i, version in enumerate(versions):
+                x = 15 + i * 92
+                canvas(x + 7, 10, 54, version)
+                label(x - 4, 69, 76, 22, self.names[i], muted)
+        elif self.mode in ("bridge_forward", "bridge_reverse"):
+            box(26, 5, 228, 95, panel)
+            for row, caption in enumerate(("Photoshop → Aseprite", "Aseprite → Photoshop")):
+                y = 8 + row * 44
+                label(34, y, 212, 16, caption)
+                for col in range(2):
+                    x = 34 + col * 108
+                    highlight = self.mode == ("bridge_forward" if row == 0 else "bridge_reverse")
+                    box(x, y + 18, 104, 22, QColor("#7146bd") if highlight else QColor("#303647"))
+                    label(x + 1, y + 18, 102, 22, self.names[row * 2 + col])
+        else:
+            for x, name, show in ((22, self.names[0], self.mode == "welcome"),
+                                  (186, self.names[1], True)):
+                box(x - 10, 8, 86, 90, panel)
+                canvas(x + 6, 17, 54, self.character if show else None)
+                label(x - 9, 74, 84, 19, name)
+            label(107, 19, 66, 61, "↔" if self.mode == "welcome" else "→", accent)
 
 
 class OptionHelp(QObject):

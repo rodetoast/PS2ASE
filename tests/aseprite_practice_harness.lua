@@ -21,11 +21,30 @@ local env = setmetatable({
     print = function(...) table.insert(console, {...}) end,
 }, {__index = _G})
 
-local script = scenario == "copy" and "aseprite_copy.lua" or "aseprite_paste.lua"
+local exercise = tonumber(scenario:match("^copy_frame_(%d)$"))
+if exercise then
+    app.activeFrame = sprite.frames[exercise]
+    app.activeLayer = sprite.layers[1]
+end
+local script = (scenario == "copy" or exercise) and "aseprite_copy.lua" or "aseprite_paste.lua"
 assert(loadfile(base .. "/scripts/" .. script, "t", env))()
 assert(#console == 0, "successful shortcuts must not open a console")
 local alert = type(alerts[1]) == "table" and alerts[1].text or alerts[1]
-if scenario == "copy" then
+if exercise then
+    assert(#app.fs.listFiles(root .. "/jobs") == 0, "practice is isolated from the regular inbox")
+    local output = app.fs.filePath(target) .. "/copies"
+    if exercise == 2 then
+        assert(#alerts == 1 and alert:match("frame 1 or 3"))
+        assert(not app.fs.isDirectory(output))
+    else
+        assert(#alerts == 0, tostring(alert))
+        local dirs = app.fs.listFiles(output)
+        assert(#dirs == 1)
+        local report = json.decode(assert(read(output .. "/" .. app.fs.fileName(dirs[1]) .. "/status_done.json")))
+        assert(report.practice_frame == exercise and report.layer_count == 1)
+        assert(report.practice_token == string.rep("1", 32))
+    end
+elseif scenario == "copy" then
     assert(#alerts == 0, tostring(alert))
     local dirs = app.fs.listFiles(root .. "/jobs")
     assert(#dirs == 1 and read(root .. "/jobs/" .. app.fs.fileName(dirs[1]) .. "/status_done.json"))

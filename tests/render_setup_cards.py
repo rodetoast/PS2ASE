@@ -31,8 +31,9 @@ def render(directory):
             dialog = case.guide("ko")
         dialog.show()
         scale = round(dialog.devicePixelRatioF() * 100)
-        pages = (((0, "connection"), (1, "warning"), (2, "aseprite"), (3, "summary"))
-                 if scale == 100 else ((1, "compact-200"),))
+        pages = (((dialog.CONNECTION, "connection"), (dialog.WARNING, "warning"),
+                  (dialog.ASEPRITE, "aseprite"), (dialog.REVIEW, "summary"))
+                 if scale == 100 else ((dialog.WARNING, "compact-200"),))
         for step, name in pages:
             if scale == 200:
                 dialog.resize(330, 420)

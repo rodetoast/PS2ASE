@@ -60,7 +60,8 @@ end
 
 local filename = normalizePath(spr.filename or "")
 local basename = filename:match("[^/]+$") or ""
-local guideTarget = basename:match("^ps2ase%-paste%-%x+%.png$") ~= nil
+local exercise = filename:match("/ps2ase%-paste%-(%x+)/paste practice%.png$")
+local guideTarget = (exercise and #exercise == 32) or basename:match("^ps2ase%-paste%-%x+%.png$") ~= nil
 local payload
 if guideTarget then
     payload = decodeJson(readText(spr.filename .. ".ps2ase.json"))

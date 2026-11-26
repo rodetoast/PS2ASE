@@ -23,6 +23,8 @@ a = Analysis(
     pathex=[],
     binaries=[],
     datas=[('bridge_icon.ico', '.'), ('bridge_splash.png', '.'), ('scripts', 'scripts'),
+           ('assets/practice/testfile.aseprite', 'assets/practice'),
+           ('assets/practice/character.png', 'assets/practice'),
            ('assets/fonts/PretendardVariable.ttf', 'assets/fonts'),
            ('assets/fonts/Pretendard-OFL.txt', 'assets/fonts')],
     hiddenimports=[],

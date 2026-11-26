@@ -109,38 +109,56 @@ end
 
 local frame = app.activeFrame or 1
 
--- 2. Job 폴더 및 경로 준비 (환경 설정 연동)
-local timestamp = os.date("%Y%m%d_%H%M%S")
-local jobDirName = "bridge_job_" .. timestamp .. "_" .. math.random(1000, 9999)
-
--- APPDATA 환경 변수에서 settings.json을 찾음 (Fallback 경로도 지정)
-local baseTempPath = "C:/Users/SOUTHPAW GAMES/Desktop/Ase-PS Bridge Pro/temp"
+-- Guide copies live next to their own exercise rather than in the Bridge clipboard inbox.
+local filename = spr.filename or ""
+local documentName = app.fs.fileName(filename)
+local folder = app.fs.filePath(filename)
+local exerciseToken = app.fs.fileName(folder):lower():match("^ps2ase%-copy%-(%x+)$")
+local exercise = exerciseToken and #exerciseToken == 32 and documentName:lower() == "copy practice.aseprite"
+local settings = nil
 local appdata = os.getenv("APPDATA")
-if appdata then
-    local settingsPath = appdata .. "/Ase-PS-Bridge/bridge_settings.json"
-    local f = io.open(settingsPath, "r")
+if appdata and type(json) == "table" then
+    local f = io.open(appdata .. "/Ase-PS-Bridge/bridge_settings.json", "r")
     if f then
-        local content = f:read("*all")
+        local ok, decoded = pcall(json.decode, f:read("*a"))
         f:close()
-        -- 정규식으로 active_temp_path 값 추출 (JSON 파서 대체용)
-        local extractedPath = content:match('"active_temp_path"%s*:%s*"([^"]+)"')
-        if extractedPath then
-            baseTempPath = extractedPath:gsub("\\\\", "\\"):gsub("\\", "/")
-        end
+        if ok and (type(decoded) == "userdata" or type(decoded) == "table") then settings = decoded end
     end
 end
-
-local jobPath = baseTempPath .. "/" .. jobDirName
-local layersPath = jobPath .. "/layers"
-
--- 폴더 생성 (명령어 이스케이프 처리)
-os.execute('mkdir "' .. jobPath:gsub("/", "\\") .. '"')
-os.execute('mkdir "' .. layersPath:gsub("/", "\\") .. '"')
+local copyMessages = {
+    ko = {"먼저 Bridge를 열어 주세요. 복사 결과를 받을 위치가 아직 설정되지 않았습니다.",
+          "이 프레임에는 복사할 픽셀이 없습니다. 연습 파일의 1번 또는 3번 프레임에서 그림이 있는 셀을 선택하고 다시 복사하세요.",
+          "선택한 프레임에서 그림이 있는 셀을 선택하고 다시 복사하세요.",
+          "복사 파일을 저장할 수 없습니다. Bridge의 저장 위치와 파일 접근 권한을 확인해 주세요."},
+    en = {"Open Bridge first so there is a place to receive copies.",
+          "There are no pixels to copy here. Select a painted cel in frame 1 or 3 and copy again.",
+          "Select a painted cel in the active frame and copy again.",
+          "Could not save the copy. Check the Bridge output folder and file access permissions."},
+    ja = {"先に Bridge を起動してコピー結果の保存先を準備してください。",
+          "コピーできるピクセルがありません。フレーム 1 または 3 の絵があるセルを選び、もう一度コピーしてください。",
+          "現在のフレームで絵があるセルを選び、もう一度コピーしてください。",
+          "コピーを保存できません。保存先とファイルのアクセス権限を確認してください。"}
+}
+local messages = copyMessages[settings and settings.language] or copyMessages.en
+local baseTempPath = settings and settings.active_temp_path
+if exercise then
+    if not app.fs.isFile(filename) then return app.alert(messages[1]) end
+    baseTempPath = app.fs.joinPath(folder, "copies")
+end
+if type(baseTempPath) ~= "string" or baseTempPath == "" then return app.alert(messages[1]) end
+local timestamp = os.date("%Y%m%d_%H%M%S")
+local jobDirName, jobPath
+repeat
+    jobDirName = (exercise and "copy_" or ("bridge_job_" .. timestamp .. "_")) .. math.random(1000, 99999999)
+    jobPath = app.fs.joinPath(baseTempPath, jobDirName)
+until not app.fs.isDirectory(jobPath)
+local layersPath = app.fs.joinPath(jobPath, "layers")
 
 -- 3. 재귀적 스캔 및 추출 (Bottom -> Top 순서로 index 부여)
 local elementsList = {}
 local idCounter = 0
 local extractedPixCount = 0
+local exportFailed = false
 
 -- 객체의 고유 ID를 기억하기 위한 캐시 (부모 ID 찾기용)
 local idCache = {}
@@ -150,6 +168,7 @@ local function traverseItems(items, parentId)
     
     -- Aseprite는 Bottom -> Top 정방향 순회
     for i = 1, #items do
+        if exportFailed then return end
         local item = items[i]
         
         -- 현재 item이 사용자가 선택한 selLayers에 포함되는지 확인
@@ -187,6 +206,14 @@ local function traverseItems(items, parentId)
                 -- 일반 픽셀 레이어 처리
                 local cel = item:cel(frame.frameNumber)
                 if cel and cel.image and not cel.image:isEmpty() then
+                    if extractedPixCount == 0 then
+                        app.fs.makeAllDirectories(jobPath)
+                        if not app.fs.isDirectory(layersPath) then app.fs.makeDirectory(layersPath) end
+                        if not app.fs.isDirectory(layersPath) then
+                            exportFailed = true
+                            return
+                        end
+                    end
                     local bounds = cel.bounds
                     
                     local croppedImg = Image(bounds.width, bounds.height, spr.colorMode)
@@ -194,9 +221,13 @@ local function traverseItems(items, parentId)
                     croppedImg:drawImage(cel.image, 0, 0)
                     
                     local fileName = "layer_" .. extractedPixCount .. ".png"
-                    local fullPngPath = layersPath .. "/" .. fileName
+                    local fullPngPath = app.fs.joinPath(layersPath, fileName)
                     
                     croppedImg:saveAs(fullPngPath)
+                    if not app.fs.isFile(fullPngPath) then
+                        exportFailed = true
+                        return
+                    end
                     
                     table.insert(elementsList, {
                         id = currentId,
@@ -228,9 +259,9 @@ end
 -- 4. 최상단부터 순회 시작
 traverseItems(spr.layers, nil)
 
-if #elementsList == 0 then
-    os.execute('rmdir /S /Q "' .. jobPath:gsub("/", "\\") .. '"')
-    return app.alert("추출 가능한 그룹이나 픽셀 레이어가 없습니다.")
+if exportFailed then return app.alert(messages[4]) end
+if extractedPixCount == 0 then
+    return app.alert(messages[exercise and 2 or 3])
 end
 
 -- 5. 메타데이터 구성 (v1.1 스키마)
@@ -240,7 +271,7 @@ local metadata = {
     source_app = "aseprite",
     target_app = "photoshop",
     timestamp = timestamp,
-    document_name = spr.filename:match("[^\\]+$") or "Untitled",
+    document_name = documentName ~= "" and documentName or "Untitled",
     canvas_size = { w = spr.width, h = spr.height },
     element_count = #elementsList,
     elements = elementsList,
@@ -290,6 +321,11 @@ local doneData = {
     element_count = #elementsList,
     timestamp = timestamp
 }
+if exercise then
+    doneData.practice_token = exerciseToken
+    doneData.practice_path = filename
+    doneData.practice_frame = frame.frameNumber
+end
 
 local doneFile = io.open(jobPath .. "/status_done.json", "w")
 if doneFile then
