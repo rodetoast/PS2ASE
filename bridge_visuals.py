@@ -88,15 +88,14 @@ class PixelPreview(QLabel):
         super().__init__(text)
         self.source = QPixmap()
         self.setAlignment(Qt.AlignCenter)
-        self.setFixedWidth(340)
         self.setMinimumHeight(self.MIN_HEIGHT)
-        self.setMaximumHeight(160)
-        self.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
     def sizeHint(self):
         return QSize(340, self.MIN_HEIGHT)
 
-    minimumSizeHint = sizeHint
+    def minimumSizeHint(self):
+        return QSize(0, self.MIN_HEIGHT)
 
     def set_image(self, data):
         self.source.loadFromData(data, 'PNG')
@@ -122,9 +121,12 @@ class PixelPreview(QLabel):
             return
         area = self.contentsRect()
         dpr = self.devicePixelRatioF()
-        target = QSize(int(min(area.width(), self.source.width()) * dpr),
-                       int(min(area.height(), self.source.height()) * dpr))
-        pixmap = self.source.scaled(target, Qt.KeepAspectRatio, Qt.FastTransformation)
+        target = QSize(int(area.width() * dpr), int(area.height() * dpr))
+        if target.isEmpty():
+            return
+        ratio = min(target.width() / self.source.width(), target.height() / self.source.height())
+        fitted = QSize(max(1, round(self.source.width() * ratio)), max(1, round(self.source.height() * ratio)))
+        pixmap = self.source.scaled(fitted, Qt.IgnoreAspectRatio, Qt.FastTransformation)
         pixmap.setDevicePixelRatio(dpr)
         self.setPixmap(pixmap)
 

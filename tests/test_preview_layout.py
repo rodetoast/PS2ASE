@@ -116,13 +116,13 @@ class PreviewLayoutTests(unittest.TestCase):
         self.app.processEvents()
         empty_geometry = self.rect(w.preview_label)
         row_geometry = self.rect(w.transform_bar)
-        for size in ((2048, 1024), (32, 64), (400, 10)):
+        for size in ((2048, 1024), (32, 64), (400, 10), (1, 8000), (47, 43)):
             w.set_preview_image(self.image(*size))
             self.app.processEvents()
             pixmap = w.preview_label.pixmap()
             self.assertLessEqual(pixmap.width(), w.preview_label.contentsRect().width())
             self.assertLessEqual(pixmap.height(), w.preview_label.contentsRect().height())
-            factor = min(1, w.preview_label.contentsRect().width() / size[0],
+            factor = min(w.preview_label.contentsRect().width() / size[0],
                          w.preview_label.contentsRect().height() / size[1])
             self.assertAlmostEqual(pixmap.width(), size[0] * factor, delta=1)
             self.assertAlmostEqual(pixmap.height(), size[1] * factor, delta=1)
@@ -130,6 +130,46 @@ class PreviewLayoutTests(unittest.TestCase):
             self.assertEqual(self.rect(w.transform_bar), row_geometry)
         w.clear_preview()
         self.assertEqual(self.rect(w.preview_label), empty_geometry)
+
+    def test_small_native_raster_fills_the_available_viewport_without_blending(self):
+        from PIL import Image
+        w = self.window
+        w.showNormal()
+        w.resize(460, 620)
+        self.app.processEvents()
+        art = Image.new("RGBA", (2, 1), (0, 0, 255, 255))
+        art.putpixel((0, 0), (255, 0, 0, 255))
+        data = io.BytesIO()
+        art.save(data, format="PNG")
+        w.set_preview_image(data.getvalue())
+        initial = w.preview_label.pixmap().size()
+        self.assertGreater(initial.width(), 4)
+        w.resize(720, 880)
+        self.app.processEvents()
+        output = w.preview_label.pixmap().toImage()
+        self.assertGreater(output.width(), initial.width())
+        colors = {output.pixelColor(x, 0).name() for x in range(output.width())}
+        self.assertEqual(colors, {"#ff0000", "#0000ff"})
+        self.assertEqual(w.preview_label.source.width(), 2)
+
+    def test_worker_preserves_native_content_bounds_and_transparency(self):
+        import json
+        from PIL import Image
+        job = self.fixture.root
+        art = Image.new("RGBA", (47, 43), (0, 0, 0, 0))
+        art.putpixel((4, 5), (30, 90, 190, 128))
+        art.save(job / "art.png")
+        meta = {"layers": [{"file": "art.png", "x": -3, "y": 2, "width": 47, "height": 43}]}
+        (job / "metadata.json").write_text(json.dumps(meta))
+        (job / "status_done.json").touch()
+        worker = self.fixture.b.PreviewGeneratorWorker(str(job), "sample")
+        outputs = []
+        worker.preview_ready.connect(lambda data, job_id: outputs.append((data, job_id)))
+        worker.run()
+        self.assertEqual(len(outputs), 1)
+        result = Image.open(io.BytesIO(outputs[0][0]))
+        self.assertEqual(result.size, (47, 43))
+        self.assertEqual(result.tobytes(), art.tobytes())
 
     def test_qt_scaling_100_125_150_percent_in_isolated_processes(self):
         code = (

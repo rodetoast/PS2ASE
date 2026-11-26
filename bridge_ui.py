@@ -268,18 +268,8 @@ class PreviewGeneratorWorker(QThread):
                 except Exception:
                     pass
 
-            # 6. 썸네일 축소 (픽셀아트 특성 고려)
-            # 원본 이미지가 160x160 보다 작으면 픽셀이 뭉개지지 않도록 NEAREST(Nearest Neighbor)를 사용하여 그대로 키움.
-            # 원본이 너무 크면 LANCZOS로 부드럽게 축소.
-            target_size = (160, 160)
-            if canvas_w < 160 and canvas_h < 160:
-                # 작은 도트 이미지는 선명하게 확대 (Aspect Ratio 유지)
-                ratio = min(160 / canvas_w, 160 / canvas_h)
-                new_w, new_h = int(canvas_w * ratio), int(canvas_h * ratio)
-                base_canvas = base_canvas.resize((new_w, new_h), Image.Resampling.NEAREST)
-            else:
-                # 큰 이미지는 부드럽게 축소
-                base_canvas.thumbnail(target_size, Image.Resampling.LANCZOS)
+            # Fit only at display time. Bound unusually large previews before emitting PNG data.
+            base_canvas.thumbnail((1536, 1536), Image.Resampling.NEAREST)
 
             # 7. 메모리 바이너리로 변환하여 Signal 쏘기
             buf = io.BytesIO()
@@ -1152,6 +1142,25 @@ for _language, _flow in GUIDE_FLOW.items():
     LANG[_language].update({f"guide_flow_{key}": value for key, value in _flow.items()})
 
 for _key, _ko, _en, _ja in (
+    ("ase_close_work", "업데이트하려면 작업을 저장하고 Aseprite를 종료해 주세요.",
+     "Save your work and close Aseprite before updating.", "更新するには作業を保存して Aseprite を終了してください。"),
+    ("ase_close_unknown", "Aseprite가 종료됐는지 확인할 수 없습니다. 작업을 저장하고 종료한 뒤 상태를 다시 확인해 주세요.",
+     "Aseprite's status is unknown. Save your work, close it, then check again.", "Aseprite の終了を確認できません。作業を保存して終了し、状態を再確認してください。"),
+    ("ase_check_closed", "Aseprite 종료 여부 다시 확인", "Check whether Aseprite is closed", "Aseprite の終了を再確認"),
+    ("ase_approval_preview", "연습 중 스크립트 실행 승인창이 나타날 수 있습니다.", "A script permission prompt may appear during practice.",
+     "練習中にスクリプト実行の許可画面が表示されることがあります。"),
+    ("ase_manual_run", "메뉴에서 직접 실행", "Run from the menu", "メニューから実行"),
+    ("ase_approval_title", "파일 접근 승인", "File access approval", "ファイルアクセスの許可"),
+    ("ase_execution", "스크립트 실행", "Script execution", "スクリプト実行"),
+    ("ase_both_observed", "복사·붙여넣기 결과 수신", "Copy and paste results received", "コピーと貼り付けの結果を受信"),
+    ("ase_copy_observed", "복사 스크립트 실행 확인", "Copy script executed", "コピースクリプトの実行を確認"),
+    ("ase_execution_optional", "연습에서 확인할 수 있음", "Can be checked in practice", "練習で確認できます"),
+    ("f5_open_location", "연습 파일 위치 열기", "Open practice file location", "練習ファイルの場所を開く"),
+    ("f5_pick", "타임라인에서 Layer 1의 1번 셀을 선택하세요. 3번 프레임도 사용할 수 있고 2번은 비어 있습니다.",
+     "Select the Layer 1 cel in frame 1. Frame 3 also works; frame 2 is empty.",
+     "Layer 1 のフレーム 1 のセルを選びます。3 も使用でき、2 は空です。"),
+    ("f5_press", "Aseprite 창에서 F5를 누르세요.", "Press F5 in the Aseprite window.", "Aseprite で F5 を押します。"),
+    ("f5_new_file", "새 연습 파일 준비", "Prepare a fresh practice file", "新しい練習ファイルを用意"),
     ("welcome_step", "초기 설정 시작", "Welcome", "初期設定を始める"),
     ("welcome_intro", "레이어와 프레임을 Photoshop과 Aseprite 사이에서 주고받으세요.",
      "Move layers and frames between Photoshop and Aseprite.", "Photoshop と Aseprite の間でレイヤーとフレームをやり取りできます。"),
@@ -2475,8 +2484,11 @@ class AsepriteSetupDialog(QDialog):
         layout = QVBoxLayout(self)
         content = QWidget()
         rows = QVBoxLayout(content)
-        rows.addWidget(PracticeDiagram("timeline", QPixmap(get_resource_path("assets/practice/character.png"))))
-        for message in (lang_dict["practice_menu_help"], lang_dict["practice_trust_note"]):
+        for title, message in ((lang_dict["ase_manual_run"], lang_dict["practice_menu_help"]),
+                               (lang_dict["ase_approval_title"], lang_dict["practice_trust_note"])):
+            heading = QLabel(title)
+            heading.setProperty("uiHeading", True)
+            rows.addWidget(heading)
             line = QLabel(message)
             line.setWordWrap(True)
             rows.addWidget(line)
@@ -2570,6 +2582,7 @@ class InitialSetupDialog(QDialog):
     """Guide completion, auto-display, and external security confirmations stay independent."""
 
     probe_runtime_checked = Signal(object, object)
+    install_runtime_checked = Signal(str, object)
     def __init__(self, lang_dict, app, parent=None):
         super().__init__(parent or app)
         self.lang = lang_dict
@@ -2604,6 +2617,11 @@ class InitialSetupDialog(QDialog):
         self.practice_timer.setInterval(400)
         self.practice_timer.timeout.connect(self.poll_practice)
         self.probe_runtime_checked.connect(self.apply_probe_runtime, Qt.QueuedConnection)
+        self._install_runtime_pending = None
+        self.install_runtime_timer = QTimer(self)
+        self.install_runtime_timer.setInterval(1800)
+        self.install_runtime_timer.timeout.connect(self.request_install_runtime)
+        self.install_runtime_checked.connect(self.apply_install_runtime, Qt.QueuedConnection)
         layout = QVBoxLayout(self)
         layout.setContentsMargins(12, 8, 12, 8)
         layout.setSpacing(6)
@@ -2682,30 +2700,32 @@ class InitialSetupDialog(QDialog):
                 self.ase_refresh.setFixedWidth(32)
                 self.ase_refresh.setToolTip(self.flow("refresh"))
                 self.ase_refresh.setAccessibleName(self.flow("refresh"))
-                self.ase_refresh.clicked.connect(self.refresh_status)
+                self.ase_refresh.clicked.connect(self.request_install_runtime)
                 path_actions.addWidget(self.ase_refresh)
                 identity.addLayout(path_actions)
                 self.add_action(identity, self.lang["rescan_paths"], self.rescan_aseprite)
                 self.ase_status = []
                 self.ase_status_icons = []
-                for title in ("scripts_title", "keys_title", "trust_title"):
+                for title in (self.flow("scripts_title"), self.flow("keys_title"), self.lang["ase_execution"]):
                     row = QHBoxLayout()
-                    icon, name = self.add_status_name(row, self.flow(title))
+                    icon, name = self.add_status_name(row, title)
                     status = self.add_text(None, "")
                     status.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
                     row.addWidget(status, 2)
                     identity.addLayout(row)
                     self.ase_status.append(status)
                     self.ase_status_icons.append(icon)
+                self.ase_install = self.add_action(identity, self.flow("install"), self.install_aseprite)
                 self.ase_hint = self.add_text(identity, "")
                 self.ase_hint.setProperty("uiMuted", True)
-                self.ase_install = self.add_action(identity, self.flow("install"), self.install_aseprite)
-                self.ase_edit = self.add_action(identity, self.lang["ase_trust_action"], self.edit_aseprite)
+                self.ase_check_close = self.add_action(identity, self.lang["ase_check_closed"], self.request_install_runtime)
+                self.ase_approval_intro = self.add_text(identity, self.lang["ase_approval_preview"])
                 test = workspace_section(content)
                 test.parentWidget().setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
                 self.add_text(test, self.flow("test_heading")).setProperty("uiHeading", True)
                 self.add_text(test, self.flow("test_safe")).setProperty("uiMuted", True)
                 self.key_status = []
+                results = QVBoxLayout()
                 for key, function in (("F5", "copy_function"), ("F4", "paste_function")):
                     row = QHBoxLayout()
                     cap = QLabel(key)
@@ -2717,21 +2737,26 @@ class InitialSetupDialog(QDialog):
                     label = self.add_text(None, "")
                     label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
                     row.addWidget(label, 2)
-                    test.addLayout(row)
+                    results.addLayout(row)
                     self.key_status.append(label)
                 self.ase_test = self.add_action(test, self.flow("test"), self.start_probe)
                 self.ase_test.setProperty("uiRole", "primary")
                 probe = test
+                self.probe_open = self.add_action(probe, self.flow("open_test"), self.open_probe_document)
+                self.probe_folder = self.add_action(probe, self.lang["f5_open_location"], self.open_probe_folder)
+                self.probe_open.setProperty("uiRole", "primary")
+                self.probe_folder.setProperty("uiRole", "primary")
                 self.probe_intro = self.add_text(probe, "")
                 self.probe_f5_diagram = PracticeDiagram("timeline", character)
                 probe.addWidget(self.probe_f5_diagram)
                 self.probe_f4_diagram = PracticeDiagram("paste", character, self.lang["visual_paste"])
                 probe.addWidget(self.probe_f4_diagram)
+                self.probe_press = self.add_text(probe, self.lang["f5_press"])
                 self.probe_trust_note = self.add_text(probe, self.lang["practice_trust_note"])
                 self.probe_open_note = self.add_text(probe, "")
-                self.probe_open = self.add_action(probe, self.flow("open_test"), self.open_probe_document)
-                self.probe_folder = self.add_action(probe, self.lang["practice_open_copy"], self.open_probe_folder)
                 self.probe_trust = self.add_action(probe, self.lang["ase_trust_action"], self.edit_aseprite)
+                self.probe_retry_file = self.add_action(probe, self.lang["f5_new_file"], self.restart_probe)
+                probe.addLayout(results)
                 self.probe_next = self.add_action(probe, self.lang["f4_next"], self.start_paste_practice)
                 self.practice_open_ps = self.add_action(probe, self.lang["f4_open_ps"],
                                                         lambda: self.open_practice_folder(self._practice_source))
@@ -2755,6 +2780,7 @@ class InitialSetupDialog(QDialog):
                 self.review_icons = []
                 review_steps = (self.CONNECTION, self.CONNECTION, self.WARNING, *([self.ASEPRITE] * 5))
                 titles = self.flow("review_titles")
+                titles = (*titles[:5], self.lang["ase_execution"], *titles[6:])
                 metrics = self.fontMetrics()
                 checklist.setColumnMinimumWidth(0, min(126, max(metrics.horizontalAdvance(title) + 22 for title in titles)))
                 for row, title in enumerate(titles):
@@ -2944,33 +2970,73 @@ class InitialSetupDialog(QDialog):
         self.ase_path_detail.setText(ase)
         self.ase_path_detail.setToolTip(ase)
         self.ase_path_detail.setVisible(bool(ase))
-        ready = self.ase_scripts_current and self.ase_keys_registered
-        close_needed = self.ase_path_valid and not ready and self.ase_state != "guide_ps_closed"
         typical, conflicts = aseprite_setup_details(self.lang, self.ase_scripts_current)
-        self.ase_hint.setText("\n".join([typical] +
-            ([self.lang["ase_binds_conflict"].format(keys=", ".join(conflicts))] if conflicts else []) +
-            ([self.flow("ase_stop")] if close_needed else [])))
-        self.ase_hint.setVisible(self.ase_path_valid and not ready)
-        self.ase_install.setVisible(self.ase_path_valid and not ready)
-        self.ase_install.setEnabled(not close_needed)
-        self.ase_edit.setEnabled(self.ase_path_valid and self.ase_scripts_current)
+        self._ase_install_details = [typical] + (
+            [self.lang["ase_binds_conflict"].format(keys=", ".join(conflicts))] if conflicts else [])
         self.update_summary()
+
+    def update_install_state(self):
+        needed = self.ase_path_valid and not (self.ase_scripts_current and self.ase_keys_registered)
+        close_needed = needed and self.ase_state != "guide_ps_closed"
+        detail = list(self._ase_install_details)
+        if close_needed:
+            key = "ase_close_work" if self.ase_state == "guide_ps_running" else "ase_close_unknown"
+            detail.insert(0, self.lang[key])
+        self.ase_hint.setText("\n".join(detail))
+        self.ase_hint.setVisible(needed)
+        self.ase_install.setVisible(needed)
+        self.ase_install.setEnabled(needed and not close_needed)
+        self.ase_check_close.setVisible(close_needed)
+        self.ase_approval_intro.setVisible(not needed and self.ase_path_valid)
+        should_watch = close_needed and self.pages.currentIndex() == self.ASEPRITE and self.isVisible() and not self._probe_path
+        if should_watch and not self.install_runtime_timer.isActive():
+            self.install_runtime_timer.start()
+        elif not should_watch:
+            self.install_runtime_timer.stop()
+
+    def request_install_runtime(self):
+        exe = self.app.settings.get("aseprite_exe", "")
+        if self._install_runtime_pending is not None:
+            return
+        self._install_runtime_pending = exe
+        publish = self.install_runtime_checked
+
+        def read():
+            result = aseprite_runtime(exe)
+            try:
+                publish.emit(exe, result)
+            except RuntimeError:
+                pass
+
+        QThreadPool.globalInstance().start(read)
+
+    def apply_install_runtime(self, exe, result):
+        if self._install_runtime_pending != exe:
+            return
+        self._install_runtime_pending = None
+        if exe == self.app.settings.get("aseprite_exe", ""):
+            self.set_ase_runtime(*result)
+            self.update_summary()
 
     def update_summary(self):
         if not hasattr(self, "ase_scripts_current"):
             return
         trust_key = "guide_trust_yes" if self.app.settings.get("aseprite_trust_confirmed") is True else "guide_trust_no"
         trust_confirmed = trust_key == "guide_trust_yes"
-        flags = (self.ase_scripts_current, self.ase_keys_registered, trust_confirmed)
+        self.update_install_state()
+        execution = self.lang["ase_both_observed" if self.f5_seen and self.f4_received else
+                              "ase_copy_observed" if self.f5_seen else "ase_execution_optional"]
+        flags = (self.ase_scripts_current, self.ase_keys_registered, self.f5_seen)
         details = (self.lang["guide_files_ok" if flags[0] else "guide_files_pending"],
-                   self.lang["guide_keys_ok" if flags[1] else "guide_keys_pending"], self.lang[trust_key])
+                   self.lang["guide_keys_ok" if flags[1] else "guide_keys_pending"],
+                   self.lang["trust_history"] if trust_confirmed else self.lang["ase_approval_preview"])
         entries = ("verified" if flags[0] else "action_required",
                    "verified" if flags[1] else "action_required",
-                   "user_confirmed" if trust_confirmed else "user_required")
+                   None)
         for label, icon, checked, state, detail in zip(self.ase_status, self.ase_status_icons, flags, entries, details):
-            label.setText(self.flow(state))
+            label.setText(self.flow(state) if state else execution)
             label.setToolTip(detail)
-            self.show_check(icon, checked and state == "verified")
+            self.show_check(icon, checked)
         self.refresh_probe()
         connection, installed, registered, trust, unknown, confirmed, copied = self.flow("review_states")
         optional_warning = self.review_warning == self.lang["guide_warning_keep"]
@@ -2979,15 +3045,15 @@ class InitialSetupDialog(QDialog):
                  self.flow("optional") + " · " + self.review_warning if optional_warning else self.review_warning,
                  installed if self.ase_scripts_current else self.flow("action_required"),
                  registered if self.ase_keys_registered else self.flow("action_required"),
-                 self.lang["trust_history"] if trust_confirmed else unknown,
+                 execution,
                  self.lang["f4_observed"] if self.f4_received else confirmed if self.f4_seen else unknown,
                  copied if self.f5_seen else unknown)
         needs_action = (not self.ps_target_valid, not self.ps_target_valid,
                         self.review_warning == self.lang["guide_warning_unknown"],
                         not self.ase_scripts_current, not self.ase_keys_registered,
-                        not trust_confirmed, not self.f4_seen, not self.f5_seen)
+                        False, not self.f4_seen, not self.f5_seen)
         checks = (self.ps_target_valid, False, False, self.ase_scripts_current,
-                  self.ase_keys_registered, False, self.f4_received, self.f5_seen)
+                  self.ase_keys_registered, self.f5_seen, self.f4_received, self.f5_seen)
         for label, button, icon, text, needs_review, checked in zip(
                 self.review_lines, self.review_actions, self.review_icons, lines, needs_action, checks):
             label.setText(text)
@@ -3034,7 +3100,7 @@ class InitialSetupDialog(QDialog):
         self.refresh_status()
 
     def edit_aseprite(self):
-        if not (self.ase_path_valid and self.ase_scripts_current):
+        if not (self._probe_path and self.ase_path_valid and self.ase_scripts_current):
             return
         if self._trust_dialog is not None:
             self._trust_dialog.raise_()
@@ -3064,6 +3130,10 @@ class InitialSetupDialog(QDialog):
             os.makedirs(root)
             path = os.path.join(root, "Copy practice.aseprite")
             shutil.copyfile(get_resource_path("assets/practice/testfile.aseprite"), path)
+            marker = os.path.join(root, "practice_copy.json")
+            with open(marker, "w", encoding="utf-8") as stream:
+                json.dump({"token": os.path.basename(root).removeprefix("ps2ase-copy-"),
+                           "document": path}, stream, ensure_ascii=False)
         except OSError as error:
             QMessageBox.warning(self, self.flow("test"), str(error))
             return
@@ -3073,6 +3143,11 @@ class InitialSetupDialog(QDialog):
         self.practice_timer.start()
         self.update_summary()
         self.request_probe_runtime()
+
+    def restart_probe(self):
+        if self._probe_path and not self.f5_seen:
+            self.finish_probe()
+            self.start_probe()
 
     def poll_practice(self):
         if self._probe_path and not self.f5_seen:
@@ -3121,8 +3196,7 @@ class InitialSetupDialog(QDialog):
         active = bool(self._probe_name)
         self.ase_identity.setVisible(not active)
         self.ase_test.setVisible(not active)
-        self.ase_test.setEnabled(bool(self.ase_path_valid and self.ase_scripts_current
-                                      and self._trust_dialog is None))
+        self.ase_test.setEnabled(bool(self.ase_path_valid and self.ase_scripts_current and self.ase_keys_registered))
         self.ase_test.setText(self.flow("retry_test" if self.f4_seen or self.f5_seen else "test"))
         waiting = active and not self.f5_seen
         complete = self.f4_seen and self.f5_seen
@@ -3141,7 +3215,7 @@ class InitialSetupDialog(QDialog):
         self.probe_open.setVisible(direct)
         self.probe_open.setEnabled(direct)
         self.probe_folder.setVisible(active and not self.f5_seen and not direct)
-        self.probe_trust.setVisible(active and not complete and self.ase_edit.isEnabled())
+        self.probe_trust.setVisible(active and not complete and self.ase_scripts_current and (waiting or can_paste))
         self.probe_cancel.setVisible(active and not any_result)
         self.probe_finish.setVisible(False)
         self.probe_next.setVisible(active and self.f5_seen and not paste_lesson)
@@ -3154,7 +3228,7 @@ class InitialSetupDialog(QDialog):
         self.practice_status.setVisible(paste_lesson and bool(self._practice_status) and not complete)
         fallback = bool(self._paste_opened and time.monotonic() - self._paste_opened >= 12)
         self.f4_record.setVisible(bool(can_paste and not complete and fallback))
-        detail = "" if not active or self.f5_seen else self.lang["practice_steps_f5"]
+        detail = self.lang["f5_pick"] if waiting else ""
         if paste_lesson and not complete:
             detail = self.lang["f4_wait_practice" if can_paste else "f4_lesson"]
             if can_paste:
@@ -3166,11 +3240,13 @@ class InitialSetupDialog(QDialog):
         self.probe_intro.setText(detail)
         self.probe_intro.setVisible(bool(detail))
         self.probe_f5_diagram.setVisible(active and not self.f5_seen)
+        self.probe_press.setVisible(waiting)
         self.probe_f4_diagram.setVisible(paste_lesson)
         self.probe_trust_note.setVisible(waiting or bool(can_paste and not complete))
         message = ("open_failed" if self._probe_open_failed else "open_requested" if self._probe_open_requested
                    else "use_running" if preparing and not direct else "")
         late = preparing and time.monotonic() - self._probe_started >= 12
+        self.probe_retry_file.setVisible(late)
         self.probe_open_note.setText(self.lang["practice_f5_delayed"] if late else self.flow(message) if message else "")
         self.probe_open_note.setVisible(preparing and bool(late or message))
         self.key_status[0].setStyleSheet("color: #8ed4b4; font-weight: 700;" if self.f5_seen else "")
@@ -3193,8 +3269,11 @@ class InitialSetupDialog(QDialog):
             layout.activate()
 
     def event(self, event):
-        if event.type() == QEvent.WindowActivate and getattr(self, "_probe_name", None):
-            self.request_probe_runtime()
+        if event.type() == QEvent.WindowActivate:
+            if getattr(self, "_probe_path", None):
+                self.request_probe_runtime()
+            elif hasattr(self, "ase_hint") and self.pages.currentIndex() == self.ASEPRITE:
+                self.request_install_runtime()
         return super().event(event)
 
     def request_probe_runtime(self):
@@ -3384,10 +3463,11 @@ class InitialSetupDialog(QDialog):
         self._practice_source = self._practice_target = self._practice_job = None
         self._practice_status = ""
         if self._probe_path:
-            try:
-                os.unlink(self._probe_path)
-            except OSError:
-                pass
+            for path in (os.path.join(os.path.dirname(self._probe_path), "practice_copy.json"), self._probe_path):
+                try:
+                    os.unlink(path)
+                except OSError:
+                    pass
         self._probe_name = self._probe_path = None
         self._probe_started = self._paste_opened = 0
         self._probe_open_requested = False
@@ -3422,6 +3502,7 @@ class InitialSetupDialog(QDialog):
     def done(self, result):
         self.input_trace.mark("ACCEPT_BEGIN" if result == QDialog.Accepted else "REJECT_BEGIN")
         try:
+            self.install_runtime_timer.stop()
             self.sync_shortcut_targets()
             self.app.guide_shortcut_results = (self._probe_targets, self.f4_seen, self.f5_seen, self.f4_received)
             self.app.settings["initial_setup_seen"] = True
@@ -3540,7 +3621,7 @@ class BridgeApp(QMainWindow):
         self.diagnostic_received.connect(self.record_diagnostic, Qt.QueuedConnection)
 
         self.setMinimumSize(390, 380)
-        self.resize(460, 620)
+        self.resize(460, min(690, max(380, self.screen().availableGeometry().height() - 48)))
         self.setWindowFlags(Qt.WindowStaysOnTopHint | Qt.Window)
 
         # 경로 캐싱
@@ -3738,7 +3819,7 @@ class BridgeApp(QMainWindow):
         preview_layout.setSpacing(4)
         preview_layout.addWidget(self.status_strip)
         self.preview_label = PixelPreview(self.t["preview_empty"])
-        preview_layout.addWidget(self.preview_label, 1, Qt.AlignHCenter)
+        preview_layout.addWidget(self.preview_label, 1)
 
         # === 🔄 변환(Transform) 컨트롤 영역 ===
         self.transform_bar = QWidget()
@@ -4177,6 +4258,7 @@ class BridgeApp(QMainWindow):
         started = time.perf_counter()
         self.check_clipboard()
         self.check_temp_folder()
+        self.check_aseprite_copy_diagnostic()
         elapsed_ms = (time.perf_counter() - started) * 1000
         if elapsed_ms > 100:
             self.trace_job("-", "GUI_POLL_SLOW", elapsed_ms=round(elapsed_ms, 3))
@@ -4184,6 +4266,23 @@ class BridgeApp(QMainWindow):
     @Slot(str)
     def log_message(self, message):
         self.record_diagnostic(diagnostic_event(self._active_ps_job_id, "GUI", "LOG", message=message))
+
+    def check_aseprite_copy_diagnostic(self):
+        path = os.path.join(BRIDGE_DATA_DIR, "logs", "aseprite_copy_diagnostic.json")
+        try:
+            stat = os.stat(path)
+            stamp = (stat.st_mtime_ns, stat.st_size)
+            if stamp == getattr(self, "_copy_diagnostic_stamp", None) or stat.st_size > 65536:
+                return
+            with open(path, encoding="utf-8") as stream:
+                report = json.load(stream)
+            if not isinstance(report, dict):
+                return
+            self._copy_diagnostic_stamp = stamp
+            fields = ("code", "settings_status", "host_is_file", "readable", "host_version")
+            self.trace_job("-", "ASEPRITE_COPY_REJECTED", **{key: report.get(key) for key in fields})
+        except (OSError, ValueError):
+            pass
 
     def trace_job(self, job_id, state, **details):
         try:

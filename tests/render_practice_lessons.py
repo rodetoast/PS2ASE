@@ -8,7 +8,7 @@ from PySide6.QtWidgets import QApplication
 from test_initial_setup_guide import InitialSetupGuideTests
 
 
-def render(output):
+def render(output, *, recovery=False):
     app = QApplication([])
     fixture = InitialSetupGuideTests
     fixture.setUpClass()
@@ -34,6 +34,12 @@ def render(output):
                 app.processEvents()
                 assert guide.grab().save(str(output / f"{name}.png"))
             guide.set_step(guide.ASEPRITE)
+            if recovery:
+                with patch.object(b, "aseprite_installation_status", return_value=(False, True)):
+                    guide.refresh_status()
+                    app.processEvents()
+                    assert guide.grab().save(str(output / "update-running.png"))
+                guide.refresh_status()
             guide.start_probe()
             app.processEvents()
             assert guide._probe_name
@@ -54,10 +60,27 @@ def render(output):
                 assert tutorial.grab().save(str(output / f"{name}.png"))
             tutorial.close()
             case.fixture.shiboken.delete(tutorial)
+            if recovery:
+                window = case.window
+                window.current_lang = "ko"
+                window.refresh_ui_language()
+                window.set_preview_image((Path(__file__).resolve().parents[1] / "assets/practice/character.png").read_bytes())
+                window.last_job_id, window.clipboard_source, window.clipboard_count = "example", "photoshop", 1
+                window.current_job_path = str(case.fixture.root)
+                window.clipboard_frame_mode = "normal"
+                window.update_ui_state()
+                window.update_clipboard_mode_label()
+                window.update_status(window.t["clip_ready"].format(src="PS", dst="Ase", count=1), "#dbeafe", "#1e40af")
+                window.show()
+                for size, name in (((460, 690), "preview-default"), ((680, 840), "preview-expanded")):
+                    window.resize(*size)
+                    app.processEvents()
+                    print(name, window.preview_label.source.size(), window.preview_label.pixmap().deviceIndependentSize())
+                    assert window.grab().save(str(output / f"{name}.png"))
     finally:
         case.doCleanups()
         fixture.doClassCleanups()
 
 
 if __name__ == "__main__":
-    render(Path(sys.argv[1]))
+    render(Path(sys.argv[1]), recovery="--recovery" in sys.argv)

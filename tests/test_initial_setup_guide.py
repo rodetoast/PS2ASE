@@ -189,7 +189,8 @@ class InitialSetupGuideTests(unittest.TestCase):
         dialog = self.guide()
         self.assertEqual(dialog.ase_status[0].text(), dialog.flow("verified"))
         self.assertEqual(dialog.ase_status[1].text(), dialog.flow("verified"))
-        for index in (5, 6, 7):
+        self.assertEqual(dialog.review_lines[5].text(), dialog.lang["ase_execution_optional"])
+        for index in (6, 7):
             self.assertEqual(dialog.review_lines[index].text(), dialog.flow("review_states")[4])
         self.assertFalse(self.window.settings["aseprite_trust_confirmed"])
 
@@ -379,7 +380,7 @@ class InitialSetupGuideTests(unittest.TestCase):
                     self.assertEqual(dialog.pages.currentWidget().horizontalScrollBar().maximum(), 0)
                     self.assertTrue(dialog.btn_next.isVisible())
                     self.assertLess(dialog.btn_next.geometry().bottom(), dialog.height())
-                    action = (dialog.step_title, dialog.ps_edit, dialog.warning_buttons[1], dialog.ase_edit, dialog.btn_tutorial)[step]
+                    action = (dialog.step_title, dialog.ps_edit, dialog.warning_buttons[1], dialog.ase_test, dialog.btn_tutorial)[step]
                     self.assertTrue(dialog.isAncestorOf(action))
                     if step != dialog.WELCOME:
                         self.assertTrue(dialog.pages.isAncestorOf(action))
@@ -658,21 +659,28 @@ class InitialSetupGuideTests(unittest.TestCase):
             dialog.set_step(dialog.ASEPRITE)
             self.assertFalse(dialog.ase_test.isEnabled())
             self.assertFalse(dialog.ase_install.isEnabled())
-            self.assertFalse(dialog.ase_edit.isEnabled())
+            self.assertIn(dialog.lang["ase_close_unknown"], dialog.ase_hint.text())
+            self.assertFalse(dialog.ase_check_close.isHidden())
+            dialog._install_runtime_pending = self.window.settings["aseprite_exe"]
+            dialog.apply_install_runtime(self.window.settings["aseprite_exe"], (True, "guide_ps_running"))
+            self.assertIn(dialog.lang["ase_close_work"], dialog.ase_hint.text())
+            dialog._install_runtime_pending = self.window.settings["aseprite_exe"]
+            dialog.apply_install_runtime(self.window.settings["aseprite_exe"], (True, "guide_ps_closed"))
+            self.assertTrue(dialog.ase_install.isEnabled())
             inspect.return_value = (True, True)
             dialog.refresh_status()
             self.assertTrue(dialog.ase_test.isEnabled())
             self.assertTrue(dialog.ase_install.isHidden())
-            self.assertEqual(dialog.ase_edit.text(), dialog.lang["ase_trust_action"])
-            dialog.ase_edit.click()
-            self.assertIsNotNone(dialog._trust_dialog)
             self.assertIsNone(dialog._probe_dir)
             self.assertIsNone(dialog._probe_name)
             self.assertFalse(dialog.f5_seen)
-            dialog._trust_dialog.reject()
+            self.assertTrue(dialog.probe_trust.isHidden())
             dialog.ase_test.click()
             self.assertTrue(Path(dialog._probe_path).is_file())
             self.addCleanup(dialog._probe_dir.cleanup)
+            dialog.probe_trust.click()
+            self.assertIsNotNone(dialog._trust_dialog)
+            dialog._trust_dialog.reject()
             install.assert_not_called()
 
 

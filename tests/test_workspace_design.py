@@ -150,7 +150,9 @@ class WorkspaceDesignTests(unittest.TestCase):
         self.fixture.app.processEvents()
         large = w.preview_label.pixmap()
         self.assertGreater(large.deviceIndependentSize().height(), compact)
-        self.assertEqual(large.deviceIndependentSize().height(), 160)
+        self.assertGreater(large.deviceIndependentSize().height(), 160)
+        self.assertAlmostEqual(large.deviceIndependentSize().height(),
+                               w.preview_label.contentsRect().height(), delta=1)
         raster = large.toImage()
         self.assertEqual({raster.pixelColor(x, 20).name() for x in range(raster.width())},
                          {'#ff0000', '#0000ff'})

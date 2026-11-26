@@ -33,6 +33,9 @@ class AsepritePracticeTests(unittest.TestCase):
                 image.paste((116, 216, 236, 255), (8, 6, 20, 18))
             if exercise:
                 shutil.copyfile(ROOT / "assets/practice/testfile.aseprite", target)
+                (target.parent / "practice_copy.json").write_text(json.dumps({
+                    "token": "2" * 32 if scenario.endswith("_stale") else "1" * 32,
+                    "document": str(target).replace("\\", "/")}), encoding="utf-8")
             else:
                 image.save(target)
             job = root / "job"
@@ -40,6 +43,7 @@ class AsepritePracticeTests(unittest.TestCase):
             (root / "jobs").mkdir()
             prefs = root / "Ase-PS-Bridge"
             prefs.mkdir()
+            (prefs / "logs").mkdir()
             (prefs / "bridge_settings.json").write_text(
                 json.dumps({"language": "en", "active_temp_path": str(root / "jobs")}), encoding="utf-8")
             png = job / "layers/layer_0.png"
@@ -85,3 +89,8 @@ class AsepritePracticeTests(unittest.TestCase):
         for number in (1, 2, 3):
             with self.subTest(frame=number):
                 self.run_case(f"copy_frame_{number}")
+
+    def test_practice_path_errors_and_native_stat_fallback(self):
+        for condition in ("stale", "stat_false", "deleted", "denied", "no_settings"):
+            with self.subTest(condition=condition):
+                self.run_case("copy_frame_1_" + condition)
