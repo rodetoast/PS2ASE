@@ -84,16 +84,23 @@ local practiceNotices = {
     },
 }
 
-local function normalizePath(path)
-    return app.fs.normalizePath(path):gsub("\\", "/"):lower()
+local function filesystemPath(path)
+    return app.fs.normalizePath(path):gsub("\\", "/")
+end
+
+local function comparisonKey(path)
+    -- Lua's locale-dependent lower() can change bytes inside a UTF-8 character.
+    return (path:gsub("[A-Z]", function(letter) return string.char(letter:byte() + 32) end))
 end
 
 local spr = app.activeSprite
-local filename = normalizePath(spr and spr.filename or "")
-local sessionRoot, exercise = filename:match("^(.*)/ps2ase%-paste%-(%x+)/paste practice%.png$")
+local filename = filesystemPath(spr and spr.filename or "")
+local filenameKey = comparisonKey(filename)
+local rootEnd, exercise = filenameKey:match("^.*()/ps2ase%-paste%-(%x+)/paste practice%.png$")
 local guideTarget = exercise ~= nil and #exercise == 32
+local sessionRoot = guideTarget and filename:sub(1, rootEnd - 1)
 local closedMarker = guideTarget and (sessionRoot .. ".ps2ase-paste-" .. exercise .. ".closed")
-local legacyExercise = filename:match("/ps2ase%-guide%-[^/]+/aseprite/ps2ase%-paste%-(%x+)%.png$")
+local legacyExercise = filenameKey:match("/ps2ase%-guide%-[^/]+/aseprite/ps2ase%-paste%-(%x+)%.png$")
 local request
 
 local function reject(code, message, fields)
@@ -116,6 +123,19 @@ local function isNonce(value)
     return type(value) == "string" and #value == 32 and value:match("^%x+$") ~= nil
 end
 
+local function guideSessionOpen()
+    local ok, closed = pcall(app.fs.isFile, closedMarker)
+    if not ok or type(closed) ~= "boolean" then
+        reject("session_marker_access", "access")
+        return false
+    end
+    if closed then
+        reject("session_closed", "ended")
+        return false
+    end
+    return true
+end
+
 local requestPath = profile .. "/guide_paste_request.json"
 if app.fs.isFile(requestPath) then
     local data, err = readText(requestPath)
@@ -126,7 +146,7 @@ if app.fs.isFile(requestPath) then
         request = nil
     end
 end
-if request and (not guideTarget or type(request.target) ~= "string" or normalizePath(request.target) ~= filename) then
+if request and (not guideTarget or comparisonKey(filesystemPath(request.target)) ~= filenameKey) then
     return reject("button_wrong_target", "wrong_target")
 end
 if not spr then return showMessage(1) end
@@ -135,12 +155,12 @@ if isNonce(legacyExercise) then return reject("legacy_session_ended", "ended") e
 local payload
 local guideCount
 if guideTarget then
-    if app.fs.isFile(closedMarker) then return reject("session_closed", "ended") end
+    if not guideSessionOpen() then return end
     local data, err = readText(spr.filename .. ".ps2ase.json")
     if not data then return reject("sidecar_" .. (err or "missing"), err == "access" and "access" or "ended") end
     payload = decodeJson(data)
     if not payload then return reject("sidecar_json", "invalid_copy") end
-    if type(payload.guide_target) ~= "string" or normalizePath(payload.guide_target) ~= filename then
+    if type(payload.guide_target) ~= "string" or comparisonKey(filesystemPath(payload.guide_target)) ~= filenameKey then
         return reject("target_mismatch", "wrong_target", {expected = payload.guide_target, path_equal = false})
     end
     if not isNonce(payload.guide_session) or not isNonce(exercise) or payload.guide_session ~= exercise then
@@ -185,7 +205,7 @@ if type(jobPath) ~= "string" or jobPath == "" or jobPath:find("%z") then
     if guideTarget then return reject("job_path", "invalid_copy") end
     return showMessage(2)
 end
-if guideTarget and normalizePath(jobPath) ~= sessionRoot .. "/guide_" .. payload.guide_nonce then
+if guideTarget and comparisonKey(filesystemPath(jobPath)) ~= comparisonKey(sessionRoot .. "/guide_" .. payload.guide_nonce) then
     return reject("job_scope", "invalid_copy")
 end
 
@@ -234,10 +254,7 @@ local function recordGuidePaste()
 end
 
 local function pasteTransaction(action)
-    if guideTarget and app.fs.isFile(closedMarker) then
-        reject("session_closed", "ended")
-        return false
-    end
+    if guideTarget and not guideSessionOpen() then return false end
     local ok = pcall(app.transaction, action)
     if not ok then showMessage(3) end
     return ok

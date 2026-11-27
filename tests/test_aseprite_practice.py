@@ -1,4 +1,7 @@
 """Opt-in tests with the installed Aseprite engine and a disposable profile."""
+from contextlib import contextmanager
+import ctypes
+from ctypes import wintypes
 import json
 import os
 from pathlib import Path
@@ -14,14 +17,34 @@ ROOT = Path(__file__).resolve().parents[1]
 ASEPRITE = os.environ.get("PS2ASE_ASEPRITE_TEST_EXE", "")
 
 
+@contextmanager
+def hold_without_delete_share(path):
+    if path is None or os.name != "nt":
+        yield
+        return
+    kernel = ctypes.WinDLL("kernel32", use_last_error=True)
+    kernel.CreateFileW.argtypes = (wintypes.LPCWSTR, wintypes.DWORD, wintypes.DWORD, wintypes.LPVOID,
+                                   wintypes.DWORD, wintypes.DWORD, wintypes.HANDLE)
+    kernel.CreateFileW.restype = wintypes.HANDLE
+    kernel.CloseHandle.argtypes = (wintypes.HANDLE,)
+    handle = kernel.CreateFileW(str(path), 0x80000000, 3, None, 3, 0, None)
+    if handle == ctypes.c_void_p(-1).value:
+        raise ctypes.WinError(ctypes.get_last_error())
+    try:
+        yield
+    finally:
+        kernel.CloseHandle(handle)
+
+
 @unittest.skipUnless(Path(ASEPRITE).is_file(), "set PS2ASE_ASEPRITE_TEST_EXE to use the installed host")
 class AsepritePracticeTests(unittest.TestCase):
-    def run_case(self, scenario):
+    def run_case(self, scenario, parent=None):
         with tempfile.TemporaryDirectory(prefix="ps2ase-ase-test-") as scratch:
-            root = Path(scratch)
+            root = Path(scratch) / parent / "PracticeRoot" if parent else Path(scratch)
+            profile_root = Path(scratch)
             practice = scenario in ("practice", "expired", "other_target", "ended", "wrong_canvas",
                                     "wrong_count", "button", "stale_session", "path_alias", "sidecar_denied",
-                                    "closed_paste_sidecar_remains")
+                                    "closed_paste_sidecar_remains", "marker_at_transaction", "marker_denied")
             exercise = scenario.startswith("copy_frame_")
             if practice:
                 target = root / ("ps2ase-paste-" + "1" * 32) / "Paste practice.png"
@@ -40,15 +63,18 @@ class AsepritePracticeTests(unittest.TestCase):
                 image.paste((116, 216, 236, 255), (8, 6, 20, 18))
             if exercise:
                 shutil.copyfile(ROOT / "assets/practice/testfile.aseprite", target)
+                document = target.as_posix()
+                if parent:
+                    document = document.replace("/PracticeRoot/", "/practiceroot/")
                 (target.parent / "practice_copy.json").write_text(json.dumps({
                     "token": "2" * 32 if scenario.endswith("_stale") else "1" * 32,
-                    "document": str(target).replace("\\", "/")}), encoding="utf-8")
+                    "document": document}), encoding="utf-8")
             else:
                 image.save(target)
             job = root / ("guide_" + "a" * 32 if practice else "job")
             (job / "layers").mkdir(parents=True)
             (root / "jobs").mkdir()
-            prefs = root / "Ase-PS-Bridge"
+            prefs = profile_root / "Ase-PS-Bridge"
             prefs.mkdir()
             (prefs / "logs").mkdir()
             (prefs / "bridge_settings.json").write_text(
@@ -63,6 +89,7 @@ class AsepritePracticeTests(unittest.TestCase):
                     json.dumps({"layers": [{"type": "layer", "id": "layer_0", "name": "Practice",
                                             "x": 0, "y": 0, "width": 6, "height": 4, "file": "layers/layer_0.png"}]}))
             normal = {"signature": "ase_ps_bridge_payload", "source_app": "photoshop", "job_path": str(job)}
+            sidecar = Path(str(target) + ".ps2ase.json")
             if practice and scenario != "ended":
                 guide = dict(normal, guide_nonce="a" * 32, guide_target=str(target),
                              guide_expires=int(time.time()) + (-60 if scenario == "expired" else 60),
@@ -72,7 +99,9 @@ class AsepritePracticeTests(unittest.TestCase):
                     guide["guide_target"] = str(root / "noncanonical" / target.parent.name / target.name)
                 elif scenario == "other_target":
                     guide["guide_target"] = str(root / "a-different-document.png")
-                Path(str(target) + ".ps2ase.json").write_text(json.dumps(guide), encoding="utf-8")
+                elif parent:
+                    guide["guide_target"] = str(target.with_name(target.name.lower()))
+                sidecar.write_text(json.dumps(guide), encoding="utf-8")
             if scenario in ("button", "button_wrong_target", "ordinary_expired_button"):
                 (prefs / "guide_paste_request.json").write_text(json.dumps({
                     "target": str(target if scenario == "button" else root / "different.png"),
@@ -80,7 +109,8 @@ class AsepritePracticeTests(unittest.TestCase):
             if scenario in ("closed_paste_sidecar_remains", "copy_frame_1_closed"):
                 revocation = Path(str(root) + "." + target.parent.name + ".closed")
                 revocation.touch()
-                self.addCleanup(revocation.unlink, missing_ok=True)
+                if not parent:
+                    self.addCleanup(revocation.unlink, missing_ok=True)
             if scenario == "ordinary_during_practice":
                 session = root / ("ps2ase-paste-" + "1" * 32)
                 session.mkdir()
@@ -92,11 +122,17 @@ class AsepritePracticeTests(unittest.TestCase):
             clipboard = {"plain": "not JSON", "scalar": "false", "wrong_signature": '{"signature":"other"}'}
             (root / "test_clipboard.txt").write_text(clipboard.get(scenario, json.dumps(normal)))
             cmd = [ASEPRITE, "--batch"]
-            for key, value in (("root", root), ("repo", ROOT), ("target", target), ("scenario", scenario)):
+            for key, value in (("root", root), ("profile_root", profile_root), ("repo", ROOT),
+                               ("target", target), ("scenario", scenario)):
                 cmd += ["--script-param", f"{key}={value}"]
             cmd += ["--script", str(ROOT / "tests/aseprite_practice_harness.lua")]
-            result = subprocess.run(cmd, env={**os.environ, "APPDATA": str(root)}, capture_output=True,
-                                    timeout=20, check=False)
+            locked = sidecar if parent and scenario in ("closed_paste_sidecar_remains", "marker_at_transaction") else None
+            with hold_without_delete_share(locked):
+                if locked and os.name == "nt":
+                    with self.assertRaises(PermissionError):
+                        locked.unlink()
+                result = subprocess.run(cmd, env={**os.environ, "APPDATA": str(profile_root)}, capture_output=True,
+                                        timeout=20, check=False)
             self.assertEqual(result.returncode, 0, (result.stdout, result.stderr,
                                                     sorted(str(path.relative_to(root)) for path in root.rglob("*"))))
             self.assertTrue((root / "passed.txt").is_file(), (result.stdout, result.stderr))
@@ -124,3 +160,10 @@ class AsepritePracticeTests(unittest.TestCase):
         for condition in ("stale", "stat_false", "deleted", "denied", "no_settings", "closed"):
             with self.subTest(condition=condition):
                 self.run_case("copy_frame_1_" + condition)
+
+    def test_practice_session_checks_preserve_unicode_and_spaces(self):
+        for parent in ("ASCII", "\ud55c\uae00", "\u65e5\u672c\u8a9e", "\ud55c\uae00 \u65e5\u672c\u8a9e Space"):
+            for scenario in ("practice", "closed_paste_sidecar_remains", "marker_at_transaction",
+                             "marker_denied", "copy_frame_1", "copy_frame_1_closed"):
+                with self.subTest(parent=parent, scenario=scenario):
+                    self.run_case(scenario, parent)

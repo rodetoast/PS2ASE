@@ -1,5 +1,6 @@
 -- Real sprites/transactions, controlled clipboard and alerts. Run only in batch mode.
 local root = app.params.root
+local profile = app.params.profile_root .. "/Ase-PS-Bridge"
 local base = app.params.repo
 local scenario = app.params.scenario
 local target = app.params.target
@@ -16,8 +17,14 @@ local function read(path)
     return data
 end
 local clipboard = assert(read(root .. "/test_clipboard.txt"))
+local clipboard_reads = 0
 local env = setmetatable({
-    app = setmetatable({clipboard = {text = clipboard}, alert = function(msg) table.insert(alerts, msg) end}, {__index = app}),
+    app = setmetatable({clipboard = setmetatable({}, {__index = function(_, key)
+        if key == "text" then
+            clipboard_reads = clipboard_reads + 1
+            return clipboard
+        end
+    end}), alert = function(msg) table.insert(alerts, msg) end}, {__index = app}),
     print = function(...) table.insert(console, {...}) end,
 }, {__index = _G})
 
@@ -28,9 +35,20 @@ if exercise then
 end
 if scenario:match("_deleted$") then assert(os.remove(target)) end
 if scenario:match("_no_settings$") then
-    assert(os.remove(root .. "/Ase-PS-Bridge/bridge_settings.json"))
+    assert(os.remove(profile .. "/bridge_settings.json"))
 end
-if scenario:match("_stat_false$") then
+if scenario == "marker_at_transaction" then
+    env.Image = function(options)
+        local marker = assert(io.open(root .. ".ps2ase-paste-" .. string.rep("1", 32) .. ".closed", "w"))
+        marker:close()
+        return Image(options)
+    end
+elseif scenario == "marker_denied" then
+    env.app.fs = setmetatable({isFile = function(path)
+        if path:match("%.closed$") then error("denied") end
+        return app.fs.isFile(path)
+    end}, {__index = app.fs})
+elseif scenario:match("_stat_false$") then
     env.app.fs = setmetatable({isFile = function(path)
         if path:lower():match("copy practice%.aseprite$") then return false end
         return app.fs.isFile(path)
@@ -53,7 +71,7 @@ if exercise then
         or scenario:match("_deleted$") and "missing"
         or scenario:match("_denied$") and "access"
     if expected or exercise == 2 then
-        local diagnostic = json.decode(assert(read(root .. "/Ase-PS-Bridge/logs/aseprite_copy_diagnostic.json")))
+        local diagnostic = json.decode(assert(read(profile .. "/logs/aseprite_copy_diagnostic.json")))
         assert(diagnostic.code == (expected or "blank"))
         assert(#alerts == 1 and not app.fs.isDirectory(output))
     end
@@ -94,14 +112,18 @@ else
     assert(not read(root .. "/guide_" .. string.rep("a", 32) .. "/aseprite_paste_done.txt"))
     local codes = {ended = "sidecar_missing", legacy_paste_tab = "legacy_session_ended",
                    closed_paste_sidecar_remains = "session_closed",
+                   marker_at_transaction = "session_closed", marker_denied = "session_marker_access",
                    expired = "expired", other_target = "target_mismatch",
                    path_alias = "target_mismatch", wrong_canvas = "canvas_mismatch",
                    wrong_count = "metadata_mismatch", stale_session = "session_mismatch",
                    button_wrong_target = "button_wrong_target", sidecar_denied = "sidecar_access"}
     if codes[scenario] then
-        local diagnostic = json.decode(assert(read(root .. "/Ase-PS-Bridge/logs/aseprite_paste_diagnostic.json")))
+        local diagnostic = json.decode(assert(read(profile .. "/logs/aseprite_paste_diagnostic.json")))
         assert(diagnostic.code == codes[scenario], diagnostic.code)
     end
+end
+if scenario == "closed_paste_sidecar_remains" or scenario == "marker_at_transaction" or scenario == "marker_denied" then
+    assert(clipboard_reads == 0, "rejected practice must never consult the ordinary clipboard")
 end
 local result = assert(io.open(root .. "/passed.txt", "w"))
 result:write("pass")

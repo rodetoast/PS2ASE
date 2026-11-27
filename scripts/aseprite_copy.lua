@@ -111,7 +111,8 @@ local frame = app.activeFrame or 1
 
 -- Verify guide copies against the active session, independently of the regular Bridge inbox.
 local function normalized(path)
-    return app.fs.normalizePath(path):gsub("\\", "/"):lower()
+    local normalizedPath = app.fs.normalizePath(path):gsub("\\", "/")
+    return (normalizedPath:gsub("[A-Z]", function(letter) return string.char(letter:byte() + 32) end))
 end
 
 local function readJson(path)
