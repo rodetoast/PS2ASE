@@ -1241,6 +1241,7 @@ for _key, _ko, _en, _ja in (
     ("practice_pasted_count", "레이어 {count}개 붙여넣기 확인됨", "Layers pasted: {count}", "貼り付けを確認: {count} 枚"),
     ("practice_help", "결과가 오지 않나요?", "No result yet?", "結果が届かない場合"),
     ("practice_f5_failure", "복사가 완료되지 않았습니다. Aseprite의 오류 안내를 확인하고, 1번 또는 3번 프레임의 그림이 있는 셀에서 다시 시도해 주세요.", "Copy did not complete. Check the Aseprite message and try a painted cel in frame 1 or 3.", "コピーが完了しませんでした。Aseprite の案内を確認し、フレーム 1 または 3 の絵があるセルで再試行してください。"),
+    ("practice_f5_success", "복사 연습에 성공했습니다. 작업을 보호하기 위해 연습 복사본은 메인 클립보드나 미리보기에 표시하지 않습니다.", "Copy practice succeeded. To protect your work, the practice copy is not shown in the main clipboard or preview.", "コピー練習に成功しました。作業を保護するため、練習用コピーはメインのクリップボードやプレビューに表示されません。"),
     ("connection_welcome", "먼저 사용할 Photoshop을 확인해 볼게요. 아래 버전과 경로가 맞는지 확인해 주세요.", "First, check the Photoshop version and path you want to use.", "最初に、使用する Photoshop のバージョンとパスを確認してください。"),
     ("connection_continue", "이 버전으로 계속", "Use this version", "このバージョンで続ける"),
     ("connection_continue_ase", "Aseprite 설정 계속", "Continue to Aseprite setup", "Aseprite の設定へ"),
@@ -2812,6 +2813,31 @@ class FirstRunIntroduction(QDialog):
         self.resize(min(500, area.width() - 16), min(662, area.height() - 40))
 
 
+class GuideScratchDirectory:
+    def __init__(self):
+        self.name = tempfile.mkdtemp(prefix="ps2ase-guide-", dir=os.path.realpath(tempfile.gettempdir()))
+        self.revocations = set()
+
+    def revoke(self, document):
+        folder = os.path.dirname(document)
+        marker = self.name + "." + os.path.basename(folder) + ".closed"
+        self.revocations.add(marker)
+        with open(marker, "w", encoding="ascii"):
+            pass
+
+    def cleanup(self):
+        try:
+            shutil.rmtree(self.name)
+        except FileNotFoundError:
+            if os.path.exists(self.name):
+                raise
+        for marker in self.revocations:
+            try:
+                os.unlink(marker)
+            except FileNotFoundError:
+                pass
+
+
 class InitialSetupDialog(QDialog):
     CONNECTION, WARNING, ASEPRITE, REVIEW = range(4)
     """Guide completion, auto-display, and external security confirmations stay independent."""
@@ -2829,6 +2855,7 @@ class InitialSetupDialog(QDialog):
         self._guide_icons = {}
         self._confirmed_icon = tool_icon("check", ink="#8ed4b4")
         self._probe_dir = None
+        self._done_started = False
         self._probe_name = None
         self._probe_path = None
         self._practice_f5_issue = False
@@ -3373,9 +3400,7 @@ class InitialSetupDialog(QDialog):
             return
         try:
             if self._probe_dir is None:
-                self._probe_dir = tempfile.TemporaryDirectory(prefix="ps2ase-guide-",
-                                                               dir=os.path.realpath(tempfile.gettempdir()),
-                                                               ignore_cleanup_errors=True)
+                self._probe_dir = GuideScratchDirectory()
             root = os.path.join(self._probe_dir.name, "ps2ase-copy-" + uuid.uuid4().hex)
             os.makedirs(root)
             path = os.path.join(root, "Copy practice.aseprite")
@@ -3500,6 +3525,8 @@ class InitialSetupDialog(QDialog):
             detail = self.flow("test_close_note")
             if self.f4_button_received and not self.f4_seen:
                 detail = self.lang["f4_verify_key"] + "\n" + detail
+        if active and self.f5_seen:
+            detail = self.lang["practice_f5_success"] + ("\n\n" + detail if detail else "")
         self.probe_intro.setText(detail)
         self.probe_intro.setVisible(bool(detail))
         self.probe_f5_diagram.setVisible(active and not self.f5_seen)
@@ -3829,25 +3856,30 @@ class InitialSetupDialog(QDialog):
             worker.requestInterruption()
         if self._practice_job:
             clear_guide_paste_request(self._practice_job[1])
-        paths = [self._practice_source, self._practice_target,
-                 self._practice_target + ".ps2ase.json" if self._practice_target else None]
-        for path in filter(None, paths):
+        for document, marker in ((self._probe_path, "practice_copy.json"),
+                                 (self._practice_target, None)):
+            if not document:
+                continue
+            if self._probe_dir:
+                try:
+                    self._probe_dir.revoke(document)
+                except OSError as error:
+                    self.app.trace_job("-", "GUIDE_REVOCATION_WARNING", reason=type(error).__name__,
+                                       winerror=getattr(error, "winerror", None))
+            path = os.path.join(os.path.dirname(document), marker) if marker else document + ".ps2ase.json"
             try:
                 os.unlink(path)
-            except OSError:
+            except FileNotFoundError:
                 pass
+            except OSError as error:
+                self.app.trace_job("-", "GUIDE_CLEANUP_DEFERRED", reason=type(error).__name__,
+                                   winerror=getattr(error, "winerror", None))
         self._practice_source = self._practice_target = self._practice_job = None
         self._practice_button_unacknowledged = False
         self._practice_open_job = None
         self._practice_opened = self._practice_help = False
         self._practice_count = 1
         self._practice_status = ""
-        if self._probe_path:
-            for path in (os.path.join(os.path.dirname(self._probe_path), "practice_copy.json"), self._probe_path):
-                try:
-                    os.unlink(path)
-                except OSError:
-                    pass
         self._probe_name = self._probe_path = None
         self._practice_f5_issue = False
         self._probe_open_requested = False
@@ -3882,6 +3914,10 @@ class InitialSetupDialog(QDialog):
         self.accept()
 
     def done(self, result):
+        if self._done_started:
+            return
+        self._done_started = True
+        directory = self._probe_dir
         self.input_trace.mark("ACCEPT_BEGIN" if result == QDialog.Accepted else "REJECT_BEGIN")
         try:
             self.install_runtime_timer.stop()
@@ -3891,21 +3927,46 @@ class InitialSetupDialog(QDialog):
             self.app.settings["initial_setup_seen"] = True
             self.app.settings["show_initial_setup"] = not self.cb_dont_show.isChecked()
             save_settings(self.app.settings)
-            self.finish_probe()
+            self.finish_probe(refresh=False)
             if self._trust_dialog:
                 dialog, self._trust_dialog = self._trust_dialog, None
                 dialog.reject()
-            if self._probe_dir:
-                worker = getattr(self.app, "ps_worker", None)
-                if worker is not None and worker.isRunning() and getattr(worker, "practice_source", None):
-                    worker.requestInterruption()
-                    worker.finished.connect(self._probe_dir.cleanup)
-                else:
-                    self._probe_dir.cleanup()
-                self._probe_dir = None
-            super().done(result)
         finally:
+            self._probe_dir = None
+            super().done(result)
             self.input_trace.mark("ACCEPT_END" if result == QDialog.Accepted else "REJECT_END")
+            if directory:
+                self.schedule_probe_cleanup(directory)
+
+    def schedule_probe_cleanup(self, directory):
+        report = self.app.diagnostic_received.emit
+
+        def cleanup():
+            try:
+                directory.cleanup()
+            except (OSError, RecursionError) as error:
+                try:
+                    report(diagnostic_event("-", "Guide", "GUIDE_CLEANUP_DEFERRED",
+                                            reason=type(error).__name__, winerror=getattr(error, "winerror", None)))
+                except RuntimeError:
+                    pass
+
+        scheduled = False
+
+        def submit():
+            nonlocal scheduled
+            if not scheduled:
+                scheduled = True
+                QThreadPool.globalInstance().start(cleanup)
+
+        worker = getattr(self.app, "ps_worker", None)
+        if worker is not None and getattr(worker, "temp_dir", None) == directory.name:
+            if worker.isRunning():
+                worker.finished.connect(submit, Qt.QueuedConnection)
+                worker.requestInterruption()
+                if worker.isRunning():
+                    return
+        submit()
 
 
 class TutorialDialog(QDialog):

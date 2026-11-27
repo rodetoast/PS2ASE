@@ -92,6 +92,7 @@ local spr = app.activeSprite
 local filename = normalizePath(spr and spr.filename or "")
 local sessionRoot, exercise = filename:match("^(.*)/ps2ase%-paste%-(%x+)/paste practice%.png$")
 local guideTarget = exercise ~= nil and #exercise == 32
+local closedMarker = guideTarget and (sessionRoot .. ".ps2ase-paste-" .. exercise .. ".closed")
 local legacyExercise = filename:match("/ps2ase%-guide%-[^/]+/aseprite/ps2ase%-paste%-(%x+)%.png$")
 local request
 
@@ -134,6 +135,7 @@ if isNonce(legacyExercise) then return reject("legacy_session_ended", "ended") e
 local payload
 local guideCount
 if guideTarget then
+    if app.fs.isFile(closedMarker) then return reject("session_closed", "ended") end
     local data, err = readText(spr.filename .. ".ps2ase.json")
     if not data then return reject("sidecar_" .. (err or "missing"), err == "access" and "access" or "ended") end
     payload = decodeJson(data)
@@ -232,6 +234,10 @@ local function recordGuidePaste()
 end
 
 local function pasteTransaction(action)
+    if guideTarget and app.fs.isFile(closedMarker) then
+        reject("session_closed", "ended")
+        return false
+    end
     local ok = pcall(app.transaction, action)
     if not ok then showMessage(3) end
     return ok

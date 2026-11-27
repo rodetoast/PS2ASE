@@ -49,6 +49,7 @@ if exercise then
     assert(#app.fs.listFiles(root .. "/jobs") == 0, "practice is isolated from the regular inbox")
     local output = app.fs.filePath(target) .. "/copies"
     local expected = scenario:match("_stale$") and "practice"
+        or scenario:match("_closed$") and "practice"
         or scenario:match("_deleted$") and "missing"
         or scenario:match("_denied$") and "access"
     if expected or exercise == 2 then
@@ -92,6 +93,7 @@ else
     assert(not read(root .. "/job/aseprite_paste_done.txt"))
     assert(not read(root .. "/guide_" .. string.rep("a", 32) .. "/aseprite_paste_done.txt"))
     local codes = {ended = "sidecar_missing", legacy_paste_tab = "legacy_session_ended",
+                   closed_paste_sidecar_remains = "session_closed",
                    expired = "expired", other_target = "target_mismatch",
                    path_alias = "target_mismatch", wrong_canvas = "canvas_mismatch",
                    wrong_count = "metadata_mismatch", stale_session = "session_mismatch",

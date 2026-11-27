@@ -200,6 +200,8 @@ if exercise then
     if not exerciseToken or #exerciseToken ~= 32 or documentName:lower() ~= "copy practice.aseprite" then
         return reject("practice", "document_identity")
     end
+    local closedMarker = app.fs.filePath(folder) .. ".ps2ase-copy-" .. exerciseToken .. ".closed"
+    if app.fs.isFile(closedMarker) then return reject("practice", "session_closed") end
     local session, sessionError = readJson(app.fs.joinPath(folder, "practice_copy.json"))
     if not session then
         return reject(sessionError == "access_denied" and "access" or "practice", sessionError)

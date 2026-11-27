@@ -20,7 +20,8 @@ class AsepritePracticeTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="ps2ase-ase-test-") as scratch:
             root = Path(scratch)
             practice = scenario in ("practice", "expired", "other_target", "ended", "wrong_canvas",
-                                    "wrong_count", "button", "stale_session", "path_alias", "sidecar_denied")
+                                    "wrong_count", "button", "stale_session", "path_alias", "sidecar_denied",
+                                    "closed_paste_sidecar_remains")
             exercise = scenario.startswith("copy_frame_")
             if practice:
                 target = root / ("ps2ase-paste-" + "1" * 32) / "Paste practice.png"
@@ -76,6 +77,10 @@ class AsepritePracticeTests(unittest.TestCase):
                 (prefs / "guide_paste_request.json").write_text(json.dumps({
                     "target": str(target if scenario == "button" else root / "different.png"),
                     "nonce": "a" * 32, "expires": int(time.time()) + (-60 if scenario == "ordinary_expired_button" else 60)}))
+            if scenario in ("closed_paste_sidecar_remains", "copy_frame_1_closed"):
+                revocation = Path(str(root) + "." + target.parent.name + ".closed")
+                revocation.touch()
+                self.addCleanup(revocation.unlink, missing_ok=True)
             if scenario == "ordinary_during_practice":
                 session = root / ("ps2ase-paste-" + "1" * 32)
                 session.mkdir()
@@ -105,7 +110,8 @@ class AsepritePracticeTests(unittest.TestCase):
     def test_invalid_input_leaves_the_document_unchanged(self):
         for scenario in ("plain", "scalar", "wrong_signature", "missing_metadata", "missing_png",
                          "corrupt_png", "expired", "other_target", "ended", "wrong_canvas", "wrong_count",
-                         "stale_session", "path_alias", "sidecar_denied", "button_wrong_target", "legacy_paste_tab"):
+                         "stale_session", "path_alias", "sidecar_denied", "button_wrong_target", "legacy_paste_tab",
+                         "closed_paste_sidecar_remains"):
             with self.subTest(scenario=scenario):
                 self.run_case(scenario)
 
@@ -115,6 +121,6 @@ class AsepritePracticeTests(unittest.TestCase):
                 self.run_case(f"copy_frame_{number}")
 
     def test_practice_path_errors_and_native_stat_fallback(self):
-        for condition in ("stale", "stat_false", "deleted", "denied", "no_settings"):
+        for condition in ("stale", "stat_false", "deleted", "denied", "no_settings", "closed"):
             with self.subTest(condition=condition):
                 self.run_case("copy_frame_1_" + condition)

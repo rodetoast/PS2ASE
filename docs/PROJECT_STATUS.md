@@ -133,3 +133,9 @@
 
 - [테스트 PC 독립 보고서](https://github.com/rodetoast/PS2ASE/blob/36061a1a8c47e98a1c4ad2e6b78d722d8338727b/docs/ui-reviews/independent-windows-20261127/README.md)에서 재실행 시 이전 복사본이 일반 클립보드를 덮어쓰는 문제를 확인했습니다. 시작 시 이전 작업 폴더를 기준 목록에 넣어 자동 재게시하지 않으며, 현재 Windows 클립보드가 가리키는 유효한 복사 데이터는 보존합니다.
 - 초기 설정의 Photoshop 없는 경로, Aseprite 타임라인과 권한 안내, 실제 충돌과 백업 안내를 보완했습니다. [회귀 결과와 독립 재검증 목록](ui-reviews/clipboard-restart/README.md): 자동 155개 통과. 개발 PC에서 실제 Photoshop/GUI를 반복하지 않았으며 [이슈 #1](https://github.com/rodetoast/southpaw-development-hub/issues/1)은 테스트 PC의 Windows 재실행 검증 대기 상태입니다. 운영 0.3.6과 기존 0.3.7-rc1 유지, 신규 빌드·배포 없음.
+
+## 2026-11-27 초기 설정 종료 안정화
+
+- [이슈 #2](https://github.com/rodetoast/southpaw-development-hub/issues/2): 설정 저장과 실습 세션 무효화를 유지하면서 창 종료와 디스크 삭제를 분리했습니다. 잠긴 폴더는 강제로 삭제하지 않고 보류 사유를 기록합니다. 종료된 실습 탭은 실습 데이터가 디스크에 남아도 F5/F4와 일반 클립보드를 사용할 수 없습니다.
+- F5 실습 결과가 관찰되면 성공 메시지와 일반 미리보기에 표시하지 않는 이유를 알립니다. 결과 관찰과 물리 F5 확인은 계속 별도로 기록합니다.
+- 자동 테스트 157개 통과. [실제 Windows 잠금 재검증 절차](ui-reviews/guide-close-lock/README.md)는 별도 테스트 PC에 인계합니다. 운영 0.3.6 및 기존 0.3.7-rc1 유지, rc2·새 빌드·배포 없음.

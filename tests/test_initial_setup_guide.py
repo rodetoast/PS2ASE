@@ -644,7 +644,9 @@ class InitialSetupGuideTests(unittest.TestCase):
         self.assertTrue(dialog.f4_received)
         self.assertTrue(dialog.f4_seen and dialog.f5_seen)
         self.assertEqual(dialog.review_lines[6].text(), dialog.lang["f4_observed"])
-        self.assertEqual(dialog.probe_intro.text(), dialog.flow("test_close_note"))
+        self.assertIn(dialog.lang["practice_f5_success"], dialog.probe_intro.text())
+        self.assertIn(dialog.flow("test_close_note"), dialog.probe_intro.text())
+        self.assertEqual(dialog.key_status[0].toolTip(), dialog.flow("f5_seen"))
         self.assertEqual(self.window.undo_stack, [(False, False, 0)])
         self.assertEqual(self.window.redo_stack, [(True, False, 90)])
         self.window.cur_h, self.window.cur_v, self.window.cur_angle = True, False, 0
@@ -769,13 +771,78 @@ class InitialSetupGuideTests(unittest.TestCase):
         dialog.update_summary()
         dialog.next_step()
         self.assertEqual(dialog.pages.currentIndex(), dialog.REVIEW)
-        self.assertFalse(generated.exists())
+        self.assertFalse(generated.with_name("practice_copy.json").exists())
         self.assertTrue(jpeg.exists())
         self.assertTrue(dialog.f5_seen)
         dialog.reject()
         self.assertTrue(self.guide().f5_seen)
         self.window.settings["aseprite_exe"] = r"C:\Other\aseprite.exe"
         self.assertFalse(self.guide().f5_seen)
+
+    def test_guide_closes_and_emits_finished_before_locked_cleanup(self):
+        for error in (PermissionError(13, "sharing violation", None, 32), RecursionError("locked")):
+            with self.subTest(error=type(error).__name__):
+                dialog = self.guide()
+                dialog.set_step(dialog.ASEPRITE)
+                dialog.ase_test.setEnabled(True)
+                dialog.start_probe()
+                directory = dialog._probe_dir
+                self.addCleanup(directory.cleanup)
+                marker = Path(dialog._probe_path).with_name("practice_copy.json")
+                dialog.f5_seen = True
+                dialog.show()
+                finished = []
+                dialog.finished.connect(finished.append)
+                # Request cancellation as well as repeat completion must not emit a second result.
+                with patch.object(directory, "cleanup", side_effect=error) as cleanup:
+                    begin = len(self.window.diagnostic_records)
+                    dialog.accept()
+                    self.assertFalse(dialog.isVisible())
+                    self.assertEqual(finished, [self.b.QDialog.Accepted])
+                    self.assertFalse(marker.exists())
+                    self.assertTrue(self.b.load_settings()["initial_setup_seen"])
+                    dialog.reject()
+                    self.assertEqual(finished, [self.b.QDialog.Accepted])
+                    self.fixture.spin(lambda: any(
+                        event["state"] == "GUIDE_CLEANUP_DEFERRED"
+                        for event in list(self.window.diagnostic_records)[begin:]))
+                    cleanup.assert_called_once()
+                    self.assertTrue(Path(directory.name).is_dir())
+
+    def test_cleanup_waits_for_own_photoshop_worker_only(self):
+        class Worker(self.b.QObject):
+            finished = self.b.Signal()
+            temp_dir = None
+            running = True
+            interrupted = False
+
+            def isRunning(self):
+                return self.running
+
+            def requestInterruption(self):
+                self.interrupted = True
+
+        dialog = self.guide()
+        dialog.set_step(dialog.ASEPRITE)
+        dialog.ase_test.setEnabled(True)
+        dialog.start_probe()
+        directory = dialog._probe_dir
+        self.addCleanup(directory.cleanup)
+        worker = Worker()
+        worker.temp_dir = directory.name
+        self.window.ps_worker = worker
+        finished = []
+        dialog.finished.connect(finished.append)
+        try:
+            dialog.reject()
+            self.assertEqual(finished, [self.b.QDialog.Rejected])
+            self.assertTrue(worker.interrupted)
+            self.assertTrue(Path(directory.name).exists())
+            worker.running = False
+            worker.finished.emit()
+            self.fixture.spin(lambda: not Path(directory.name).exists())
+        finally:
+            del self.window.ps_worker
 
     def test_ready_aseprite_does_not_reinstall_and_unknown_running_state_biases_to_read_only(self):
         b = self.b
