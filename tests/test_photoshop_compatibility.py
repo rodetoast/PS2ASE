@@ -289,26 +289,25 @@ assert.equal(error, 'PS2ASE_PRACTICE_SOURCE_MISMATCH');
 
     def test_late_copy_trigger_requires_this_attempt_acceptance(self):
         import types
-        import sys
         job = self.root / "job"
         job.mkdir()
-        payload = {"source_app": "photoshop", "settings": {}}
+        payload = {"signature": "ase_ps_bridge_payload", "job_id": "job", "source_app": "photoshop", "settings": {}}
         (job / "trigger_copy.json").write_text(json.dumps(payload))
+        (job / "metadata.json").write_text("{}")
+        (job / "status_done.json").write_text('{"job_id":"job","status":"success","layer_count":1}')
         (job / "active_ps_attempt.txt").write_text("")
         updates = []
-        fake_clipboard = types.SimpleNamespace(
-            OpenClipboard=lambda: None, EmptyClipboard=lambda: None,
-            SetClipboardText=lambda text, kind: updates.append(json.loads(text)),
-            CloseClipboard=lambda: None, CF_UNICODETEXT=13)
         app = types.SimpleNamespace(temp_dir=str(self.root), processed_jobs=set(),
+                                    _copy_inbox_ready=True, _last_copy_order=None, _failed_copy_publication=None,
+                                    clipboard_sequence=lambda: 1,
+                                    publish_copy_payload=lambda data: updates.append(data) is None,
                                     get_align_mode=lambda: "ground_line",
                                     read_job_frame_mode=lambda path: "folder_frames",
                                     update_clipboard_mode_label=lambda: None)
-        with patch.dict(sys.modules, win32clipboard=fake_clipboard), patch.object(time, "sleep"):
-            self.ns["check_temp_folder"](app)
-            self.assertEqual(updates, [])
-            (job / "ps_copy_accepted.txt").write_text("accepted-token")
-            self.ns["check_temp_folder"](app)
+        self.ns["check_temp_folder"](app)
+        self.assertEqual(updates, [])
+        (job / "ps_copy_accepted.txt").write_text("accepted-token")
+        self.ns["check_temp_folder"](app)
         self.assertEqual(len(updates), 1)
         self.assertEqual(updates[0]["settings"]["align_mode"], "ground_line")
 

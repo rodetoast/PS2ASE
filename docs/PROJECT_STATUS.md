@@ -128,3 +128,8 @@
 
 - 일반 폴더의 동명 PNG와 실제 실습 세션 경로를 구분하고, 버튼 요청은 nonce 소유권과 만료를 검사해 정상·오류·종료 경로에서 정리합니다. 늦게 들어온 버튼 결과를 F4 키 확인으로 기록하지 않습니다. 실행 중 Aseprite에는 외부에서 문서를 전달하는 지원 API가 확인되지 않아 F5/F4 모두 탐색기 대체를 유지합니다.
 - [실제 일반 전송 및 비교](ui-reviews/f4-stability/README.md): Photoshop 2027에서 Bridge 복사 버튼, 실제 Windows 클립보드, Aseprite 1.3.18.6에서 F4 및 Bridge 메인 붙여넣기 버튼까지 합성 문서 두 개로 확인했습니다. 두 결과의 가시 RGBA·알파·좌표가 일치했습니다. 자동 151개 통과. 사용자 설치·단축키 및 운영 0.3.6/기존 0.3.7-rc1을 유지했고 새 빌드·배포는 하지 않았습니다.
+
+## 2026-11-27 독립 검증 반영 및 클립보드 보호
+
+- [테스트 PC 독립 보고서](https://github.com/rodetoast/PS2ASE/blob/36061a1a8c47e98a1c4ad2e6b78d722d8338727b/docs/ui-reviews/independent-windows-20261127/README.md)에서 재실행 시 이전 복사본이 일반 클립보드를 덮어쓰는 문제를 확인했습니다. 시작 시 이전 작업 폴더를 기준 목록에 넣어 자동 재게시하지 않으며, 현재 Windows 클립보드가 가리키는 유효한 복사 데이터는 보존합니다.
+- 초기 설정의 Photoshop 없는 경로, Aseprite 타임라인과 권한 안내, 실제 충돌과 백업 안내를 보완했습니다. [회귀 결과와 독립 재검증 목록](ui-reviews/clipboard-restart/README.md): 자동 155개 통과. 개발 PC에서 실제 Photoshop/GUI를 반복하지 않았으며 [이슈 #1](https://github.com/rodetoast/southpaw-development-hub/issues/1)은 테스트 PC의 Windows 재실행 검증 대기 상태입니다. 운영 0.3.6과 기존 0.3.7-rc1 유지, 신규 빌드·배포 없음.

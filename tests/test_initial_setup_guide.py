@@ -44,6 +44,19 @@ class InitialSetupGuideTests(unittest.TestCase):
             window.close()
             self.fixture.shiboken.delete(window)
 
+    def test_missing_photoshop_continues_directly_to_aseprite_and_defaults_tutorial_direction(self):
+        self.window.settings["photoshop_exe"] = ""
+        with patch.object(self.b, "photoshop_exe_info", side_effect=ValueError):
+            dialog = self.guide()
+        self.assertFalse(dialog.ps_continue_note.isHidden())
+        self.assertEqual(dialog.btn_next.text(), dialog.lang["connection_continue_ase"])
+        dialog.next_step()
+        self.assertEqual(dialog.pages.currentIndex(), dialog.ASEPRITE)
+        tutorial = self.b.TutorialDialog(dialog.lang, self.window)
+        self.addCleanup(lambda: self.fixture.shiboken.delete(tutorial))
+        self.assertEqual(tutorial.topics.currentIndex(), 1)
+        self.assertEqual(tutorial.pages.currentIndex(), 1)
+
     def test_new_user_order_is_language_then_intro_without_automatic_guide_or_tutorial(self):
         from PySide6.QtWidgets import QInputDialog
         settings = {"photoshop_exe": self.window.settings["photoshop_exe"], "aseprite_exe": "unused.exe"}

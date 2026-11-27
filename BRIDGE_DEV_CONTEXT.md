@@ -50,9 +50,10 @@ OS 텍스트 클립보드에 주입되는 브릿지 통신 규격.
 *   **Center Mode (기본)**: 양쪽 툴의 캔버스 크기가 달라도, 추출된 픽셀 조각들의 Bounding Box 전체 크기를 구하여 대상 캔버스의 **정중앙**에 배치. 상대적 위치 100% 보존.
 *   **Absolute Mode**: 보정 오프셋 없이 원본 X, Y 절대 좌표에 그대로 꽂아넣음. 캔버스 사이즈가 동일할 때 사용.
 
-## 5. 자동화 세팅 (Zero-Configuration)
+## 5. 초기 설정과 명시적 승인
 *   `bridge_ui.py` 실행 시 레지스트리를 훑어 `Photoshop.exe`, `aseprite.exe` 경로를 자동 탐지.
-*   Aseprite의 `AppData/Roaming/Aseprite/user.aseprite-keys` XML 파일을 직접 파싱하여 `F4(Paste)`, `F5(Copy)` 단축키를 자동으로 강제 매핑함. (사용자 수동 설정 최소화)
+*   시작 시 Aseprite 스크립트나 기존 단축키를 강제로 변경하지 않음. 가이드/설정에서 사용자가 동의하고 Aseprite 종료가 확인된 경우에만 F4/F5와 스크립트를 설치하거나 갱신함. 실제 충돌을 사전 확인하고 교체하는 파일은 `%APPDATA%/Aseprite`에 `.bak`으로 보존함. 스크립트 접근 승인은 Aseprite에서 사용자가 직접 수행함.
+*   클립보드 감시를 시작할 때 이전 작업 폴더를 자동 게시 대상에서 제외함. 파일은 보존하므로 현재 Windows 클립보드가 기존 유효 작업을 가리키면 미리보기와 붙여넣기를 계속 사용할 수 있음.
 
 ## 6. 디렉토리 구조 (Directory Structure)
 *   `/bridge_ui.py` : 메인 실행 파일 (PyInstaller 빌드 대상)

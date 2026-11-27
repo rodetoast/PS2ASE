@@ -1243,6 +1243,13 @@ for _key, _ko, _en, _ja in (
     ("practice_f5_failure", "복사가 완료되지 않았습니다. Aseprite의 오류 안내를 확인하고, 1번 또는 3번 프레임의 그림이 있는 셀에서 다시 시도해 주세요.", "Copy did not complete. Check the Aseprite message and try a painted cel in frame 1 or 3.", "コピーが完了しませんでした。Aseprite の案内を確認し、フレーム 1 または 3 の絵があるセルで再試行してください。"),
     ("connection_welcome", "먼저 사용할 Photoshop을 확인해 볼게요. 아래 버전과 경로가 맞는지 확인해 주세요.", "First, check the Photoshop version and path you want to use.", "最初に、使用する Photoshop のバージョンとパスを確認してください。"),
     ("connection_continue", "이 버전으로 계속", "Use this version", "このバージョンで続ける"),
+    ("connection_continue_ase", "Aseprite 설정 계속", "Continue to Aseprite setup", "Aseprite の設定へ"),
+    ("connection_without_ps", "Photoshop을 찾지 못해도 Aseprite 스크립트와 단축키를 먼저 설정할 수 있습니다.", "You can set up Aseprite scripts and shortcuts even if Photoshop was not found.", "Photoshop が見つからなくても Aseprite のスクリプトとキーを設定できます。"),
+    ("practice_timeline_tab", "타임라인이 보이지 않으면 Aseprite에서 Tab을 눌러 표시하세요.", "If the timeline is hidden, press Tab in Aseprite to show it.", "タイムラインが非表示の場合は、Aseprite で Tab を押してください。"),
+    ("practice_prompt_behind", "승인창이 보이지 않으면 Bridge를 최소화하고 작업 표시줄에서 Aseprite를 선택하세요.", "If the approval prompt is hidden, minimize Bridge and select Aseprite on the taskbar.", "許可画面が隠れている場合は Bridge を最小化し、タスクバーから Aseprite を選択してください。"),
+    ("ase_binds_review_unknown", "F4/F5 충돌을 확인할 수 없습니다. Aseprite 단축키 설정 파일을 먼저 확인해 주세요.", "F4/F5 conflicts could not be checked. Review the Aseprite shortcut settings file first.", "F4/F5 の競合を確認できません。先に Aseprite のショートカット設定ファイルを確認してください。"),
+    ("ase_install_no_conflict", "현재 F4/F5 단축키 충돌은 없습니다. Bridge 스크립트와 단축키를 설치할까요?", "No F4/F5 shortcut conflicts were found. Install the Bridge scripts and shortcuts?", "F4/F5 の競合は見つかりませんでした。スクリプトとショートカットをインストールしますか？"),
+    ("ase_install_backup", "교체하는 기존 파일은 Aseprite 설정 폴더에 .bak 파일로 보관됩니다:\n{path}", "Existing files that are replaced are backed up as .bak files in the Aseprite settings folder:\n{path}", "置き換える既存ファイルは Aseprite の設定フォルダーに .bak として保存されます：\n{path}"),
     ("intro_setup", "초기 설정 시작", "Start setup", "初期設定を始める"),
     ("intro_work", "바로 작업하기", "Go to workspace", "作業画面へ"),
     ("intro_photoshop_ready", "Photoshop 설치 확인: {name}", "Photoshop installation found: {name}", "Photoshop のインストールを確認: {name}"),
@@ -2161,9 +2168,11 @@ def aseprite_setup_details(lang, files_current):
     present = all(os.path.isfile(os.path.join(scripts, name)) for name in ("aseprite_copy.lua", "aseprite_paste.lua"))
     try:
         root = ET.parse(os.path.join(folder, "user.aseprite-keys")).getroot()
-        conflicts = aseprite_key_conflicts(root, scripts)
-    except (OSError, ET.ParseError):
+        conflicts = aseprite_key_conflicts(root, scripts) if root.tag == "keyboard" else None
+    except FileNotFoundError:
         conflicts = []
+    except (OSError, ET.ParseError):
+        conflicts = None
     file_key = "guide_files_ok" if files_current else "ase_files_old" if present else "ase_files_missing"
     return lang[file_key], conflicts
 
@@ -2176,8 +2185,12 @@ def confirm_aseprite_install(parent, lang, exe, paste_src, copy_src):
         QMessageBox.warning(parent, title, lang["guide_flow_ase_stop"])
         return False
     _, conflicts = aseprite_setup_details(lang, False)
+    if conflicts is None:
+        QMessageBox.warning(parent, title, lang["ase_binds_review_unknown"])
+        return False
     question = (lang["ase_replace_binds"].format(keys=", ".join(conflicts)) if conflicts
-                else lang["guide_flow_install_confirm"])
+                else lang["ase_install_no_conflict"])
+    question += "\n\n" + lang["ase_install_backup"].format(path=os.path.join(os.environ.get("APPDATA", ""), "Aseprite"))
     if QMessageBox.question(parent, title, question, QMessageBox.Yes | QMessageBox.No,
                             QMessageBox.No) != QMessageBox.Yes:
         return False
@@ -2383,7 +2396,8 @@ class SettingsDialog(QDialog):
             get_resource_path(os.path.join("scripts", "aseprite_copy.lua")))
         settings = self.current_settings
         file_detail, conflicts = aseprite_setup_details(self.lang, files)
-        key_detail = (self.lang["ase_binds_conflict"].format(keys=", ".join(conflicts)) if conflicts else
+        key_detail = (self.lang["ase_binds_review_unknown"] if conflicts is None else
+                      self.lang["ase_binds_conflict"].format(keys=", ".join(conflicts)) if conflicts else
                       self.lang["guide_keys_ok" if keys else "guide_keys_pending"])
         f4, f5 = shortcut_observations(self.parent(), self.ps_path_input.text(), self.ase_path_input.text())
         trust = self.lang["trust_history" if settings.get("aseprite_trust_confirmed") is True else "guide_trust_no"]
@@ -2646,7 +2660,8 @@ class AsepriteSetupDialog(QDialog):
         content = QWidget()
         rows = QVBoxLayout(content)
         for title, message in ((lang_dict["ase_manual_run"], lang_dict["practice_menu_help"]),
-                               (lang_dict["ase_approval_title"], lang_dict["practice_trust_note"])):
+                               (lang_dict["ase_approval_title"], lang_dict["practice_trust_note"] + "\n"
+                                + lang_dict["practice_prompt_behind"])):
             heading = QLabel(title)
             heading.setProperty("uiHeading", True)
             rows.addWidget(heading)
@@ -2868,6 +2883,7 @@ class InitialSetupDialog(QDialog):
             if step == self.CONNECTION:
                 self.add_text(content, self.lang["connection_welcome"])
                 self.ps_status = GuidePhotoshopCard(content, self.lang, self.add_text, connection=True)
+                self.ps_continue_note = self.add_text(content, self.lang["connection_without_ps"])
                 self.ps_edit = self.add_action(content, self.lang["guide_ps_edit"], self.edit_photoshop)
                 self.add_text(content, self.flow("switch")).setProperty("uiMuted", True)
             elif step == self.WARNING:
@@ -2978,7 +2994,8 @@ class InitialSetupDialog(QDialog):
                 self.probe_f4_diagram = PracticeDiagram("paste", character, self.lang["visual_paste"])
                 probe.addWidget(self.probe_f4_diagram)
                 self.probe_press = self.add_text(probe, self.lang["f5_press"])
-                self.probe_trust_note = self.add_text(probe, self.lang["practice_trust_note"])
+                self.probe_trust_note = self.add_text(probe, self.lang["practice_trust_note"] + "\n"
+                                                      + self.lang["practice_prompt_behind"])
                 self.probe_open_note = self.add_text(probe, "")
                 self.probe_trust = self.add_action(probe, self.lang["ase_trust_action"], self.edit_aseprite)
                 self.probe_retry_file = self.add_action(probe, self.lang["f5_new_file"], self.restart_probe)
@@ -3162,6 +3179,7 @@ class InitialSetupDialog(QDialog):
             except Exception:
                 pass
         self.ps_target_valid = info is not None
+        self.ps_continue_note.setVisible(not self.ps_target_valid)
         icon = self.guide_app_icon(info["path"] if info else None)
         for card in (self.ps_status, self.warning_status):
             card.set_status(info, path, runtime, other_running, warning, icon)
@@ -3200,6 +3218,7 @@ class InitialSetupDialog(QDialog):
         self.ase_path_detail.setVisible(bool(ase))
         typical, conflicts = aseprite_setup_details(self.lang, self.ase_scripts_current)
         self._ase_install_details = [typical] + (
+            [self.lang["ase_binds_review_unknown"]] if conflicts is None else
             [self.lang["ase_binds_conflict"].format(keys=", ".join(conflicts))] if conflicts else [])
         self.update_summary()
 
@@ -3469,12 +3488,12 @@ class InitialSetupDialog(QDialog):
         self.practice_help.setVisible(waiting or bool(can_paste and not complete))
         fallback = self._practice_help
         self.f4_record.setVisible(bool(can_paste and not complete and fallback))
-        detail = self.lang["f5_pick"] if waiting else ""
+        detail = self.lang["f5_pick"] + "\n" + self.lang["practice_timeline_tab"] if waiting else ""
         if paste_lesson and not complete:
             detail = self.lang["f4_wait_practice" if can_paste else "practice_open_first" if not self._practice_opened else
                                "practice_select_psd" if self._practice_count == 4 else "f4_lesson"]
             if can_paste:
-                detail += "\n" + self.lang["practice_f4_safety"]
+                detail += "\n" + self.lang["practice_f4_safety"] + "\n" + self.lang["practice_timeline_tab"]
             if fallback:
                 detail += "\n" + self.lang["practice_f4_delayed"]
         if active and complete:
@@ -3503,7 +3522,9 @@ class InitialSetupDialog(QDialog):
             self.btn_next.setText(self.flow("finish_next" if complete else "skip_test_next")
                                   if active else self.lang["guide_next"])
         elif self.pages.currentIndex() == self.CONNECTION:
-            self.btn_next.setText(self.lang["connection_continue" if self.ps_target_valid else "guide_next"])
+            self.btn_next.setText(self.lang["connection_continue" if self.ps_target_valid else "connection_continue_ase"])
+        elif self.pages.currentIndex() == self.WARNING:
+            self.btn_next.setText(self.lang["guide_next" if self.ps_target_valid else "connection_continue_ase"])
         role = "quiet" if self.pages.currentIndex() == self.ASEPRITE and active and not complete else "primary"
         if self.btn_next.property("uiRole") != role:
             self.btn_next.setProperty("uiRole", role)
@@ -3851,6 +3872,8 @@ class InitialSetupDialog(QDialog):
     def next_step(self):
         if self.pages.currentIndex() == self.REVIEW:
             self.accept()
+        elif self.pages.currentIndex() == self.CONNECTION and not self.ps_target_valid:
+            self.set_step(self.ASEPRITE)
         else:
             self.set_step(self.pages.currentIndex() + 1)
 
@@ -3942,12 +3965,19 @@ class TutorialDialog(QDialog):
             detail = QLabel(explanation)
             detail.setWordWrap(True)
             content.addWidget(detail)
+            if index in (0, 1):
+                timeline = QLabel(lang_dict["practice_timeline_tab"])
+                timeline.setWordWrap(True)
+                content.addWidget(timeline)
             content.addStretch()
             scroll = QScrollArea()
             scroll.setWidgetResizable(True)
             scroll.setFrameShape(QScrollArea.NoFrame)
             scroll.setWidget(body)
             self.pages.addWidget(scroll)
+        settings = getattr(self.parent_app, "settings", None)
+        if settings is not None and not os.path.isfile(settings.get("photoshop_exe") or ""):
+            self.topics.setCurrentIndex(1)
         
         self.btn_close = QPushButton(lang_dict["guide_close"])
         self.btn_close.setObjectName("tutorial_confirm")
@@ -4009,6 +4039,10 @@ class BridgeApp(QMainWindow):
         self.redo_stack = []
         
         self.processed_jobs = set()
+        self._copy_inbox_ready = False
+        self._last_copy_order = None
+        self._failed_copy_publication = None
+        self.snapshot_copy_inbox()
         self.clipboard_empty_count = 0
         self.ui_busy_transform = False
         self.ui_busy_preview = False
@@ -4595,7 +4629,6 @@ class BridgeApp(QMainWindow):
             self.clipboard_source = None 
             self.clipboard_count = 0
             self.clipboard_frame_mode = None
-            self.processed_jobs = set()
             
             # 🌟 [추가] 변환 및 프리뷰 플래그/예약 상태 초기화
             self.ui_busy_transform = False
@@ -4841,54 +4874,97 @@ class BridgeApp(QMainWindow):
             clip_text = self.t["clipboard_mode_current"].format(mode=display)
         self.frame_mode_info_label.setText(f"{self.t['frame_mode_hint']} · {clip_text}")
 
-    def check_temp_folder(self):
+    def snapshot_copy_inbox(self):
+        # Job paths are unique. Anything present before this session belongs to an older
+        # run, even if its producer has not finished writing the trigger yet.
         try:
-            if not os.path.exists(self.temp_dir): return
-            for job_id in os.listdir(self.temp_dir):
-                if job_id in self.processed_jobs: continue
-                job_path = os.path.join(self.temp_dir, job_id)
-                if not os.path.isdir(job_path): continue
-                
-                trigger_path = os.path.join(job_path, "trigger_copy.json")
-                if os.path.exists(trigger_path):
-                    try:
-                        with open(trigger_path, "r", encoding="utf-8") as f:
-                            payload = json.load(f)
-
-                        probe_name = setup_probe_name(payload)
-                        if probe_name:
-                            with open(os.path.join(job_path, "status_done.json"), encoding="utf-8") as stream:
-                                done = json.load(stream)
-                            if (done.get("job_id") == job_id and done.get("status") == "done"
-                                    and type(done.get("layer_count")) is int and done["layer_count"] > 0
-                                    and os.path.isfile(os.path.join(job_path, "metadata.json"))):
-                                self.processed_jobs.add(job_id)
-                            continue
-
-                        # A late timed-out Photoshop launch must not replace the current clipboard.
-                        if (payload.get("source_app") == "photoshop"
-                                and os.path.exists(os.path.join(job_path, "active_ps_attempt.txt"))
-                                and not os.path.exists(os.path.join(job_path, "ps_copy_accepted.txt"))):
-                            continue
-                            
-                        payload["settings"] = {"align_mode": self.get_align_mode()}
-                            
-                        import win32clipboard
-                        payload_str = json.dumps(payload, ensure_ascii=False)
-                        win32clipboard.OpenClipboard()
-                        win32clipboard.EmptyClipboard()
-                        win32clipboard.SetClipboardText(payload_str, win32clipboard.CF_UNICODETEXT)
-                        win32clipboard.CloseClipboard()
-
-                        if payload.get("source_app") == "photoshop":
-                            self.clipboard_frame_mode = self.read_job_frame_mode(job_path)
-                            self.update_clipboard_mode_label()
-                        
-                        self.processed_jobs.add(job_id)
-                    except Exception as parse_err:
-                        pass
-        except Exception:
+            self.processed_jobs.update(os.listdir(self.temp_dir))
+        except FileNotFoundError:
             pass
+        except OSError:
+            return
+        self._copy_inbox_ready = True
+
+    @staticmethod
+    def clipboard_sequence():
+        import ctypes
+        return ctypes.windll.user32.GetClipboardSequenceNumber()
+
+    @staticmethod
+    def publish_copy_payload(payload):
+        # Qt supplies a Windows OLE data object in one operation; do not empty the
+        # user's clipboard before attempting to publish.
+        clipboard = QApplication.clipboard()
+        clipboard.setText(json.dumps(payload, ensure_ascii=False))
+        return clipboard.ownsClipboard()
+
+    def check_temp_folder(self):
+        if not self._copy_inbox_ready:
+            self.snapshot_copy_inbox()
+            return
+        try:
+            jobs = os.listdir(self.temp_dir)
+        except OSError:
+            return
+
+        completed = []
+        for job_id in jobs:
+            if job_id in self.processed_jobs:
+                continue
+            job_path = os.path.join(self.temp_dir, job_id)
+            try:
+                with open(os.path.join(job_path, "trigger_copy.json"), encoding="utf-8-sig") as stream:
+                    payload = json.load(stream)
+                if (not isinstance(payload, dict) or payload.get("signature") != "ase_ps_bridge_payload"
+                        or payload.get("job_id") != job_id or payload.get("source_app") not in ("aseprite", "photoshop")):
+                    continue
+                done_path = os.path.join(job_path, "status_done.json")
+                with open(done_path, encoding="utf-8-sig") as stream:
+                    done = json.load(stream)
+                    ready_at = os.fstat(stream.fileno()).st_mtime_ns
+                if (not isinstance(done, dict) or done.get("job_id") != job_id
+                        or done.get("status") not in ("done", "success") or type(done.get("layer_count")) is not int
+                        or done["layer_count"] <= 0 or not os.path.isfile(os.path.join(job_path, "metadata.json"))):
+                    continue
+                if setup_probe_name(payload) or payload.get("guide_target"):
+                    self.processed_jobs.add(job_id)
+                    continue
+                # A timed-out Photoshop worker never writes acceptance for that attempt.
+                if payload["source_app"] == "photoshop" and os.path.exists(os.path.join(job_path, "active_ps_attempt.txt")):
+                    ready_at = max(ready_at, os.stat(os.path.join(job_path, "ps_copy_accepted.txt")).st_mtime_ns)
+                completed.append(((ready_at, job_id), job_path, payload))
+            except (OSError, ValueError):
+                continue
+
+        if not completed:
+            return
+        order, job_path, payload = max(completed, key=lambda item: item[0])
+        visible = {key[1] for key, _, _ in completed}
+        if self._last_copy_order is not None and order <= self._last_copy_order:
+            self.processed_jobs.update(visible)
+            return
+        sequence = self.clipboard_sequence()
+        if self._failed_copy_publication is not None:
+            failed_order, original_sequence = self._failed_copy_publication
+            if order <= failed_order and (not original_sequence or sequence != original_sequence):
+                self.processed_jobs.update(visible)
+                self._last_copy_order = order
+                self._failed_copy_publication = None
+                return
+        payload["settings"] = {"align_mode": self.get_align_mode()}
+        try:
+            published = self.publish_copy_payload(payload)
+        except Exception:
+            published = False
+        if not published:
+            self._failed_copy_publication = (order, sequence)
+            return
+        self._last_copy_order = order
+        self._failed_copy_publication = None
+        self.processed_jobs.update(visible)
+        if payload["source_app"] == "photoshop":
+            self.clipboard_frame_mode = self.read_job_frame_mode(job_path)
+            self.update_clipboard_mode_label()
 
     # 🌟 [신규 추가] Preview 처리 메서드
     def set_preview_image(self, img_bytes):
