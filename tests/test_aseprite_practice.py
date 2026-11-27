@@ -26,11 +26,13 @@ class AsepritePracticeTests(unittest.TestCase):
                 target = root / ("ps2ase-paste-" + "1" * 32) / "Paste practice.png"
             elif exercise:
                 target = root / ("ps2ase-copy-" + "1" * 32) / "Copy practice.aseprite"
-            elif scenario == "copied_practice_tab":
+            elif scenario == "ordinary_practice_basename":
                 target = root / "Paste practice.png"
+            elif scenario == "legacy_paste_tab":
+                target = root / "ps2ase-guide-old" / "Aseprite" / ("ps2ase-paste-" + "1" * 32 + ".png")
             else:
                 target = root / "ordinary.png"
-            target.parent.mkdir(exist_ok=True)
+            target.parent.mkdir(parents=True, exist_ok=True)
             size = (33, 32) if scenario == "wrong_canvas" else (300, 300) if scenario == "wrong_count" else (32, 32)
             image = Image.new("RGBA", size)
             if scenario == "copy":
@@ -95,14 +97,15 @@ class AsepritePracticeTests(unittest.TestCase):
             self.assertTrue((root / "passed.txt").is_file(), (result.stdout, result.stderr))
 
     def test_ordinary_and_practice_complete_without_console(self):
-        for scenario in ("copy", "ordinary", "practice", "button", "ordinary_expired_button", "ordinary_during_practice"):
+        for scenario in ("copy", "ordinary", "practice", "button", "ordinary_expired_button",
+                         "ordinary_during_practice", "ordinary_practice_basename"):
             with self.subTest(scenario=scenario):
                 self.run_case(scenario)
 
     def test_invalid_input_leaves_the_document_unchanged(self):
         for scenario in ("plain", "scalar", "wrong_signature", "missing_metadata", "missing_png",
                          "corrupt_png", "expired", "other_target", "ended", "wrong_canvas", "wrong_count",
-                         "stale_session", "path_alias", "sidecar_denied", "button_wrong_target", "copied_practice_tab"):
+                         "stale_session", "path_alias", "sidecar_denied", "button_wrong_target", "legacy_paste_tab"):
             with self.subTest(scenario=scenario):
                 self.run_case(scenario)
 

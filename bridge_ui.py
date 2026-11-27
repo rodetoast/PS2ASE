@@ -33,7 +33,7 @@ try:
     from PySide6.QtWidgets import (QApplication, QMainWindow, QPushButton, QVBoxLayout,
                                    QWidget, QTextEdit, QLabel, QButtonGroup,
                                    QHBoxLayout, QGridLayout, QMessageBox, QFileDialog, QFileIconProvider, QDialog, QLineEdit, QFormLayout, QDialogButtonBox, QComboBox, QScrollArea, QSizePolicy, QLayout, QStackedWidget)
-    from PySide6.QtCore import QTimer, QThread, QThreadPool, Signal, Slot, Qt, QUrl, QEventLoop, QLocale, QObject, QEvent, QSize, QFileInfo, QProcess
+    from PySide6.QtCore import QTimer, QThread, QThreadPool, Signal, Slot, Qt, QUrl, QEventLoop, QLocale, QObject, QEvent, QSize, QFileInfo, QProcess, QLockFile
     from PySide6.QtGui import QFont, QFontDatabase, QColor, QPixmap, QDesktopServices, QPalette
     from bridge_visuals import NativeDarkCaption, OptionDiagram, OptionHelp, PixelPreview, PracticeDiagram, SegmentButton, tool_icon
     import win32com.client
@@ -1970,6 +1970,36 @@ class PhotoshopCLIWorker(QThread):
                     self.trace("CLEANUP_WARNING", traceback=traceback.format_exc())
             self.trace("CLEANUP_COMPLETED")
 
+def guide_paste_request_path():
+    return os.path.join(BRIDGE_DATA_DIR, "guide_paste_request.json")
+
+
+def read_guide_paste_request(path):
+    try:
+        with open(path, encoding="utf-8") as stream:
+            request = json.load(stream)
+        if isinstance(request, dict):
+            return request
+    except (OSError, ValueError):
+        pass
+    return {}
+
+
+def clear_guide_paste_request(token, *, expired_only=False):
+    path = guide_paste_request_path()
+    lock = QLockFile(path + ".lock")
+    if not lock.tryLock(250):
+        return
+    try:
+        request = read_guide_paste_request(path)
+        if request.get("nonce") == token and (not expired_only or request.get("expires", 0) <= time.time()):
+            os.unlink(path)
+    except (OSError, TypeError):
+        pass
+    finally:
+        lock.unlock()
+
+
 class AsepriteWorker(QThread):
     finished = Signal()
     error = Signal(str)
@@ -2009,14 +2039,7 @@ class AsepriteWorker(QThread):
                 if self.practice_request:
                     if win32gui.GetForegroundWindow() != hwnd or not self.is_practice_window_title(win32gui.GetWindowText(hwnd)):
                         raise RuntimeError("Practice window did not receive focus")
-                    if not os.path.isfile(self.practice_request["target"] + ".ps2ase.json"):
-                        raise RuntimeError("Practice session ended")
-                    path = os.path.join(BRIDGE_DATA_DIR, "guide_paste_request.json")
-                    request = dict(self.practice_request, expires=int(time.time()) + 12)
-                    temporary = path + "." + request["nonce"] + ".tmp"
-                    with open(temporary, "w", encoding="utf-8") as stream:
-                        json.dump(request, stream)
-                    os.replace(temporary, path)
+                    self.publish_practice_request()
 
                 import ctypes
                 VK_F4 = 0x73
@@ -2025,7 +2048,9 @@ class AsepriteWorker(QThread):
                 
                 vk_code = VK_F5 if "copy" in (self.lua_path or "") else VK_F4
                 hotkey_name = "F5" if "copy" in (self.lua_path or "") else "F4"
-                
+                if self.practice_request and (self.isInterruptionRequested()
+                                              or win32gui.GetForegroundWindow() != hwnd):
+                    raise RuntimeError("Practice dispatch cancelled")
                 ctypes.windll.user32.keybd_event(vk_code, 0, 0, 0)
                 time.sleep(0.05)
                 ctypes.windll.user32.keybd_event(vk_code, 0, KEYEVENTF_KEYUP, 0)
@@ -2036,7 +2061,35 @@ class AsepriteWorker(QThread):
                 subprocess.run(cmd, shell=True)
             self.finished.emit()
         except Exception as e:
+            if self.practice_request and getattr(self, "_published_practice_request", False):
+                clear_guide_paste_request(self.practice_request["nonce"])
             self.error.emit(str(e))
+
+    def publish_practice_request(self):
+        path = guide_paste_request_path()
+        lock = QLockFile(path + ".lock")
+        if not lock.tryLock(250):
+            raise RuntimeError("Practice request is busy")
+        try:
+            if self.isInterruptionRequested() or not os.path.isfile(self.practice_request["target"] + ".ps2ase.json"):
+                raise RuntimeError("Practice session ended")
+            current = read_guide_paste_request(path)
+            expires = current.get("expires")
+            if current.get("nonce") != self.practice_request["nonce"] and isinstance(expires, (int, float)) \
+                    and expires > time.time():
+                raise RuntimeError("A different practice request is still active")
+            request = dict(self.practice_request, expires=int(time.time()) + 12)
+            temporary = path + "." + request["nonce"] + ".tmp"
+            try:
+                with open(temporary, "w", encoding="utf-8") as stream:
+                    json.dump(request, stream)
+                os.replace(temporary, path)
+            finally:
+                if os.path.isfile(temporary):
+                    os.unlink(temporary)
+            self._published_practice_request = True
+        finally:
+            lock.unlock()
 
     def practice_window(self):
         import win32gui
@@ -2775,6 +2828,7 @@ class InitialSetupDialog(QDialog):
         self._practice_status = ""
         self.f4_received = False
         self.f4_button_received = False
+        self._practice_button_unacknowledged = False
         self._trust_dialog = None
         self.f5_seen = False
         self.f4_seen = False
@@ -3334,19 +3388,8 @@ class InitialSetupDialog(QDialog):
     def toggle_practice_help(self):
         self._practice_help = not self._practice_help
         if self._practice_help and self._practice_job:
-            self.clear_practice_paste_request(self._practice_job[1], expired_only=True)
+            clear_guide_paste_request(self._practice_job[1], expired_only=True)
         self.refresh_probe()
-
-    @staticmethod
-    def clear_practice_paste_request(token, *, expired_only=False):
-        path = os.path.join(BRIDGE_DATA_DIR, "guide_paste_request.json")
-        try:
-            with open(path, encoding="utf-8") as stream:
-                request = json.load(stream)
-            if request.get("nonce") == token and (not expired_only or request["expires"] < time.time()):
-                os.unlink(path)
-        except (OSError, ValueError, AttributeError, KeyError, TypeError):
-            pass
 
     def check_practice_copy(self):
         root = os.path.dirname(self._probe_path)
@@ -3568,6 +3611,7 @@ class InitialSetupDialog(QDialog):
                                 trigger_hotkey=True, practice_request={"target": self._practice_target,
                                                                      "nonce": self._practice_job[1]})
         self._guide_paste_worker = worker
+        self._practice_button_unacknowledged = True
         worker.setParent(self.app)
         worker.error.connect(self.practice_paste_dispatch_failed, Qt.QueuedConnection)
         worker.finished.connect(self.practice_paste_dispatch_finished, Qt.QueuedConnection)
@@ -3577,6 +3621,9 @@ class InitialSetupDialog(QDialog):
 
     @Slot(str)
     def practice_paste_dispatch_failed(self, reason):
+        worker = self.sender()
+        if worker is not None and not getattr(worker, "_published_practice_request", False):
+            self._practice_button_unacknowledged = False
         self.app.trace_job("-", "GUIDE_PASTE_DISPATCH_FAILED", reason=reason)
         self._practice_status = self.lang["f4_button_select"]
         self.refresh_probe()
@@ -3709,6 +3756,9 @@ class InitialSetupDialog(QDialog):
         if self._practice_job is None or not self._practice_job[2]:
             return
         job_path, token, _ = self._practice_job
+        path = guide_paste_request_path()
+        if os.path.isfile(path):
+            clear_guide_paste_request(token, expired_only=True)
         try:
             with open(os.path.join(job_path, "aseprite_paste_done.txt"), encoding="ascii") as stream:
                 result = json.load(stream)
@@ -3717,17 +3767,29 @@ class InitialSetupDialog(QDialog):
         except (OSError, ValueError):
             if time.time() > self._practice_expires:
                 self.practice_timer.stop()
+                clear_guide_paste_request(token)
                 self._practice_job = None
                 self._practice_status = self.lang["practice_expired"]
                 self.refresh_probe()
             return
-        if result["method"] == "button":
+        # A delayed host confirmation can outlive the request lease. Never credit that first
+        # otherwise-unattributed response as a physical key after a button send.
+        from_button = result["method"] == "button" or self._practice_button_unacknowledged
+        if from_button:
+            self._practice_button_unacknowledged = False
+            receipt = os.path.join(job_path, "aseprite_paste_done.txt")
+            try:
+                os.unlink(receipt)
+            except OSError:
+                # Pollers must not reinterpret the same receipt as a new physical input.
+                self.practice_timer.stop()
             if not self.f4_button_received:
                 self.f4_button_received = True
-                self.clear_practice_paste_request(token)
+                clear_guide_paste_request(token)
                 self.update_summary()
         else:
             self.practice_timer.stop()
+            clear_guide_paste_request(token)
             self.f4_received = self.f4_seen = True
             self.update_summary()
 
@@ -3741,6 +3803,11 @@ class InitialSetupDialog(QDialog):
 
     def finish_probe(self, *, refresh=True):
         self.practice_timer.stop()
+        worker = getattr(self, "_guide_paste_worker", None)
+        if worker is not None:
+            worker.requestInterruption()
+        if self._practice_job:
+            clear_guide_paste_request(self._practice_job[1])
         paths = [self._practice_source, self._practice_target,
                  self._practice_target + ".ps2ase.json" if self._practice_target else None]
         for path in filter(None, paths):
@@ -3749,6 +3816,7 @@ class InitialSetupDialog(QDialog):
             except OSError:
                 pass
         self._practice_source = self._practice_target = self._practice_job = None
+        self._practice_button_unacknowledged = False
         self._practice_open_job = None
         self._practice_opened = self._practice_help = False
         self._practice_count = 1
@@ -4590,6 +4658,9 @@ class BridgeApp(QMainWindow):
             if not isinstance(report, dict):
                 return
             self._paste_diagnostic_stamp = stamp
+            guide = self.setup_guide
+            if guide is not None and guide._practice_job and report.get("request_nonce") == guide._practice_job[1]:
+                clear_guide_paste_request(guide._practice_job[1])
             fields = ("code", "path_equal", "width", "height", "expires", "expected_size",
                       "expected_count", "actual_count", "frame_mode")
             self.trace_job("-", "ASEPRITE_PRACTICE_PASTE_REJECTED",

@@ -58,7 +58,6 @@ local practiceNotices = {
     ko = {
         ended = "이 연습 탭의 세션이 끝났습니다. 일반 붙여넣기는 작업 문서에서 사용하고, 연습하려면 가이드에서 새 문서를 열어 주세요.",
         expired = "연습 복사본이 만료됐습니다. 가이드에서 Photoshop 연습 레이어를 다시 복사해 주세요.",
-        button_expired = "버튼 요청이 만료됐습니다. 가이드에서 ‘결과가 오지 않나요?’를 열고 F4를 다시 누르거나, 붙여넣기 버튼을 다시 눌러 주세요.",
         access = "연습 파일을 읽을 수 없습니다. Aseprite의 스크립트 파일 접근 안내를 확인하고 다시 시도해 주세요.",
         wrong_target = "현재 탭은 이 요청의 연습 문서가 아닙니다. 가이드에서 연 연습 탭을 선택해 주세요.",
         wrong_canvas = "연습 캔버스 크기가 바뀌었습니다. 가이드에서 만든 원래 연습 문서를 다시 열어 주세요.",
@@ -68,7 +67,6 @@ local practiceNotices = {
     en = {
         ended = "This practice tab’s session has ended. Paste into a work document, or open a fresh practice document from the guide.",
         expired = "The practice copy expired. Copy the Photoshop practice layers again from the guide.",
-        button_expired = "The button request expired. Open ‘No result yet?’ in the guide and press F4 again, or retry the paste button.",
         access = "The practice file could not be read. Check Aseprite’s script file access prompt and try again.",
         wrong_target = "This is not the tab for this request. Select the practice tab opened from the guide.",
         wrong_canvas = "The practice canvas size changed. Reopen the original practice document from the guide.",
@@ -78,7 +76,6 @@ local practiceNotices = {
     ja = {
         ended = "この練習タブのセッションは終了しました。作業用の文書に貼り付けるか、ガイドから新しい練習文書を開いてください。",
         expired = "練習用コピーの期限が切れました。ガイドから Photoshop の練習レイヤーを再度コピーしてください。",
-        button_expired = "ボタンの要求が期限切れです。ガイドの「結果が届かない場合」を開いて F4 を押すか、貼り付けボタンを押し直してください。",
         access = "練習ファイルを読めません。Aseprite のスクリプトのファイルアクセス許可を確認してください。",
         wrong_target = "この要求の練習タブではありません。ガイドで開いた練習タブを選んでください。",
         wrong_canvas = "練習用キャンバスのサイズが変わりました。ガイドから元の練習文書を開き直してください。",
@@ -93,9 +90,10 @@ end
 
 local spr = app.activeSprite
 local filename = normalizePath(spr and spr.filename or "")
-local basename = filename:match("[^/]+$") or ""
-local exercise = filename:match("/ps2ase%-paste%-(%x+)/paste practice%.png$")
-local guideTarget = basename == "paste practice.png" or basename:match("^ps2ase%-paste%-%x+%.png$") ~= nil
+local sessionRoot, exercise = filename:match("^(.*)/ps2ase%-paste%-(%x+)/paste practice%.png$")
+local guideTarget = exercise ~= nil and #exercise == 32
+local legacyExercise = filename:match("/ps2ase%-guide%-[^/]+/aseprite/ps2ase%-paste%-(%x+)%.png$")
+local request
 
 local function reject(code, message, fields)
     pcall(function()
@@ -103,6 +101,7 @@ local function reject(code, message, fields)
         if not f then return end
         fields = fields or {}
         fields.code, fields.document, fields.session = code, filename, exercise
+        fields.request_nonce = request and request.nonce
         fields.width, fields.height = spr and spr.width, spr and spr.height
         local script = debug and debug.getinfo and debug.getinfo(1, "S")
         fields.script = script and script.source
@@ -117,17 +116,12 @@ local function isNonce(value)
 end
 
 local requestPath = profile .. "/guide_paste_request.json"
-local request
 if app.fs.isFile(requestPath) then
     local data, err = readText(requestPath)
     if err == "access" then return reject("request_access", "access") end
     request = decodeJson(data)
-    if data and not request then return reject("request_json", "invalid_copy") end
-    if request and type(request.expires) ~= "number" then return reject("request_expiry", "invalid_copy") end
-    if request and request.expires < os.time() then
-        if guideTarget and type(request.target) == "string" and normalizePath(request.target) == filename then
-            return reject("button_expired", "button_expired")
-        end
+    if request and (not isNonce(request.nonce) or type(request.target) ~= "string"
+                    or type(request.expires) ~= "number" or request.expires <= os.time()) then
         request = nil
     end
 end
@@ -135,6 +129,7 @@ if request and (not guideTarget or type(request.target) ~= "string" or normalize
     return reject("button_wrong_target", "wrong_target")
 end
 if not spr then return showMessage(1) end
+if isNonce(legacyExercise) then return reject("legacy_session_ended", "ended") end
 
 local payload
 local guideCount
@@ -188,7 +183,7 @@ if type(jobPath) ~= "string" or jobPath == "" or jobPath:find("%z") then
     if guideTarget then return reject("job_path", "invalid_copy") end
     return showMessage(2)
 end
-if guideTarget and normalizePath(jobPath) ~= filename:match("^(.*)/ps2ase%-paste%-") .. "/guide_" .. payload.guide_nonce then
+if guideTarget and normalizePath(jobPath) ~= sessionRoot .. "/guide_" .. payload.guide_nonce then
     return reject("job_scope", "invalid_copy")
 end
 

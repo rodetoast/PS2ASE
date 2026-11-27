@@ -132,6 +132,56 @@ class InitialSetupGuideTests(unittest.TestCase):
                     launch.assert_not_called()
                     explorer.assert_called_once_with(str(target))
 
+    def test_f4_request_finish_and_timeout_only_clear_owned_request(self):
+        dialog = self.guide()
+        request_path = Path(self.b.guide_paste_request_path())
+        request_path.parent.mkdir(parents=True, exist_ok=True)
+        token = "a" * 32
+        other = "b" * 32
+        now = self.b.time.time()
+        request_path.write_text(json.dumps({"nonce": other, "expires": now + 60}), encoding="utf-8")
+        dialog._practice_job = (str(self.fixture.root), token, True)
+        dialog.finish_probe(refresh=False)
+        self.assertEqual(json.loads(request_path.read_text())["nonce"], other)
+        request_path.write_text(json.dumps({"nonce": token, "expires": now + 60}), encoding="utf-8")
+        dialog._practice_job = (str(self.fixture.root), token, True)
+        dialog.finish_probe(refresh=False)
+        self.assertFalse(request_path.exists())
+        request_path.write_text(json.dumps({"nonce": token, "expires": now - 1}), encoding="utf-8")
+        dialog._practice_job = (str(self.fixture.root), token, True)
+        dialog._practice_expires = now - 1
+        dialog.check_practice_paste()
+        self.assertFalse(request_path.exists())
+        self.assertIsNone(dialog._practice_job)
+
+    def test_f4_request_refuses_to_overwrite_another_live_session(self):
+        request_path = Path(self.b.guide_paste_request_path())
+        request_path.parent.mkdir(parents=True, exist_ok=True)
+        target = self.fixture.root / "Paste practice.png"
+        target.with_suffix(".png.ps2ase.json").touch()
+        other = {"nonce": "b" * 32, "expires": self.b.time.time() + 60}
+        request_path.write_text(json.dumps(other), encoding="utf-8")
+        worker = self.b.AsepriteWorker("unused.exe", practice_request={"target": str(target), "nonce": "a" * 32})
+        with self.assertRaisesRegex(RuntimeError, "different practice request"):
+            worker.publish_practice_request()
+        self.assertEqual(json.loads(request_path.read_text()), other)
+
+    def test_late_button_receipt_does_not_count_as_physical_f4(self):
+        dialog = self.guide()
+        token = "c" * 32
+        path = self.fixture.root / "aseprite_paste_done.txt"
+        dialog._practice_job = (str(self.fixture.root), token, True)
+        dialog._practice_expires = self.b.time.time() + 5
+        dialog._practice_button_unacknowledged = True
+        path.write_text(json.dumps({"nonce": token, "method": "shortcut"}), encoding="utf-8")
+        dialog.check_practice_paste()
+        dialog.check_practice_paste()
+        self.assertTrue(dialog.f4_button_received)
+        self.assertFalse(dialog.f4_seen)
+        path.write_text(json.dumps({"nonce": token, "method": "shortcut"}), encoding="utf-8")
+        dialog.check_practice_paste()
+        self.assertTrue(dialog.f4_received)
+
     def test_settings_save_preserves_setup_flags_migrations_and_unknown_keys(self):
         expected = dict(self.window.settings, initial_setup_seen=True, show_initial_setup=False,
                         aseprite_hotkeys_confirmed=True, future_setting={"value": 7})

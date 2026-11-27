@@ -91,7 +91,7 @@ else
     assert(original == (sprite.cels[1] and sprite.cels[1].image:getPixel(0, 0)))
     assert(not read(root .. "/job/aseprite_paste_done.txt"))
     assert(not read(root .. "/guide_" .. string.rep("a", 32) .. "/aseprite_paste_done.txt"))
-    local codes = {ended = "sidecar_missing", copied_practice_tab = "sidecar_missing",
+    local codes = {ended = "sidecar_missing", legacy_paste_tab = "legacy_session_ended",
                    expired = "expired", other_target = "target_mismatch",
                    path_alias = "target_mismatch", wrong_canvas = "canvas_mismatch",
                    wrong_count = "metadata_mismatch", stale_session = "session_mismatch",
