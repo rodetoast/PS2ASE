@@ -12,24 +12,30 @@ local function decodeJson(str)
 end
 
 local function readText(path)
-    local file = io.open(path, "r")
-    if not file then return nil end
-    local value = file:read("*a")
-    file:close()
-    return value
+    local opened, file, reason = pcall(function()
+        local handle, message = io.open(path, "rb")
+        return handle, message
+    end)
+    if not opened then return nil, "access" end
+    if not file then
+        reason = tostring(reason or ""):lower()
+        return nil, reason:find("permission", 1, true) and "access" or "missing"
+    end
+    local ok, value = pcall(file.read, file, "*a")
+    pcall(file.close, file)
+    if ok then return value end
+    return nil, "access"
 end
 
-local prefs = decodeJson(readText((os.getenv("APPDATA") or "") .. "/Ase-PS-Bridge/bridge_settings.json")) or {}
+local profile = (os.getenv("APPDATA") or "") .. "/Ase-PS-Bridge"
+local prefs = decodeJson(readText(profile .. "/bridge_settings.json")) or {}
 local notices = {
     ko = {"붙여넣을 문서를 열어 주세요.", "사용할 수 있는 복사본이 없습니다. Photoshop에서 다시 복사해 주세요.",
-          "복사본 파일이 없거나 손상되었습니다. Photoshop에서 다시 복사해 주세요.",
-          "가이드에서 연습 복사본을 먼저 준비해 주세요."},
+          "복사본 파일이 없거나 손상되었습니다. Photoshop에서 다시 복사해 주세요."},
     en = {"Open a destination document first.", "No usable copy. Copy again from Photoshop.",
-          "The copy files are missing or damaged. Copy again from Photoshop.",
-          "Prepare the practice copy in the setup guide first."},
+          "The copy files are missing or damaged. Copy again from Photoshop."},
     ja = {"貼り付け先のドキュメントを開いてください。", "使えるコピーがありません。Photoshop からコピーし直してください。",
-          "コピーのファイルが見つからないか破損しています。Photoshop からコピーし直してください。",
-          "初期設定ガイドで練習用のコピーを準備してください。"}
+          "コピーのファイルが見つからないか破損しています。Photoshop からコピーし直してください。"}
 }
 
 -- [표준 변환 정책 1] Bridge 백분율(0~100) -> Aseprite 스케일(0~255)
@@ -48,38 +54,124 @@ local function showMessage(index)
     app.alert({ title="Photoshop ↔ Aseprite", text=(notices[prefs.language] or notices.en)[index] })
 end
 
-local spr = app.activeSprite
-if not spr then
-    showMessage(1)
-    return
-end
+local practiceNotices = {
+    ko = {
+        ended = "이 연습 탭의 세션이 끝났습니다. 일반 붙여넣기는 작업 문서에서 사용하고, 연습하려면 가이드에서 새 문서를 열어 주세요.",
+        expired = "연습 복사본이 만료됐습니다. 가이드에서 Photoshop 연습 레이어를 다시 복사해 주세요.",
+        button_expired = "버튼 요청이 만료됐습니다. 가이드에서 ‘결과가 오지 않나요?’를 열고 F4를 다시 누르거나, 붙여넣기 버튼을 다시 눌러 주세요.",
+        access = "연습 파일을 읽을 수 없습니다. Aseprite의 스크립트 파일 접근 안내를 확인하고 다시 시도해 주세요.",
+        wrong_target = "현재 탭은 이 요청의 연습 문서가 아닙니다. 가이드에서 연 연습 탭을 선택해 주세요.",
+        wrong_canvas = "연습 캔버스 크기가 바뀌었습니다. 가이드에서 만든 원래 연습 문서를 다시 열어 주세요.",
+        choose_cel = "연습 문서의 첫 프레임에서 일반 레이어의 셀을 선택해 주세요.",
+        invalid_copy = "연습 복사본을 사용할 수 없습니다. Photoshop에서 연습 레이어를 모두 선택하고 가이드에서 다시 복사해 주세요.",
+    },
+    en = {
+        ended = "This practice tab’s session has ended. Paste into a work document, or open a fresh practice document from the guide.",
+        expired = "The practice copy expired. Copy the Photoshop practice layers again from the guide.",
+        button_expired = "The button request expired. Open ‘No result yet?’ in the guide and press F4 again, or retry the paste button.",
+        access = "The practice file could not be read. Check Aseprite’s script file access prompt and try again.",
+        wrong_target = "This is not the tab for this request. Select the practice tab opened from the guide.",
+        wrong_canvas = "The practice canvas size changed. Reopen the original practice document from the guide.",
+        choose_cel = "Select a cel on a regular layer in frame 1 of the practice document.",
+        invalid_copy = "This practice copy cannot be used. Select all practice layers in Photoshop and copy again from the guide.",
+    },
+    ja = {
+        ended = "この練習タブのセッションは終了しました。作業用の文書に貼り付けるか、ガイドから新しい練習文書を開いてください。",
+        expired = "練習用コピーの期限が切れました。ガイドから Photoshop の練習レイヤーを再度コピーしてください。",
+        button_expired = "ボタンの要求が期限切れです。ガイドの「結果が届かない場合」を開いて F4 を押すか、貼り付けボタンを押し直してください。",
+        access = "練習ファイルを読めません。Aseprite のスクリプトのファイルアクセス許可を確認してください。",
+        wrong_target = "この要求の練習タブではありません。ガイドで開いた練習タブを選んでください。",
+        wrong_canvas = "練習用キャンバスのサイズが変わりました。ガイドから元の練習文書を開き直してください。",
+        choose_cel = "練習文書のフレーム 1 で通常レイヤーのセルを選択してください。",
+        invalid_copy = "練習用コピーを使えません。Photoshop で練習レイヤーをすべて選択してコピーし直してください。",
+    },
+}
 
 local function normalizePath(path)
-    return path:gsub("\\", "/"):lower()
+    return app.fs.normalizePath(path):gsub("\\", "/"):lower()
 end
 
-local filename = normalizePath(spr.filename or "")
+local spr = app.activeSprite
+local filename = normalizePath(spr and spr.filename or "")
 local basename = filename:match("[^/]+$") or ""
 local exercise = filename:match("/ps2ase%-paste%-(%x+)/paste practice%.png$")
-local guideTarget = (exercise and #exercise == 32) or basename:match("^ps2ase%-paste%-%x+%.png$") ~= nil
+local guideTarget = basename == "paste practice.png" or basename:match("^ps2ase%-paste%-%x+%.png$") ~= nil
+
+local function reject(code, message, fields)
+    pcall(function()
+        local f = io.open(profile .. "/logs/aseprite_paste_diagnostic.json", "w")
+        if not f then return end
+        fields = fields or {}
+        fields.code, fields.document, fields.session = code, filename, exercise
+        fields.width, fields.height = spr and spr.width, spr and spr.height
+        local script = debug and debug.getinfo and debug.getinfo(1, "S")
+        fields.script = script and script.source
+        f:write(json.encode(fields))
+        f:close()
+    end)
+    app.alert({title="Photoshop ↔ Aseprite", text=(practiceNotices[prefs.language] or practiceNotices.en)[message]})
+end
+
+local function isNonce(value)
+    return type(value) == "string" and #value == 32 and value:match("^%x+$") ~= nil
+end
+
+local requestPath = profile .. "/guide_paste_request.json"
+local request
+if app.fs.isFile(requestPath) then
+    local data, err = readText(requestPath)
+    if err == "access" then return reject("request_access", "access") end
+    request = decodeJson(data)
+    if data and not request then return reject("request_json", "invalid_copy") end
+    if request and type(request.expires) ~= "number" then return reject("request_expiry", "invalid_copy") end
+    if request and request.expires < os.time() then
+        if guideTarget and type(request.target) == "string" and normalizePath(request.target) == filename then
+            return reject("button_expired", "button_expired")
+        end
+        request = nil
+    end
+end
+if request and (not guideTarget or type(request.target) ~= "string" or normalizePath(request.target) ~= filename) then
+    return reject("button_wrong_target", "wrong_target")
+end
+if not spr then return showMessage(1) end
+
 local payload
 local guideCount
 if guideTarget then
-    payload = decodeJson(readText(spr.filename .. ".ps2ase.json"))
-    guideCount = payload and (payload.guide_layer_count or 1)
+    local data, err = readText(spr.filename .. ".ps2ase.json")
+    if not data then return reject("sidecar_" .. (err or "missing"), err == "access" and "access" or "ended") end
+    payload = decodeJson(data)
+    if not payload then return reject("sidecar_json", "invalid_copy") end
+    if type(payload.guide_target) ~= "string" or normalizePath(payload.guide_target) ~= filename then
+        return reject("target_mismatch", "wrong_target", {expected = payload.guide_target, path_equal = false})
+    end
+    if not isNonce(payload.guide_session) or not isNonce(exercise) or payload.guide_session ~= exercise then
+        return reject("session_mismatch", "ended")
+    end
+    if payload.source_app ~= "photoshop" or not isNonce(payload.guide_nonce)
+        or type(payload.guide_expires) ~= "number" then
+        return reject("sidecar_contract", "invalid_copy")
+    end
+    if payload.guide_expires < os.time() then return reject("expired", "expired", {expires = payload.guide_expires}) end
+    if request and request.nonce ~= payload.guide_nonce then return reject("request_stale", "invalid_copy") end
+    guideCount = payload.guide_layer_count
     local guideSize = guideCount == 1 and 32 or guideCount == 4 and 300
-    if not payload or type(payload.guide_target) ~= "string" or normalizePath(payload.guide_target) ~= filename
-        or payload.source_app ~= "photoshop" or type(payload.guide_nonce) ~= "string"
-        or not payload.guide_nonce:match("^%x+$") or #payload.guide_nonce ~= 32
-        or type(payload.guide_expires) ~= "number" or payload.guide_expires < os.time()
-        or not guideSize or spr.width ~= guideSize or spr.height ~= guideSize then
-        return showMessage(4)
+    if not guideSize then return reject("layer_count_contract", "invalid_copy", {expected_count = guideCount}) end
+    if spr.width ~= guideSize or spr.height ~= guideSize then
+        return reject("canvas_mismatch", "wrong_canvas", {expected_size = guideSize})
+    end
+    if not app.activeFrame or app.activeFrame.frameNumber ~= 1 or not app.activeLayer or app.activeLayer.isGroup then
+        return reject("cel_selection", "choose_cel")
     end
 else
     local clipboardText = app.clipboard and app.clipboard.text or ""
     if type(clipboardText) ~= "string" or clipboardText == "" then
-        local handle = io.popen("powershell.exe -NoProfile -Command \"Get-Clipboard\"")
-        if handle then
+        local opened, handle = pcall(function()
+            local pipe = io.popen("powershell.exe -NoProfile -Command \"Get-Clipboard\"")
+            return pipe
+        end)
+        if opened and handle then
             clipboardText = handle:read("*a")
             handle:close()
         end
@@ -87,11 +179,18 @@ else
     payload = decodeJson(clipboardText)
 end
 if not payload or payload.signature ~= "ase_ps_bridge_payload" or (not guideTarget and payload.guide_target) then
+    if guideTarget then return reject("signature", "invalid_copy") end
     return showMessage(2)
 end
 
 local jobPath = payload.job_path
-if type(jobPath) ~= "string" or jobPath == "" or jobPath:find("%z") then return showMessage(2) end
+if type(jobPath) ~= "string" or jobPath == "" or jobPath:find("%z") then
+    if guideTarget then return reject("job_path", "invalid_copy") end
+    return showMessage(2)
+end
+if guideTarget and normalizePath(jobPath) ~= filename:match("^(.*)/ps2ase%-paste%-") .. "/guide_" .. payload.guide_nonce then
+    return reject("job_scope", "invalid_copy")
+end
 
 local metadata = decodeJson(readText(jobPath .. "/metadata.json"))
 local elementsList, images, count = {}, {}, 0
@@ -118,15 +217,23 @@ local valid = pcall(function()
         end
     end
 end)
-if not valid or count == 0 then return showMessage(3) end
-if guideTarget and (count ~= guideCount or (metadata.frame_mode or "normal") ~= "normal") then return showMessage(4) end
+if not valid or count == 0 then
+    if guideTarget then return reject("copy_files", "invalid_copy") end
+    return showMessage(3)
+end
+if guideTarget and (count ~= guideCount or (metadata.frame_mode or "normal") ~= "normal") then
+    return reject("metadata_mismatch", "invalid_copy", {expected_count = guideCount, actual_count = count,
+                  frame_mode = metadata.frame_mode or "normal"})
+end
 
 local function recordGuidePaste()
     if not guideTarget then return end
-    local f = io.open(jobPath .. "/aseprite_paste_done.txt", "w")
-    if not f then return end
-    f:write(payload.guide_nonce)
-    f:close()
+    pcall(function()
+        local f = io.open(jobPath .. "/aseprite_paste_done.txt", "w")
+        if not f then return end
+        f:write(json.encode({nonce = payload.guide_nonce, method = request and "button" or "shortcut"}))
+        f:close()
+    end)
 end
 
 local function pasteTransaction(action)
@@ -137,13 +244,14 @@ end
 
 -- Debug Logger
 local function writeLog(msg)
-    local f = io.open(jobPath .. "/debug_ase_paste.log", "a")
-    if f then
+    pcall(function()
+        local f = io.open(jobPath .. "/debug_ase_paste.log", "a")
+        if not f then return end
         f:write(msg .. "\n")
         f:close()
-    end
+    end)
 end
-os.remove(jobPath .. "/debug_ase_paste.log")
+pcall(function() os.remove(jobPath .. "/debug_ase_paste.log") end)
 writeLog("=== Aseprite Paste Debug Log ===")
 
 local alignMode = "center"
@@ -641,6 +749,8 @@ app.refresh()
 
 if importedCount > 0 and (not guideTarget or importedCount == guideCount) then
     recordGuidePaste()
+elseif guideTarget then
+    reject("import_count", "invalid_copy", {expected_count = guideCount, actual_count = importedCount})
 else
     showMessage(3)
 end

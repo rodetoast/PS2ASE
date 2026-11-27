@@ -37,7 +37,7 @@ if scenario:match("_stat_false$") then
     end}, {__index = app.fs})
 elseif scenario:match("_denied$") then
     env.io = setmetatable({open = function(path, mode)
-        if path:match("practice_copy%.json$") then error("denied") end
+        if path:match("practice_copy%.json$") or path:match("%.ps2ase%.json$") then error("denied") end
         return io.open(path, mode)
     end}, {__index = io})
 end
@@ -71,15 +71,17 @@ elseif scenario == "copy" then
     assert(#alerts == 0, tostring(alert))
     local dirs = app.fs.listFiles(root .. "/jobs")
     assert(#dirs == 1 and read(root .. "/jobs/" .. app.fs.fileName(dirs[1]) .. "/status_done.json"))
-elseif scenario == "practice" or scenario == "ordinary" then
+elseif scenario == "practice" or scenario == "button" or scenario:match("^ordinary") then
     assert(#alerts == 0, tostring(alert))
     assert(#sprite.layers == 1 and #sprite.frames == 1 and #sprite.cels == 1)
     local cel = sprite.cels[1]
     assert(cel.position.x == 13 and cel.position.y == 14)
     assert(cel.image.width == 6 and cel.image.height == 4)
     assert(app.pixelColor.rgbaR(cel.image:getPixel(0, 0)) == 116)
-    if scenario == "practice" then
-        assert(read(root .. "/job/aseprite_paste_done.txt") == string.rep("a", 32))
+    if scenario == "practice" or scenario == "button" then
+        local receipt = json.decode(assert(read(root .. "/guide_" .. string.rep("a", 32) .. "/aseprite_paste_done.txt")))
+        assert(receipt.nonce == string.rep("a", 32))
+        assert(receipt.method == (scenario == "button" and "button" or "shortcut"))
     else
         assert(not read(root .. "/job/aseprite_paste_done.txt"))
     end
@@ -88,6 +90,16 @@ else
            tostring(alert) .. ": cel count " .. #sprite.cels)
     assert(original == (sprite.cels[1] and sprite.cels[1].image:getPixel(0, 0)))
     assert(not read(root .. "/job/aseprite_paste_done.txt"))
+    assert(not read(root .. "/guide_" .. string.rep("a", 32) .. "/aseprite_paste_done.txt"))
+    local codes = {ended = "sidecar_missing", copied_practice_tab = "sidecar_missing",
+                   expired = "expired", other_target = "target_mismatch",
+                   path_alias = "target_mismatch", wrong_canvas = "canvas_mismatch",
+                   wrong_count = "metadata_mismatch", stale_session = "session_mismatch",
+                   button_wrong_target = "button_wrong_target", sidecar_denied = "sidecar_access"}
+    if codes[scenario] then
+        local diagnostic = json.decode(assert(read(root .. "/Ase-PS-Bridge/logs/aseprite_paste_diagnostic.json")))
+        assert(diagnostic.code == codes[scenario], diagnostic.code)
+    end
 end
 local result = assert(io.open(root .. "/passed.txt", "w"))
 result:write("pass")

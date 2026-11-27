@@ -10,4 +10,4 @@ F5는 1 또는 3번 프레임의 픽셀이 있는 셀을 선택해 연습합니�
 
 `photoshop-practice.psd`는 사용자 제작·공개 승인 원본입니다. 300×300, 그룹 1개와 픽셀 레이어 01~04로 구성됩니다. SHA-256: `8acaa7c73318cc724a411a55221795236e59a41fee66f6b9a55c7027836d1e4f`. 앱 내에서만 이 파일을 읽어 세션별 복사본을 만들므로 다운로드 폴더나 별도 사용자 파일에 의존하지 않습니다. `photoshop-parts.png`는 01~04의 작은 미리보기입니다. 네 레이어는 캐릭터 파츠이며 애니메이션 프레임이 아닙니다.
 
-`aseprite-scripts-menu.png`는 Aseprite 1.3.18.6의 격리된 실습 환경에서 File > Scripts 메뉴만 잘라 위치를 표시한 실제 캡처입니다. 승인창을 모사하지 않았습니다.
+`aseprite-scripts-menu.png`는 Aseprite 1.3.18.6의 격리된 실습 환경에서 UI 배율을 높여 File > Scripts 메뉴를 실제 촬영한 700×525 캡처입니다. `aseprite-access-prompt.png`는 실제 읽기 승인창에서 로컬 경로만 가린 이미지입니다. `photoshop-paste-preview.png`는 사용자가 제공한 PSD로부터 Photoshop이 내보낸 01~04 픽셀 레이어를 기존 순서대로 합성한 실제 결과 예시입니다.

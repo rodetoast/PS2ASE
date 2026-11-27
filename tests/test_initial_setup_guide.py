@@ -114,6 +114,24 @@ class InitialSetupGuideTests(unittest.TestCase):
         dialog.toggle_practice_help()
         self.assertFalse(dialog.probe_retry_file.isHidden())
 
+    def test_f4_open_only_launches_when_configured_host_is_closed(self):
+        dialog = self.guide()
+        target = self.fixture.root / "Paste practice.png"
+        target.touch()
+        dialog._practice_target = str(target)
+        exe = self.window.settings["aseprite_exe"]
+        for state in ("guide_ps_running", "guide_ps_runtime_unknown", "guide_ps_closed"):
+            with self.subTest(state=state), patch.object(self.b, "aseprite_runtime", return_value=(True, state)), \
+                    patch.object(self.b.QProcess, "startDetached", return_value=(True, 123)) as launch, \
+                    patch.object(dialog, "open_practice_folder") as explorer:
+                dialog.open_paste_target()
+                if state == "guide_ps_closed":
+                    launch.assert_called_once_with(exe, [str(target)], os.path.dirname(exe))
+                    explorer.assert_not_called()
+                else:
+                    launch.assert_not_called()
+                    explorer.assert_called_once_with(str(target))
+
     def test_settings_save_preserves_setup_flags_migrations_and_unknown_keys(self):
         expected = dict(self.window.settings, initial_setup_seen=True, show_initial_setup=False,
                         aseprite_hotkeys_confirmed=True, future_setting={"value": 7})
@@ -554,7 +572,11 @@ class InitialSetupGuideTests(unittest.TestCase):
         response.write_text("stale")
         dialog.check_practice_paste()
         self.assertFalse(dialog.f4_seen)
-        response.write_text(token)
+        response.write_text(json.dumps({"nonce": token, "method": "button"}))
+        dialog.check_practice_paste()
+        self.assertTrue(dialog.f4_button_received)
+        self.assertFalse(dialog.f4_seen)
+        response.write_text(json.dumps({"nonce": token, "method": "shortcut"}))
         dialog.check_practice_paste()
         self.assertTrue(dialog.f4_received)
         self.assertTrue(dialog.f4_seen and dialog.f5_seen)

@@ -385,12 +385,13 @@ class PracticeDiagram(QWidget):
             label(22, 74, 86, 18, self.names[0])
             canvas(41, 17, 48)
             label(115, 30, 48, 32, "→", accent)
-            box(169, 8, 91, 90, panel)
+            box(153, 8, 119, 90, panel)
+            canvas(158, 19, 48, self.character)
             for row, color in enumerate(("#b6a3ef", "#91bcff", "#89c9b6", "#e1ad81")):
                 y = 14 + row * 14
-                label(176, y, 28, 14, "0" + str(row + 1))
-                box(211, y, 30, 13, QColor(color))
-            label(172, 74, 86, 18, self.names[1])
+                box(213, y, 51, 13, QColor("#382d57"), QColor(color))
+                label(216, y, 41, 14, "0" + str(row + 1))
+            label(153, 74, 119, 18, self.names[1])
         elif self.mode == "introduce_reverse":
             box(12, 4, 90, 96, panel)
             box(173, 4, 95, 96, panel)
