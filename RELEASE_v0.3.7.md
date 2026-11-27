@@ -1,4 +1,16 @@
-# Ase-PS Bridge Pro v0.3.7
+# Photoshop ↔ Aseprite v0.3.7
+
+## RC2 배포 후보
+
+`0.3.7-rc2-eadff73`은 2026-11-27 Windows x64 평가 후보입니다. 운영 버전은 0.3.6이며 직원 업데이트는 아직 게시하지 않았습니다.
+
+- 새 제품 표시명과 Southpaw Tools 스타일, 픽셀을 선명하게 확대하는 미리보기, 편집 도구 및 다국어 도움말을 제공합니다.
+- 초기 설정에서 Photoshop 연결과 선택 사항인 실행 경고 설정을 나눴습니다. Aseprite 설치·업데이트와 단축키 변경은 사용자 동의 및 Aseprite 종료 확인 후에만 진행합니다. 기존 파일은 백업하며 스크립트 실행 권한은 Aseprite에서 직접 승인합니다.
+- 내장 Aseprite 연습 파일과 Photoshop PSD로 F5 복사·F4 붙여넣기를 연습할 수 있습니다. 연습은 일반 클립보드와 미리보기를 바꾸지 않습니다.
+- 재실행 시 과거 복사본을 다시 게시하지 않습니다. 잠긴 실습 파일의 정리가 가이드 종료를 막지 않으며 한글·일본어·공백이 있는 경로에서도 종료된 실습 탭을 보호합니다.
+- 기준 소스 전체 자동 테스트 158개 통과. 독립 시험의 [재실행 클립보드 보호](https://github.com/rodetoast/southpaw-development-hub/issues/1)와 [가이드 종료·F4 실습 보호](https://github.com/rodetoast/southpaw-development-hub/issues/2#issuecomment-7216568479)는 소스 실행 결과입니다. RC2 패키지의 호스트 동작은 별도 확인이 필요합니다.
+
+아래는 RC1 및 그 이전 개발 검증 이력입니다. 런처 계약과 RC2의 검증 범위는 [런처 인계 문서](docs/RELEASE_0.3.7_HANDOFF.md)를 따릅니다.
 
 ## 릴리즈 요약
 
@@ -10,7 +22,7 @@ v0.3.7은 Photoshop 연결 및 Copy 진단, 시작 화면, UI 배치와 최초 �
 - Photoshop 2027(제품 내부 버전 28.0) 설치 감지, 버전 선택 및 양방향 레이어 전송을 합성 문서로 검증했습니다.
 - 선택한 실행 파일의 제품명에서 설정 연도를 확인하여 2027 및 이후 명확하게 식별되는 제품의 설정 폴더를 찾습니다. 임의의 다른 Photoshop으로 연결하거나 보안 경고를 자동 해제하지 않습니다.
 - 기존 개발 변경인 Photoshop 대상 검증, 원본 문서 보호, 실패 후 복구, 진단 콘솔, Copy 조회 비용 감소, Splash, 초기 설정 가이드와 Preview 배치 개선을 포함합니다.
-- 제품명, 아이콘, `bridge_ui.exe`, 런처 app_id `ps2ase`, 기존 사용자 설정 위치를 유지합니다.
+- RC1은 당시 표시명을 유지했습니다. RC2는 새 표시명을 적용하되 아이콘, `bridge_ui.exe`, 런처 app_id `ps2ase`, 기존 사용자 설정 위치를 유지합니다.
 - Copy Mode는 다음 Photoshop Copy부터 적용되며 정렬은 붙여넣기 시 변경할 수 있습니다. JSX 실행 확인창은 내용을 확인한 뒤 사용자가 승인해야 합니다.
 - Photoshop 2026 및 이전 버전의 이번 후보 실기동은 미검증입니다. 기존 회귀/모의 결과를 실제 새 버전 시험으로 표시하지 않습니다.
 
@@ -91,14 +103,14 @@ v0.3.7은 Photoshop 연결 및 Copy 진단, 시작 화면, UI 배치와 최초 �
 - Aseprite active layer를 포함한 아래 방향 배치, 같은 rowIndex 재사용, maxRowCount 범위 cel clearing, Folder -> Frames의 newEmptyFrame.
 - Ground Line / Center / Absolute 및 양방향 Copy/Paste.
 - 여러 프레임의 첫 프레임 Preview와 Flip/Rotate/Undo/Redo.
-- 내용 비교 기반 Aseprite Lua 자동 갱신과 기존 Trust 상태.
+- Aseprite Lua 설치본과 내장 파일의 일치 여부를 확인합니다. 설치·갱신은 사용자 동의 후에만 수행하며 기존 Trust 기록은 초기화하지 않습니다.
 
 ## 보안 및 사용상 주의
 
 - Photoshop 스크립트 경고는 기본적으로 유지합니다. 요청한 스크립트임을 확인한 경우에만 사용자가 실행을 허용해야 합니다.
 - `PSUserConfig.txt`의 `WarnRunningScripts 0`은 선택 사항입니다. 해당 Photoshop 버전의 외부 JSX 실행 전반에 영향을 주며 Bridge 전용이 아닙니다.
 - 경고 설정 적용에는 명시적 동의가 필요합니다. 기존 파일을 먼저 백업하고 다른 설정과 인코딩을 보존하며 중복/모호한 옵션은 임의로 수정하지 않습니다. 적용 전 Photoshop을 종료하고 적용 후 다시 시작해야 합니다.
-- Aseprite Trust는 사용자가 File > Scripts에서 `aseprite_paste`와 `aseprite_copy`를 각각 실행하여 직접 승인해야 합니다. 가이드 종료나 파일 설치만으로 승인 완료를 추정하지 않습니다.
+- Aseprite에서 실행·파일 접근 승인창이 나타나면 사용자가 직접 확인해야 합니다. File > Scripts에서 `aseprite_paste`와 `aseprite_copy`를 실행하는 방법은 단축키를 사용할 수 없을 때의 대안입니다. 가이드 종료나 파일 설치만으로 승인을 추정하지 않습니다.
 - Aseprite 설정 파일의 F4/F5 등록 여부는 실제 실행 중인 Aseprite가 이를 로드했음을 보장하지 않습니다. 필요한 경우 재시작 후 직접 확인하세요.
 - Copy Mode는 다음 Photoshop Copy부터 적용됩니다. UI의 모드만 바꾸어 기존 클립보드를 다른 프레임 구조로 재해석하지 않습니다. Alignment는 paste-time 설정입니다.
 - Ground Line의 바닥 정렬은 Aseprite Paste용입니다.

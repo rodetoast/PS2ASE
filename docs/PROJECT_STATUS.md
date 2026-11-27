@@ -1,6 +1,6 @@
-# Ase-PS Bridge Pro 개발 현황
+# Photoshop ↔ Aseprite 개발 현황
 
-확인일 2026-11-24 · 기본 브랜치 `main` · [개발 브랜치](https://github.com/rodetoast/PS2ASE/tree/codex/photoshop-2027-candidate-20261124) · [조사 기준 소스 커밋](https://github.com/rodetoast/PS2ASE/commit/fee0a4e07e2131f256a1d0dda08473c85f59015d)
+확인일 2026-11-27 · 기본 브랜치 `main` · [개발 브랜치](https://github.com/rodetoast/PS2ASE/tree/codex/photoshop-2027-candidate-20261124) · [RC2 제품 소스 커밋](https://github.com/rodetoast/PS2ASE/commit/eadff73280bfb7b9dd491af406d6c3d4385e6e5a)
 
 아티스트가 Photoshop과 Aseprite 사이에서 레이어와 프레임을 주고받습니다.
 
@@ -16,11 +16,11 @@
 
 ## 개발과 검증
 
-0.3.7-rc1 Windows 후보가 준비됐습니다. Photoshop 2027·Aseprite 실제 연동과 패키징 EXE를 검증했습니다. 운영은 0.3.6입니다.
+Aseprite 스크립트·단축키는 시작 시 변경하지 않습니다. 설치·갱신은 사용자가 동의하고 Aseprite가 종료된 경우에만 진행합니다.
 
-**알려진 제약과 미검증** 이번 후보에서 2026 및 이전 버전의 실제 호스트 동작과 모든 DPI·Windows 환경은 미확인입니다. 아래에 자세한 검증 범위를 기록합니다.
+**RC2 Windows 후보** `0.3.7-rc2-eadff73`를 로컬에 제작했습니다. 최종 소스 전체 자동 테스트 158개, Windows x64 Onefile의 아카이브·리소스·ZIP 해시 및 격리된 offscreen 시작을 확인했습니다. [런처 인계와 테스트 PC 절차](RELEASE_0.3.7_HANDOFF.md#rc2-2026-11-27), [릴리스 노트](../RELEASE_v0.3.7.md).
 
-이번 확인에서는 원격 Git과 공개 서명 카탈로그를 대조했습니다. 기능 시험과 패키징은 기존 보고서의 범위를 따릅니다.
+**검증 경계** 이슈 #1·#2는 독립 소스 재검증을 통과해 닫혔습니다. 기존 Photoshop 2027·Aseprite 실기동 결과를 재사용했습니다. RC2 패키지의 테스트 PC 설치·초기 설정·실제 호스트 전송과 Photoshop 2026 이하 실기동은 이번에 확인하지 않았습니다. 운영 0.3.6 및 RC1은 유지했고 운영 게시는 하지 않았습니다.
 
 ## 패키징과 다음 단계
 
@@ -132,15 +132,16 @@
 ## 2026-11-27 독립 검증 반영 및 클립보드 보호
 
 - [테스트 PC 독립 보고서](https://github.com/rodetoast/PS2ASE/blob/36061a1a8c47e98a1c4ad2e6b78d722d8338727b/docs/ui-reviews/independent-windows-20261127/README.md)에서 재실행 시 이전 복사본이 일반 클립보드를 덮어쓰는 문제를 확인했습니다. 시작 시 이전 작업 폴더를 기준 목록에 넣어 자동 재게시하지 않으며, 현재 Windows 클립보드가 가리키는 유효한 복사 데이터는 보존합니다.
-- 초기 설정의 Photoshop 없는 경로, Aseprite 타임라인과 권한 안내, 실제 충돌과 백업 안내를 보완했습니다. [회귀 결과와 독립 재검증 목록](ui-reviews/clipboard-restart/README.md): 자동 155개 통과. 개발 PC에서 실제 Photoshop/GUI를 반복하지 않았으며 [이슈 #1](https://github.com/rodetoast/southpaw-development-hub/issues/1)은 테스트 PC의 Windows 재실행 검증 대기 상태입니다. 운영 0.3.6과 기존 0.3.7-rc1 유지, 신규 빌드·배포 없음.
+- 초기 설정의 Photoshop 없는 경로, Aseprite 타임라인과 권한 안내, 실제 충돌과 백업 안내를 보완했습니다. [이슈 #1 독립 재검증](https://github.com/rodetoast/southpaw-development-hub/issues/1#issuecomment-7212264991)에서 일반 텍스트/DIB 보존, 신규 F5 수신, 기존 유효 복사본 복원을 확인해 이슈를 닫았습니다.
 
 ## 2026-11-27 초기 설정 종료 안정화
 
 - [이슈 #2](https://github.com/rodetoast/southpaw-development-hub/issues/2): 설정 저장과 실습 세션 무효화를 유지하면서 창 종료와 디스크 삭제를 분리했습니다. 잠긴 폴더는 강제로 삭제하지 않고 보류 사유를 기록합니다. 종료된 실습 탭은 실습 데이터가 디스크에 남아도 F5/F4와 일반 클립보드를 사용할 수 없습니다.
 - F5 실습 결과가 관찰되면 성공 메시지와 일반 미리보기에 표시하지 않는 이유를 알립니다. 결과 관찰과 물리 F5 확인은 계속 별도로 기록합니다.
-- 자동 테스트 157개 통과. [실제 Windows 잠금 재검증 절차](ui-reviews/guide-close-lock/README.md)는 별도 테스트 PC에 인계합니다. 운영 0.3.6 및 기존 0.3.7-rc1 유지, rc2·새 빌드·배포 없음.
+- 당시 자동 테스트 157개 통과. 이후 별도 PC에서 실제 Windows 삭제 잠금, 종료 신호, F5 보호 및 취소를 확인했습니다. 최종 F4 검증은 아래 기록을 따릅니다.
 
 ### 독립 검증 후속: 유니코드 실습 경로
 
 - [독립 검증](https://github.com/rodetoast/southpaw-development-hub/issues/2#issuecomment-7215015926)에서 가이드 종료와 F5 보호는 통과했습니다. F4는 종료 표식 조회에 비교용 소문자 경로를 사용해 한글 경로에서 표식을 놓쳤습니다.
 - F4의 파일 조회용 경로를 비교 키와 분리하고, F4/F5의 비교에서 ASCII 대문자만 변환합니다. F4는 시작과 트랜잭션 직전에 원문 경로로 종료 표식을 확인합니다. [배치 회귀 및 테스트 PC 인계](ui-reviews/guide-close-lock/README.md#유니코드-경로-후속-검증).
+- [이슈 #2 최종 독립 재검증](https://github.com/rodetoast/southpaw-development-hub/issues/2#issuecomment-7216568479)에서 Windows 자동 F4 입력으로 잠긴 종료 탭 차단과 활성 탭 붙여넣기를 확인해 이슈를 닫았습니다. 물리 키 및 패키지 시험과는 구분합니다.

@@ -12,7 +12,7 @@
 
 ## 테스트 PC 재검증
 
-아래는 **실행 전 체크리스트**다. 개발 PC에서 자동 155개를 통과했지만 이 수정의 Windows GUI·실제 OS 클립보드는 재검증하지 않았다. 기존 `f8fb6d4` Photoshop 실기동 검증은 재사용하고 반복하지 않는다.
+[독립 Windows 최종 결과](https://github.com/rodetoast/southpaw-development-hub/issues/1#issuecomment-7212264991): 일반 텍스트/DIB 보존, 신규 F5 수신, 유효한 Bridge 복사본 복원이 모두 통과하여 이슈 #1은 닫혔다. 아래는 당시 소스 검증 절차이며 RC2 패키지 시험은 [런처 인계](../../RELEASE_0.3.7_HANDOFF.md)를 따른다.
 
 1. 이 문서가 포함된 개발 커밋을 소스로 실행한다. 테스트용 Bridge/Aseprite 환경과 합성 문서만 사용하고 기존 클립보드 형식과 내용을 백업한다.
 2. 일반 F5로 Aseprite 복사를 완료하고, Windows 클립보드에서 새 Bridge 작업을 읽을 수 있는지 확인한다. 작업 폴더를 남긴 채 Bridge를 정상 종료한다. 유효한 Bridge 복사본이 클립보드에 남아 있으면 재실행 후 미리보기와 붙여넣기 사용 가능 상태가 유지되는지 확인한다. Photoshop이 없는 PC에서는 실제 Photoshop 붙여넣기를 주장하지 않는다.
